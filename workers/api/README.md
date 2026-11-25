@@ -10,6 +10,8 @@ This Worker targets the existing `gomogie-db` D1 schema. It does not create, dro
 - `POST /v1/auth/login` — login by email or username.
 - `GET /v1/auth/me` — authenticated account/profile.
 - `GET /v1/feed` — published public posts.
+- `GET /v1/feed?scope=following` — authenticated feed containing the current user's posts and posts from accepted follows, with public/followers visibility rules.
+- `GET /v1/users/me/following` — authenticated list of accepted and pending follow relationships for session restoration.
 - `GET /v1/feed?scope=following` — authenticated feed containing the signed-in user's own posts plus public/follower-audience posts from accounts they follow with an accepted relationship. Pending private-account requests do not expose posts.
 - `POST /v1/posts` — create a post.
 - `POST /v1/posts/:postId/reactions` and `DELETE` — add/remove reaction.
@@ -80,7 +82,7 @@ The current Worker source validates JWT structure and claims, checks that the ac
 - Public registration is disabled by default using `ALLOW_REGISTRATION = "false"`. Do not enable it until rate limiting, email verification, account recovery and security testing are complete.
 
 - Email verification and password reset are not implemented.
-- Access tokens last 15 minutes; refresh tokens and server-side session revocation are not implemented.
+- Access JWTs currently have a 30-day expiry and are renewed through the authenticated `/v1/auth/remember` endpoint. This is not a refresh-token rotation or server-side revocable session system.
 - The public feed returns public posts. The authenticated Following feed returns the signed-in user's own posts and posts from accepted follow relationships; pending private-account requests do not expose posts. A complete privacy/visibility audit across every endpoint and surface is still required.
 - Image upload and R2 delivery are implemented in the Worker source. They require the additive D1 media migration and an existing R2 bucket bound as MEDIA_BUCKET; see the media guide. Image moderation, resizing, EXIF stripping, quota enforcement, orphan cleanup, video upload and transcoding are not implemented. Direct text messaging is implemented, but attachments, group conversations, message editing/deletion, typing indicators, realtime delivery and push notifications are not implemented yet.
 - Configure Cloudflare rate limiting before public exposure. The current Worker code does not yet bind to a rate-limiting namespace.

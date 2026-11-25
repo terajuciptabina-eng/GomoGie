@@ -51,3 +51,25 @@
 - [ ] Preserve free access to core social participation.
 
 Roadmap completion must reflect verified implementation, not planned work.
+
+
+## Phase 1A — Synthetic dataset and prototype shell
+- [x] Create 1,000 clearly labelled synthetic account fixtures.
+- [x] Create 120 synthetic post fixtures with public-media references.
+- [x] Add a responsive static prototype shell and six navigation areas.
+- [ ] Verify each public image/video URL and source page in a browser.
+- [ ] Replace any unavailable media links and record asset-level source details.
+- [ ] Test all navigation and interactions on desktop, iPad Safari and iPhone.
+- [ ] Publish to GitHub Pages and verify the deployed URL.
+- [ ] Review synthetic-data disclosure and ensure demo counts are not used as traction metrics.
+
+## Phase 1B — Feature-depth prototype
+- [ ] Add stories viewer and create-story simulation.
+- [ ] Add Instagram-style photo carousel and profile grid.
+- [ ] Add vertical Watch player with distinct For You and Following tabs.
+- [ ] Add video channel pages, long-form player and playlists.
+- [ ] Add post replies, quote reposts, polls and hashtag search.
+- [ ] Add community membership, roles and events mock flows.
+- [ ] Add messaging conversation UI with clear simulation label.
+- [ ] Add profile settings, privacy controls and report/block mock flows.
+

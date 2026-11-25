@@ -30,3 +30,20 @@ jobs:
       - run: npm install --ignore-scripts --no-audit --no-fund
       - run: npm run typecheck
       - run: npx wrangler deploy --dry-run
+
+      - name: Verify frontend and media delivery use the same Worker origin
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          frontend = Path('index.html').read_text()
+          worker = Path('workers/api/src/index.js').read_text()
+          frontend_match = re.search(r'const API_BASE="(https://[^"]+)"', frontend)
+          media_match = re.search(r'function mediaUrl\(id\) \{ return "(https://[^"]+)/v1/media/', worker)
+          assert frontend_match, 'Frontend API_BASE not found'
+          assert media_match, 'Worker media URL origin not found'
+          assert frontend_match.group(1) == media_match.group(1), (
+              f'Frontend API origin {frontend_match.group(1)} differs from media origin {media_match.group(1)}'
+          )
+          print('Verified feed, upload and public media use the same Cloudflare Worker origin.')
+          PY

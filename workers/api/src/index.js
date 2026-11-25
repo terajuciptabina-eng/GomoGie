@@ -434,6 +434,16 @@ async function route(request, env) {
     return json({ deleted: true, postId: postDeleteMatch[1] });
   }
 
+  const postEditMatch = path.match(/^\/v1\/posts\/([0-9a-f-]+)$/i);
+  if (postEditMatch && method === "PATCH") {
+    const input = await readJson(request);
+    if (!input || typeof input.content !== "string" || input.content.length > 5000) return json({ error: "validation_error", message: "Kandungan post tidak sah (maksimum 5,000 aksara)." }, 400);
+    const owned = await env.DB.prepare("SELECT id FROM posts WHERE id=? AND user_id=? AND status='published'").bind(postEditMatch[1], auth.sub).first();
+    if (!owned) return json({ error: "post_not_found", message: "Post tidak ditemui atau bukan milik akaun anda." }, 404);
+    await env.DB.prepare("UPDATE posts SET content=?,updated_at=? WHERE id=? AND user_id=?").bind(input.content.trim(), new Date().toISOString(), postEditMatch[1], auth.sub).run();
+    return json({ updated: true, postId: postEditMatch[1], content: input.content.trim() });
+  }
+
   const reactionMatch = path.match(/^\/v1\/posts\/([0-9a-f-]+)\/reactions$/i);
   if (reactionMatch && method === "POST") {
     const input = await readJson(request) || {};

@@ -123,7 +123,18 @@ const NEWS_FEEDS=[
 {id:"mlstudios-video",name:"ML Studios",url:"https://www.youtube.com/feeds/videos.xml?channel_id=UCSkOqbajcG6-jguycOHzhDg",language:"ms",contentType:"video"},
 {id:"aphd-video",name:"APHD Channel",url:"https://www.youtube.com/feeds/videos.xml?channel_id=UChpjlRq-Ikx8JRUiRauIAJg",language:"ms",contentType:"documentary"},
 {id:"siakapkeli-articles",name:"Siakap Keli",url:"https://siakapkeli.my/feed",language:"ms",contentType:"article"},
-{id:"siakapkeli-video",name:"Siakap Keli",url:"https://www.youtube.com/feeds/videos.xml?channel_id=UCo5TWROsmkTHVhzmFUW94oA",language:"ms",contentType:"video"}
+{id:"siakapkeli-video",name:"Siakap Keli",url:"https://www.youtube.com/feeds/videos.xml?channel_id=UCo5TWROsmkTHVhzmFUW94oA",language:"ms",contentType:"video"},
+{id:"google-my-ms",name:"Google News Malaysia",url:"https://news.google.com/rss?hl=ms&gl=MY&ceid=MY:ms",language:"ms",contentType:"article"},
+{id:"google-my-en",name:"Google News Malaysia",url:"https://news.google.com/rss?hl=en-MY&gl=MY&ceid=MY:en",language:"en",contentType:"article"},
+{id:"google-global",name:"Google News Global",url:"https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en",language:"en",contentType:"article"},
+{id:"google-viral-ms",name:"Google News Trending",url:"https://news.google.com/rss/search?q=(viral+OR+trending+OR+popular+OR+populariti)+when:1d&hl=ms&gl=MY&ceid=MY:ms",language:"ms",contentType:"article"},
+{id:"google-entertainment",name:"Google News Entertainment",url:"https://news.google.com/rss/search?q=(entertainment+OR+celebrity+OR+film+OR+music)+when:1d&hl=en-US&gl=US&ceid=US:en",language:"en",contentType:"article"},
+{id:"google-tech",name:"Google News Technology",url:"https://news.google.com/rss/search?q=(technology+OR+AI+OR+gaming)+when:1d&hl=en-US&gl=US&ceid=US:en",language:"en",contentType:"article"},
+{id:"google-sports",name:"Google News Sports",url:"https://news.google.com/rss/search?q=(sports+OR+football+OR+badminton)+when:1d&hl=en-US&gl=US&ceid=US:en",language:"en",contentType:"article"},
+{id:"reddit-popular",name:"Reddit Popular",url:"https://www.reddit.com/r/popular/.rss",language:"en",contentType:"article"},
+{id:"reddit-videos",name:"Reddit Videos",url:"https://www.reddit.com/r/videos/.rss",language:"en",contentType:"video"},
+{id:"reddit-malaysia",name:"Reddit Malaysia",url:"https://www.reddit.com/r/malaysia/.rss",language:"en",contentType:"article"},
+{id:"hackernews-top",name:"Hacker News",url:"https://news.ycombinator.com/rss",language:"en",contentType:"article"}
 ];
 function decodeNewsXml(v){let s=String(v||"").replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,"$1");const entities=()=>s.replace(/&amp;/gi,"&").replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").replace(/&lt;/gi,"<").replace(/&gt;/gi,">").replace(/&#(\d+);/g,(_,n)=>String.fromCodePoint(Number(n))).replace(/&#x([\da-f]+);/gi,(_,n)=>String.fromCodePoint(parseInt(n,16)));s=entities();s=s.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi," ").replace(/<br\s*\/?\s*>|<\/(p|div|li|h[1-6])\s*>/gi," ").replace(/<[^>]*>/g," ");s=entities().replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim();return s.replace(/Â/g,"").replace(/â€™/g,"'").replace(/â€œ|â€/g,'"').replace(/â€“|â€”/g,"-")}
 function newsTag(block,name){const m=block.match(new RegExp("<"+name+"(?:\\s[^>]*)?>([\\s\\S]*?)</"+name+">","i"));return m?decodeNewsXml(m[1]):""}

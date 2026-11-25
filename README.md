@@ -65,7 +65,7 @@ GomoGie brings together ideas from Facebook (social graph and communities), Twit
 
 ## Prototype dataset
 
-- 1,000 fictional, clearly labelled synthetic accounts.
+- 1,000 fictional account fixtures, disclosed by the site-wide preview notice and internally tagged as synthetic.
 - 120 synthetic posts with public stock-media references.
 - Responsive prototype entry point: [index.html](index.html)
 - [Demo accounts JSON](data/demo-accounts.json)

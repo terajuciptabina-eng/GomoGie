@@ -129,6 +129,7 @@ jobs:
           done
           echo "GitHub Actions API did not expose the uploaded github-pages artifact."
           exit 1
+      # Deploy only after the artifact is visible through the Actions API.
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

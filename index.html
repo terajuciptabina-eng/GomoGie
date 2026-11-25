@@ -513,9 +513,9 @@ async function loadGomoGieData(){
  const notice=document.querySelector(".preview-notice");
  let liveAccounts=[],livePosts=[];
  try{
-  const items=await fetchPublicApiFeed();
-  liveAccounts=[...new Map(items.map(x=>x.author).filter(a=>a&&a.id).map(a=>[a.id,{id:a.id,handle:a.username,displayName:a.displayName||a.username,avatarUrl:a.avatarUrl||"",coverUrl:a.coverUrl||"",bio:"",location:"",website:"",joined:"GomoGie",followers:0,following:0,isSynthetic:false}])).values()];
-  livePosts=items.map(x=>({id:x.id,authorId:x.author?.id,type:x.mediaType==="video"?"video":x.mediaType==="image"?"image":"text",text:x.content||"",hashtags:Array.isArray(x.hashtags)?x.hashtags:[],mediaUrl:x.mediaUrl||"",thumbnailUrl:x.thumbnailUrl||"",likes:Number(x.reactionCount||0),comments:Number(x.commentCount||0),shares:0,createdAt:x.createdAt,isSynthetic:false}));
+  const liveItems=await fetchPublicApiFeed();
+  liveAccounts=[...new Map(liveItems.map(item=>item.author).filter(author=>author&&author.id).map(author=>[author.id,{id:author.id,handle:author.username,displayName:author.displayName||author.username,avatarUrl:author.avatarUrl||"",coverUrl:author.coverUrl||"",bio:"",location:"",website:"",joined:"GomoGie",followers:0,following:0,isSynthetic:false}])).values()];
+  livePosts=liveItems.map(item=>({id:item.id,authorId:item.author?.id,type:item.mediaType==="video"?"video":item.mediaType==="image"?"image":"text",text:item.content||"",hashtags:Array.isArray(item.hashtags)?item.hashtags:[],mediaUrl:item.mediaUrl||"",thumbnailUrl:item.thumbnailUrl||"",likes:Number(item.reactionCount||0),comments:Number(item.commentCount||0),shares:0,createdAt:item.createdAt,isSynthetic:false}));
   try{await localSet("last-live-feed",{accounts:liveAccounts,posts:livePosts,savedAt:Date.now()})}catch(e){console.warn("Live feed cache unavailable:",e)}
  }catch(error){
   console.error("Live GomoGie feed failed:",error);

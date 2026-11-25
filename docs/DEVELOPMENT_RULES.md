@@ -1,5 +1,20 @@
 # GomoGie — Development Rules
 
+## Product identity and direction
+- The official product name is **GomoGie** only. Do not append “Social” or another category suffix.
+- Tagline: **Connect. Share. Discover.**
+- Build GomoGie as an independent native social platform.
+- Do not turn the core product into an aggregator of Facebook, YouTube, Instagram, X or other external social-network feeds.
+- Do not make core product functionality dependent on third-party social-network APIs.
+
+## Free-first commitment
+- Core social participation must not require a subscription.
+- Do not add hidden charges or surprise billing.
+- Any optional paid service must be clearly described and priced before user commitment.
+- Use transparent fair-use limits where infrastructure resources need protection.
+- Do not promise unlimited storage, bandwidth, video processing or messaging.
+- Consider advertising, sponsorship and optional services only with clear disclosure and privacy review; do not make monetisation a prerequisite for the prototype.
+
 ## Source control
 - GitHub is the source of truth.
 - Default branch is `main`.
@@ -10,7 +25,7 @@
 
 ## Greenfield and evidence
 - Build GomoGie from a clean foundation.
-- Do not copy source code from WoHoo, other projects or third-party social platforms.
+- Do not copy source code from other projects or third-party social platforms.
 - Third-party libraries may be considered only after licence, security and maintenance review.
 - Audit existing code and reproduce issues before changing behaviour.
 

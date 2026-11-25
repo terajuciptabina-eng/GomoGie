@@ -5,6 +5,10 @@
 **Frontend:** GitHub Pages (index.html).  
 **Last updated:** 25 November 2026.
 
+## Sign-in persistence
+
+GomoGie now issues a 30-day signed access token after registration or login. The browser stores the token in the existing IndexedDB device store (with a sessionStorage fallback if IndexedDB is unavailable). On app startup, the frontend validates the saved token with `/v1/auth/me` and renews it through the authenticated `/v1/auth/remember` endpoint. The user should remain signed in across page reloads and browser restarts for up to 30 days, unless they log out, clear browser site data, use a different browser/device, or the account/session is invalidated. The Log out action clears the saved token. Because GitHub Pages and the Worker are on different sites, this implementation does not rely on third-party cookies. This is a persistent bearer-token design; protect the site against XSS and do not expose untrusted HTML.
+
 ## 1. Architecture
 
 1. The browser sends a selected image as multipart/form-data to POST /v1/media.
@@ -150,7 +154,7 @@ The Worker verifies that the media belongs to the authenticated user and was upl
 | no such table: gomogie_media_assets | D1 migration not applied to remote database | Apply section 5 migration to the existing gomogie-db |
 | unsupported_image | Unsupported format or file signature mismatch | Use JPEG, PNG, WebP or GIF |
 | file_size_invalid | Image exceeds 8 MiB | Compress or resize image |
-| unauthorized | Session expired or missing | Log in again |
+| unauthorized | Saved 30-day token expired, cleared, or invalidated | Sign in again once; successful sign-in stores a new remembered session |
 | media_not_found | Invalid media ID or missing R2 object | Verify the D1 row and matching R2 object |
 
 ## 10. Manual acceptance test
@@ -167,4 +171,4 @@ The Worker verifies that the media belongs to the authenticated user and was upl
 
 ## 11. Current completion boundary
 
-The source code and schema migration implement the image upload path. Production readiness still depends on applying the D1 migration, ensuring the R2 bucket exists, deploying the updated Worker, and running the acceptance tests above. Do not mark uploads as live-tested until those steps have actually succeeded.
+The source code and schema migration implement the image upload path. Production setup is complete when the D1 migration has been applied, the R2 bucket exists, and the updated Worker is deployed. Actual image upload and display still require the acceptance tests above. The remembered-login enhancement is implemented in the frontend and Worker; verify it across a page reload and a full browser restart. Do not mark uploads as live-tested until those steps have actually succeeded.

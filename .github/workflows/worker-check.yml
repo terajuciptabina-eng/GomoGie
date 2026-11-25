@@ -63,5 +63,10 @@ jobs:
           assert frontend_match.group(1) == media_match.group(1), (
               f'Frontend API origin {frontend_match.group(1)} differs from media origin {media_match.group(1)}'
           )
-          print('Verified feed, upload and public media use the same Cloudflare Worker origin.')
+          assert 'const followingFeedRequest = path === "/v1/feed" && url.searchParams.get("scope") === "following"' in worker, 'Authenticated Following feed route missing'
+          assert "p.visibility IN ('public','followers')" in worker, 'Following feed visibility filter missing'
+          assert 'if (path === "/v1/users/me/following" && method === "GET")' in worker, 'Following relationship restore route missing'
+          assert 'async function fetchFollowingApiFeed()' in frontend, 'Frontend Following feed API client missing'
+          assert 'apiRequest("/v1/users/me/following")' in frontend, 'Frontend does not restore followed accounts after login'
+          print('Verified Worker origin, authenticated Following feed, visibility filter and follow-state restoration.')
           PY

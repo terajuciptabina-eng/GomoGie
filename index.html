@@ -318,7 +318,7 @@ async function loadViralNews(){
   viralNewsGlobalItems=Array.isArray(global.items)?global.items:[];
   const imageTargets=[...new Map([...viralNewsItems,...viralNewsGlobalItems].map(item=>[item.canonical_url,item])).values()].slice(0,18);
   await Promise.all(imageTargets.map(async item=>{
-   try{const preview=await apiRequest("/v1/link-preview?url="+encodeURIComponent(item.canonical_url));if(preview?.image&&(preview.image.startsWith("https://")||preview.image.startsWith("http://")))item.image_url=preview.image;}catch(error){console.debug("News image preview unavailable",error)}
+   try{const preview=await apiRequest("/v1/link-preview?url="+encodeURIComponent(item.canonical_url));if(!item.image_url&&preview?.image&&(preview.image.startsWith("https://")||preview.image.startsWith("http://")))item.image_url=preview.image;}catch(error){console.debug("News image preview unavailable",error)}
   }));
  }catch(error){console.warn("Viral News unavailable:",error);viralNewsItems=[];viralNewsGlobalItems=[]}
 }

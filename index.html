@@ -101,19 +101,23 @@ const TOKEN_KEY="gomogie-access-token";
 const USER_KEY="gomogie-remembered-user";
 function validAccessToken(value){return typeof value==="string"&&value.split(".").length===3&&value.length>80}
 function readRememberedUser(){try{const raw=localStorage.getItem(USER_KEY);if(!raw)return null;const user=JSON.parse(raw);return user&&typeof user.id==="string"&&typeof user.username==="string"?user:null}catch{return null}}
+function readTokenCookie(){try{const prefix=TOKEN_KEY+"=";const item=document.cookie.split(";").map(x=>x.trim()).find(x=>x.startsWith(prefix));if(!item)return "";const value=decodeURIComponent(item.slice(prefix.length));return validAccessToken(value)?value:""}catch{return ""}}
+function writeTokenCookie(token){try{document.cookie=TOKEN_KEY+"="+encodeURIComponent(token)+"; Max-Age=2592000; Path=/; SameSite=Lax; Secure";return readTokenCookie()===token}catch(error){console.warn("Persistent cookie storage unavailable:",error);return false}}
 async function getToken(){
+ const cookieToken=readTokenCookie();if(cookieToken)return cookieToken;
  try{const saved=localStorage.getItem(TOKEN_KEY);if(validAccessToken(saved))return saved}catch(error){console.warn("Local storage unavailable:",error)}
- try{const saved=await localGet(TOKEN_KEY);if(validAccessToken(saved)){try{localStorage.setItem(TOKEN_KEY,saved)}catch{}return saved}}catch(error){console.warn("IndexedDB token lookup unavailable:",error)}
+ try{const saved=await localGet(TOKEN_KEY);if(validAccessToken(saved)){try{localStorage.setItem(TOKEN_KEY,saved)}catch{}writeTokenCookie(saved);return saved}}catch(error){console.warn("IndexedDB token lookup unavailable:",error)}
  try{const saved=sessionStorage.getItem(TOKEN_KEY)||"";return validAccessToken(saved)?saved:""}catch{return ""}
 }
 async function saveToken(token){
- let persisted=false;
+ let persisted=writeTokenCookie(token);
  try{localStorage.setItem(TOKEN_KEY,token);persisted=true}catch(error){console.warn("Local storage persistence unavailable:",error)}
  try{await localSet(TOKEN_KEY,token);persisted=true}catch(error){console.warn("IndexedDB token persistence unavailable:",error)}
  if(!persisted){try{sessionStorage.setItem(TOKEN_KEY,token)}catch(error){console.error("All browser token storage methods failed:",error)}}else{try{sessionStorage.removeItem(TOKEN_KEY)}catch{}}
  return persisted;
 }
 async function clearToken(){
+ try{document.cookie=TOKEN_KEY+"=; Max-Age=0; Path=/; SameSite=Lax; Secure"}catch{}
  try{localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(USER_KEY)}catch{}
  try{await localSet(TOKEN_KEY,null)}catch{}
  try{sessionStorage.removeItem(TOKEN_KEY)}catch{}

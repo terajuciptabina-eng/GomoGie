@@ -233,7 +233,7 @@ async function loadGomoGieData(){
  const notice=document.querySelector(".preview-notice");
  try{
   const liveItems=await fetchPublicApiFeed();
-  accounts=liveItems.map(item=>item.author).filter(Boolean).map(author=>({id:author.id,handle:author.username,displayName:author.displayName||author.username,avatarUrl:author.avatarUrl||"",coverUrl:"",bio:"",location:"",website:"",joined:"GomoGie",followers:0,following:0}));
+  accounts=liveItems.map(item=>item.author).filter(Boolean).map(author=>({id:author.id,handle:author.username,displayName:author.displayName||author.username,avatarUrl:author.avatarUrl||"",coverUrl:author.coverUrl||"",bio:"",location:"",website:"",joined:"GomoGie",followers:0,following:0}));
   posts=liveItems.map(item=>({id:item.id,authorId:item.author?.id,type:item.mediaType==="video"?"video":item.mediaType==="image"?"image":"text",text:item.content||"",hashtags:Array.isArray(item.hashtags)?item.hashtags:[],mediaUrl:item.mediaUrl||"",thumbnailUrl:item.thumbnailUrl||"",likes:Number(item.reactionCount||0),comments:Number(item.commentCount||0),shares:0,createdAt:item.createdAt}));
   if(notice)notice.textContent="GomoGie · Live public community feed";
   try{await localSet("last-live-feed",{accounts,posts,savedAt:Date.now()})}catch(cacheError){console.warn("Live feed cache unavailable:",cacheError)}

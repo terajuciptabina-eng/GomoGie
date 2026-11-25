@@ -172,3 +172,27 @@ The Worker verifies that the media belongs to the authenticated user and was upl
 ## 11. Current completion boundary
 
 The source code and schema migration implement the image upload path. Production setup is complete when the D1 migration has been applied, the R2 bucket exists, and the updated Worker is deployed. Actual image upload and display still require the acceptance tests above. The remembered-login enhancement is implemented in the frontend and Worker; verify it across a page reload and a full browser restart. Do not mark uploads as live-tested until those steps have actually succeeded.
+
+
+## 12. Video posts and polls — 25 November 2026
+
+The Worker source now includes:
+- Authenticated `POST /v1/videos` multipart upload for MP4 files up to 50 MiB, stored in the existing R2 bucket.
+- Public `GET /v1/videos/:videoId` delivery with HTTP byte-range responses (206) for seeking and Safari playback.
+- `POST /v1/posts` accepts `videoId` to create a video post after upload.
+- Video post records are stored in `gomogie_video_assets` and `gomogie_post_videos`.
+- Poll posts accept 2–6 unique options (80 characters maximum each) and one closing duration (1 hour, 6 hours, 12 hours, 1 day, 3 days, 7 days or 30 days).
+- Each authenticated member has one vote per poll; voting again changes their selected option. Results are returned as counts and percentages.
+- Poll records are stored in `gomogie_polls`, `gomogie_poll_options` and `gomogie_poll_votes`.
+
+### Required deployment sequence
+
+1. Apply `workers/api/sql/0003_video_polls.sql` to the existing `gomogie-db` D1 database.
+2. Deploy the updated Worker from `workers/api` with Wrangler.
+3. Verify `/health/ready`, then upload a small H.264/AAC MP4 from a logged-in account.
+4. Verify the video URL returns `206 Partial Content` for a `Range: bytes=0-1023` request and that playback, seek and audio work in Safari.
+5. Create a poll, vote, change the vote, refresh the feed, and confirm the vote and percentages persist.
+
+**Important limitations:** the Worker stores original MP4 bytes; it does not transcode, inspect codec streams, generate thumbnails, or moderate uploaded media. Upload MP4 with H.264 video, AAC audio and fast-start metadata for Safari compatibility. Maximum upload is 50 MiB. A valid MP4 container signature alone does not prove the internal codecs are browser-compatible.
+
+These features are implemented in repository source, but they are not live until migration 0003 has been applied and the Worker deployment and acceptance tests have succeeded.

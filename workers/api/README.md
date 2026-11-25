@@ -15,6 +15,10 @@ This Worker targets the existing `gomogie-db` D1 schema. It does not create, dro
 - `GET /v1/posts/:postId/comments` — read comments on public posts.
 - `POST /v1/posts/:postId/comments` — add a comment.
 - `GET /v1/notifications` — list the authenticated user’s notifications and unread count.
+- `GET /v1/conversations` — list the authenticated user's direct conversations and unread counts.
+- `POST /v1/conversations` — find or create a direct conversation by recipient username.
+- `GET /v1/conversations/:conversationId/messages` — read the latest messages; updates the member's `last_read_at`.
+- `POST /v1/conversations/:conversationId/messages` — send a text message.
 - `PATCH /v1/notifications/:notificationId/read` and `PATCH /v1/notifications/read-all` — mark notifications as read.
 - `POST /v1/users/:username/follow` and `DELETE` — follow/unfollow.
 
@@ -30,7 +34,10 @@ The API uses the existing table/column names:
 - `reactions`: user_id, post_id, reaction_type, created_at
 - `comments`: id, post_id, user_id, parent_id, content, status, created_at, updated_at
 - `follows`: follower_id, following_id, status, created_at
-- `media_assets`, `post_media`, `conversations`, `conversation_members`, `messages`, `notifications`, `reports`
+- `conversations`: id, type, title, created_by, created_at
+- `conversation_members`: conversation_id, user_id, joined_at, last_read_at
+- `messages`: id, conversation_id, sender_id, content, media_id, status, created_at, edited_at
+- `media_assets`, `post_media`, `notifications`, `reports`
 
 The D1 screenshots show these are SQLite/D1 tables. The PostgreSQL migration under `backend/migrations` is a separate, unused alternative and must not be applied to this D1 database.
 
@@ -64,7 +71,7 @@ The current Worker source validates JWT structure and claims, checks that the ac
 - Email verification and password reset are not implemented.
 - Access tokens last 15 minutes; refresh tokens and server-side session revocation are not implemented.
 - Public feed currently returns public posts only. A personalized Following feed and private/follower visibility enforcement still need implementation.
-- Media upload, R2 delivery, image processing, video transcoding, messaging, notifications and moderation APIs are not implemented yet.
+- Media upload, R2 delivery, image processing, video transcoding, media upload, R2 delivery, image processing, video transcoding and moderation APIs are not implemented yet. Direct text messaging is implemented, but attachments, group conversations, message editing/deletion, typing indicators, realtime delivery and push notifications are not implemented yet.
 - Configure Cloudflare rate limiting before public exposure. The current Worker code does not yet bind to a rate-limiting namespace.
 - Do not expose this API to public registration until security review, abuse controls and account recovery are complete.
 

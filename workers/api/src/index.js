@@ -465,7 +465,7 @@ async function route(request, env) {
     ]);
     return json({community:{id,name,slug,description,visibility,createdAt:now,memberCount:1,membershipStatus:"active",membershipRole:"owner"}},201);
   }
-  const communityPath=path.match(/^\/v1\/communities\/([a-z0-9-]+)(?:\/(join|leave|members|posts))?$/i);
+  const communityPath=path.match(/^\/v1\/communities\/([a-z0-9-]+)(?:\/(join|leave|members|posts|rules|events|reports)(?:\\/([0-9a-f-]+))?)?$/i);
   if(communityPath){
     const slug=communityPath[1],action=communityPath[2]||"";
     const community=await env.DB.prepare("SELECT * FROM communities WHERE slug=?").bind(slug).first();

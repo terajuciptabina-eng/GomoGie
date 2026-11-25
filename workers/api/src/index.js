@@ -594,15 +594,15 @@ async function route(request, env) {
       region=pref?.region_code||"MY";
       try{if(pref?.interests_json)interests=JSON.parse(pref.interests_json)}catch{}
     }
-    const archiveMode=mode==="archive";if(!archiveMode)await env.DB.prepare("UPDATE gomogie_news_items SET status='archived' WHERE status='published' AND julianday(published_at)<julianday('now','-72 hours')").run();const base="SELECT n.id,n.title,n.summary,n.body_text,n.image_url,n.canonical_url,n.category,n.region_code,n.published_at,n.content_type,n.embed_url,s.name AS source_name,s.language AS language,(SELECT COUNT(*) FROM gomogie_news_items t WHERE t.category=n.category AND julianday(t.published_at)>=julianday('now','-12 hours')) AS trend_score FROM gomogie_news_items n JOIN gomogie_news_sources s ON s.id=n.source_id WHERE n.status='"+(archiveMode?"archived":"published")+"' AND julianday(n.published_at)>=julianday('now','-"+(archiveMode?"30":"3")+" days') ";
+    const archiveMode=mode==="archive";if(!archiveMode)await env.DB.prepare("UPDATE gomogie_news_items SET status='archived' WHERE status='published' AND julianday(published_at)<julianday('now','-72 hours')").run();const base="WITH ranked_news AS (SELECT n.id,n.title,n.summary,n.body_text,n.image_url,n.canonical_url,n.category,n.region_code,n.published_at,n.content_type,n.embed_url,n.source_id,s.name AS source_name,s.language AS language,(SELECT COUNT(*) FROM gomogie_news_items t WHERE t.category=n.category AND julianday(t.published_at)>=julianday('now','-12 hours')) AS trend_score,ROW_NUMBER() OVER (PARTITION BY n.source_id ORDER BY n.published_at DESC) AS source_rank FROM gomogie_news_items n JOIN gomogie_news_sources s ON s.id=n.source_id WHERE n.status='"+(archiveMode?"archived":"published")+"' AND julianday(n.published_at)>=julianday('now','-"+(archiveMode?"30":"3")+" days') ) SELECT * FROM ranked_news WHERE source_rank<=2 ";
     const readItems=async()=>{
       if(mode==="for-you"&&auth){
-        const regionClause=region==="MY"?"":" AND n.region_code IN ('MY',?)";
-        const sql=base+"AND n.category IN (SELECT value FROM json_each(?))"+regionClause+" ORDER BY CASE WHEN n.region_code=? THEN 0 ELSE 1 END,n.published_at DESC LIMIT ?";
+        const regionClause=region==="MY"?"":" AND region_code IN ('MY',?)";
+        const sql=base+"AND category IN (SELECT value FROM json_each(?))"+regionClause+" ORDER BY CASE WHEN region_code=? THEN 0 ELSE 1 END,published_at DESC LIMIT ?";
         const binds=region==="MY"?[JSON.stringify(interests),region,limit]:[JSON.stringify(interests),region,region,limit];
         return await env.DB.prepare(sql).bind(...binds).all();
       }
-      return await env.DB.prepare(base+"ORDER BY n.published_at DESC LIMIT ?").bind(limit).all();
+      return await env.DB.prepare(base+"ORDER BY published_at DESC LIMIT ?").bind(limit).all();
     };
     let rows=await readItems();
     let refreshed=false;

@@ -86,3 +86,11 @@ Roadmap completion must reflect verified implementation, not planned work.
 - [x] Discover profiles through search and profile directory.
 - [ ] Persist profile edits, follows and saved posts using a secure backend after authentication is implemented.
 - [ ] Implement real upload, image processing, privacy settings, block/report and follow relationship APIs.
+
+## Production integration progress — 25 November 2026
+
+- [x] Cloudflare Worker authentication: login, `/v1/auth/me` verification and remembered-session renewal; manually verified by the project owner across page refresh and a full browser close/reopen.
+- [x] Authenticated Following feed API and Home feed tabs: own posts plus posts from accepted follow relationships; pending private-account requests are excluded.
+- [ ] Verify Following feed with two real test accounts, including public follow, private pending follow, unfollow and own private post cases.
+- [ ] Complete server-side privacy/visibility audit across feed, profile, post, comment, media, search and notifications routes.
+- [ ] Complete rate limiting, account recovery, email verification and session revocation before opening registration broadly.

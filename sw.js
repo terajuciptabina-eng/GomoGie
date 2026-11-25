@@ -1,6 +1,6 @@
 const CACHE_PREFIX="gomogie-shell-";
 const CACHE_NAME=CACHE_PREFIX+"v22";
-const APP_SHELL=["./","./index.html","./manifest.webmanifest","./assets/brand/favicon.svg","./assets/brand/GomoGie-wordmark-transparent.svg","./assets/brand/brand-tokens.css"];
+const APP_SHELL=["./","./index.html","./manifest.webmanifest","./assets/brand/favicon.svg","./assets/brand/apple-touch-icon.png","./assets/brand/icon-192.png","./assets/brand/icon-512.png","./assets/brand/GomoGie-wordmark-transparent.svg","./assets/brand/brand-tokens.css","./data/demo-accounts.json","./data/demo-posts.json"];
 self.addEventListener("install",event=>{
  event.waitUntil((async()=>{
   const cache=await caches.open(CACHE_NAME);
@@ -19,8 +19,8 @@ self.addEventListener("fetch",event=>{
  const request=event.request;
  const url=new URL(request.url);
  if(request.method!=="GET"||url.origin!==self.location.origin)return;
- if(url.pathname.includes("/data/"))return;
- if(request.mode==="navigate"||request.destination==="document"){
+
+ if(url.pathname.includes("/data/")){\n  event.respondWith((async()=>{\n   const cache=await caches.open(CACHE_NAME);\n   const cacheKey=new URL(url.pathname,self.location.origin).href;\n   try{\n    const fresh=await fetch(request,{cache:"no-store"});\n    if(fresh.ok)await cache.put(cacheKey,fresh.clone());\n    return fresh;\n   }catch(error){\n    return (await cache.match(cacheKey))||Response.error();\n   }\n  })());\n  return;\n }\n if(request.mode==="navigate"||request.destination==="document"){
   event.respondWith((async()=>{
    const cache=await caches.open(CACHE_NAME);
    try{

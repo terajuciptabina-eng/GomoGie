@@ -125,7 +125,7 @@ Initial beta limits are provisional and must be shown clearly in the product bef
 - No unlimited upload or transcoding.
 - Do not publish a video until scanning and processing are complete.
 
-The API currently enforces 10 MB image and 100 MB video upload-intent limits by default. These are technical ceilings, not final user-facing policy.
+The API currently enforces 10 MB image and 100 MB video upload-intent limits by default, plus a 500 MB per-account reservation cap and an 8 GiB platform reservation cap. The platform cap leaves headroom below the 10 GB-month R2 free storage allowance. These are initial beta technical ceilings, not final user-facing policy. The API reserves pending upload bytes under a PostgreSQL advisory lock so concurrent upload requests cannot race past the configured caps.
 
 ## 8. Database and backup
 

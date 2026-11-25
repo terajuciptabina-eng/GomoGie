@@ -527,6 +527,15 @@ async function route(request, env) {
       const id=uuid();await env.DB.prepare("INSERT INTO community_reports (id,community_id,reporter_id,target_type,target_id,reason,status,created_at) VALUES (?,?,?,?,?,?,'open',?)").bind(id,community.id,auth.sub,input.targetType,input.targetId,input.reason.trim(),new Date().toISOString()).run();
       return json({reported:true},201);
     }
+    const reportAction=path.match(/^\/v1\/communities\/([a-z0-9-]+)\/reports\/([0-9a-f-]+)$/i);
+    if(reportAction&&method==="PATCH"){
+      if(!isManager)return json({error:"forbidden"},403);
+      const input=await readJson(request);
+      if(!["reviewed","dismissed","actioned"].includes(input?.status))return json({error:"validation_error"},400);
+      const result=await env.DB.prepare("UPDATE community_reports SET status=?,reviewed_by=?,reviewed_at=? WHERE id=? AND community_id=?").bind(input.status,auth.sub,new Date().toISOString(),reportAction[2],community.id).run();
+      if(!result.meta?.changes)return json({error:"report_not_found"},404);
+      return json({updated:true});
+    }
     if(action==="reports"&&method==="GET"){
       if(!isManager)return json({error:"forbidden"},403);
       const rows=await env.DB.prepare("SELECT id,reporter_id,target_type,target_id,reason,status,created_at FROM community_reports WHERE community_id=? ORDER BY CASE status WHEN 'open' THEN 0 ELSE 1 END,created_at DESC LIMIT 100").bind(community.id).all();

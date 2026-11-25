@@ -12,8 +12,13 @@ This Worker targets the existing `gomogie-db` D1 schema. It does not create, dro
 - `GET /v1/feed` — published public posts.
 - `POST /v1/posts` — create a post.
 - `POST /v1/posts/:postId/reactions` and `DELETE` — add/remove reaction.
+- `GET /v1/posts/:postId/comments` — read comments on public posts.
 - `POST /v1/posts/:postId/comments` — add a comment.
+- `GET /v1/notifications` — list the authenticated user’s notifications and unread count.
+- `PATCH /v1/notifications/:notificationId/read` and `PATCH /v1/notifications/read-all` — mark notifications as read.
 - `POST /v1/users/:username/follow` and `DELETE` — follow/unfollow.
+
+New reactions, comments and accepted public follows create persistent notifications for the affected user. Self-actions do not create notifications.
 
 ## Schema verified from Cloudflare D1 Console screenshots
 

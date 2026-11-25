@@ -15,3 +15,6 @@ database_id = "83f2911c-59e7-42aa-8e60-2c2db361cff1"
 APP_ENV = "production"
 ALLOWED_ORIGINS = "https://terajuciptabina-eng.github.io"
 ALLOW_REGISTRATION = "true"
+
+[triggers]
+crons = ["*/15 * * * *"]

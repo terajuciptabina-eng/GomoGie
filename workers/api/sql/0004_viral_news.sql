@@ -1,0 +1,7 @@
+-- Additive GomoGie Viral News schema. Existing social tables are not modified.
+CREATE TABLE IF NOT EXISTS gomogie_news_sources (id TEXT PRIMARY KEY,name TEXT NOT NULL,feed_url TEXT NOT NULL UNIQUE,language TEXT NOT NULL DEFAULT 'en',active INTEGER NOT NULL DEFAULT 1,last_checked_at TEXT,last_error TEXT,created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS gomogie_news_items (id TEXT PRIMARY KEY,source_id TEXT NOT NULL REFERENCES gomogie_news_sources(id),external_id TEXT NOT NULL,title TEXT NOT NULL,summary TEXT NOT NULL DEFAULT '',canonical_url TEXT NOT NULL UNIQUE,category TEXT NOT NULL DEFAULT 'national',region_code TEXT NOT NULL DEFAULT 'MY',published_at TEXT NOT NULL,fetched_at TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'published',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,UNIQUE(source_id,external_id));
+CREATE INDEX IF NOT EXISTS idx_gomogie_news_published ON gomogie_news_items(status,published_at DESC);
+CREATE INDEX IF NOT EXISTS idx_gomogie_news_category_region ON gomogie_news_items(category,region_code,published_at DESC);
+CREATE TABLE IF NOT EXISTS gomogie_news_preferences (user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,region_code TEXT NOT NULL DEFAULT 'MY',interests_json TEXT NOT NULL DEFAULT '["national","politics","business","technology","sports","world","lifestyle"]',updated_at TEXT NOT NULL);
+INSERT OR IGNORE INTO gomogie_news_sources (id,name,feed_url,language,active,created_at) VALUES ('bernama-en','BERNAMA','https://www.bernama.com/en/rssfeed.php','en',1,CURRENT_TIMESTAMP);

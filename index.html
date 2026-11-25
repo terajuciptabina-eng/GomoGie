@@ -363,7 +363,8 @@ function pulse(){
  (matches.length?matches.slice(0,30).map(postCard).join(""):'<div class="empty">No conversations match this topic yet.</div>');
 }
 function watch(){
- const videoDiscoveryItems=filterUnreadNews([...new Map([...viralNewsItems,...viralNewsGlobalItems].filter(item=>item&&(item.content_type==="video"||!!item.embed_url)).map(item=>[String(item.id),item])).values()]).slice(0,4);
+ const readVideoNewsIds=getReadNewsIds();
+ const videoDiscoveryItems=[...new Map([...viralNewsItems,...viralNewsGlobalItems].filter(item=>item&&(item.content_type==="video"||!!item.embed_url)&&!readVideoNewsIds.has(String(item.id))).map(item=>[String(item.id),item])).values()];
  const videoDiscovery=watchMode==="for-you"&&videoDiscoveryItems.length?'<section class="watch-discovery"><div class="viral-news-heading"><div><span class="viral-news-kicker">CONTENT DISCOVERY</span><h3>▶ Video discovery</h3></div><button type="button" data-open-news="pulse">See all</button></div>'+videoDiscoveryItems.map(viralNewsCard).join("")+'</section>':"";
  const seenMedia=new Set();
  const vids=posts.filter(p=>p.type==="video"&&!p.isWatchDuplicate&&(watchMode==="for-you"||followed.has(p.authorId))&&p.mediaUrl&&!seenMedia.has(p.mediaUrl)&&seenMedia.add(p.mediaUrl));

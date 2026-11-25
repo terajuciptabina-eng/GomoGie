@@ -428,6 +428,7 @@ async function openThread(postId){
 }
 function bindComposer(){
  const imageInput=document.getElementById("composerImageInput"),videoInput=document.getElementById("composerVideoInput"),preview=document.getElementById("composerMediaPreview");
+ if(!imageInput||!videoInput||!preview)return;
  const chooseImage=document.getElementById("choosePostImage"),chooseVideo=document.getElementById("choosePostVideo"),choosePoll=document.getElementById("choosePostPoll"),submit=document.getElementById("createPost");
  const clearPreview=()=>{if(composerImagePreview)URL.revokeObjectURL(composerImagePreview);if(composerVideoPreview)URL.revokeObjectURL(composerVideoPreview);composerImagePreview="";composerVideoPreview="";composerImageFile=null;composerVideoFile=null;composerPollOpen=false;if(preview){preview.hidden=true;preview.innerHTML=""}};
  const showPreview=html=>{if(preview){preview.hidden=false;preview.innerHTML=html}};

@@ -1,0 +1,13 @@
+name = "gomogie-api"
+main = "src/index.js"
+compatibility_date = "2026-11-25"
+
+# Replace the placeholder with the D1 database ID from Cloudflare Dashboard.
+[[d1_databases]]
+binding = "DB"
+database_name = "gomogie-db"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+[vars]
+APP_ENV = "staging"
+ALLOWED_ORIGINS = "https://terajuciptabina-eng.github.io"

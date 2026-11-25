@@ -472,7 +472,7 @@ async function route(request, env) {
     if(!community)return json({error:"community_not_found"},404);
     const mine=await env.DB.prepare("SELECT membership_role,status FROM community_members WHERE community_id=? AND user_id=?").bind(community.id,auth.sub).first();
     const isMember=mine?.status==="active",isManager=isMember&&["owner","moderator"].includes(mine.membership_role);
-    if(community.visibility!=="public"&&community.owner_id!==auth.sub&&!isMember)return json({error:"community_not_found"},404);
+    if(action!=="join"&&community.visibility!=="public"&&community.owner_id!==auth.sub&&!isMember)return json({error:"community_not_found"},404);
     if(action==="join"&&method==="POST"){
       if(isMember)return json({membershipStatus:"active",membershipRole:mine.membership_role});
       const status=community.visibility==="approval"||community.visibility==="private"?"pending":"active",now=new Date().toISOString();
@@ -483,6 +483,20 @@ async function route(request, env) {
       if(community.owner_id===auth.sub)return json({error:"owner_cannot_leave",message:"Pemilik perlu memindahkan pemilikan atau memadam komuniti."},409);
       await env.DB.prepare("DELETE FROM community_members WHERE community_id=? AND user_id=?").bind(community.id,auth.sub).run();
       return json({left:true});
+    }
+    const memberAction=path.match(/^\/v1\/communities\/([a-z0-9-]+)\/members\/([0-9a-f-]+)$/i);
+    if(memberAction&&method==="PATCH"){
+      if(!isManager)return json({error:"forbidden"},403);
+      const targetId=memberAction[2],input=await readJson(request);
+      if(targetId===community.owner_id)return json({error:"owner_role_locked"},409);
+      const target=await env.DB.prepare("SELECT membership_role,status FROM community_members WHERE community_id=? AND user_id=?").bind(community.id,targetId).first();
+      if(!target)return json({error:"member_not_found"},404);
+      if(input?.status==="active"||input?.status==="banned"||input?.status==="pending"){
+        await env.DB.prepare("UPDATE community_members SET status=? WHERE community_id=? AND user_id=?").bind(input.status,community.id,targetId).run();
+      }else if(["moderator","member"].includes(input?.role)&&community.owner_id===auth.sub){
+        await env.DB.prepare("UPDATE community_members SET membership_role=? WHERE community_id=? AND user_id=?").bind(input.role,community.id,targetId).run();
+      }else return json({error:"validation_error"},400);
+      return json({updated:true});
     }
     if(action==="members"&&method==="GET"){
       if(community.visibility!=="public"&&!isMember&&community.owner_id!==auth.sub)return json({error:"forbidden"},403);

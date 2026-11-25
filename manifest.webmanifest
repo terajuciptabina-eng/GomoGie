@@ -2,7 +2,7 @@
   "name": "GomoGie",
   "short_name": "GomoGie",
   "description": "Connect. Share. Discover.",
-  "start_url": "./",
+  "start_url": "./?source=homescreen",
   "scope": "./",
   "display": "standalone",
   "background_color": "#FFFFFF",

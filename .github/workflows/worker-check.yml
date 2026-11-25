@@ -36,8 +36,8 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           import re
-          frontend = Path('index.html').read_text()
-          worker = Path('workers/api/src/index.js').read_text()
+          frontend = Path('../../index.html').read_text()
+          worker = Path('src/index.js').read_text()
           frontend_match = re.search(r'const API_BASE="(https://[^"]+)"', frontend)
           media_match = re.search(r'function mediaUrl\(id\) \{ return "(https://[^"]+)/v1/media/', worker)
           assert frontend_match, 'Frontend API_BASE not found'

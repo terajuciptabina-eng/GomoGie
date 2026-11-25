@@ -59,6 +59,12 @@ jobs:
           assert 'profileDraft.coverUrl=URL.createObjectURL(file);const preview=document.querySelector(".profile-cover")' in html, 'Cover preview must update without rebuilding the form'
           assert 'new Map(accounts.filter(a=>a&&a.id).map(a=>[a.id,a]))' in html, 'Story authors must be deduplicated by account ID'
           assert 'new Map(liveItems.map(item=>item.author).filter(author=>author&&author.id).map(author=>[author.id,' in html, 'Live feed account mapping must deduplicate repeated post authors'
+          assert 'maximum-scale=1,user-scalable=no,viewport-fit=cover' in html, 'Mobile viewport must lock pinch zoom'
+          assert 'document.addEventListener("gesturestart",e=>e.preventDefault()' in html, 'iOS gesture zoom must be blocked'
+          assert 'async function openThread(postId)' in html, 'Threaded conversation UI missing'
+          assert 'parentId:replyTo' in html, 'Nested replies must send parent comment ID'
+          assert 'data-quote="' in html and '[[quote:' in html, 'Quote repost UI and source marker missing'
+          assert 'data-topic="' in html and 'Trending topics' not in html, 'Topic discovery controls missing'
           print('Extracted application script and verified Cloudflare feed integration.')
           PY
           node -e 'const fs = require("node:fs"); const vm = require("node:vm"); new vm.Script(fs.readFileSync("/tmp/gomogie-inline.js", "utf8"), { filename: "gomogie-inline.js" }); console.log("Validated browser classic-script syntax.");'

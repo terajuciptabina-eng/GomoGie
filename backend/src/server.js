@@ -262,12 +262,15 @@ app.post('/v1/media/uploads', { preHandler: authenticate }, async (request, repl
   if (!uploadEnabled) return reply.code(503).send({ error: 'media_storage_not_configured' });
   const input = z.object({
     mediaType: z.enum(['image','video']),
-    contentType: z.string().min(1).max(100)
+    contentType: z.string().min(1).max(100),
+    sizeBytes: z.number().int().positive()
   }).parse(request.body);
   let policy;
   try { policy = getMediaPolicy(input.mediaType, input.contentType, env); }
   catch { return reply.code(415).send({ error: 'unsupported_media_type' }); }
   const maxBytes = policy.maxBytes;
+  if (input.sizeBytes > maxBytes) return reply.code(413).send({ error: 'file_size_limit_exceeded', maxBytes });
+  const reservedBytes = input.sizeBytes;
   const id = randomUUID();
   const extension = input.contentType.split('/')[1].replace('jpeg','jpg').replace('quicktime','mov');
   const objectKey = `uploads/${request.user.sub}/${id}.${extension}`;
@@ -275,7 +278,7 @@ app.post('/v1/media/uploads', { preHandler: authenticate }, async (request, repl
   const expiresAt = new Date(Date.now() + expiresIn * 1000);
   const userCap = Number(env.R2_USER_STORAGE_CAP_BYTES || 524288000);
   const platformCap = Number(env.R2_PLATFORM_STORAGE_CAP_BYTES || 8589934592);
-  if (!Number.isSafeInteger(userCap) || !Number.isSafeInteger(platformCap) || userCap < 1 || platformCap < 1 || maxBytes > userCap || maxBytes > platformCap) {
+  if (!Number.isSafeInteger(userCap) || !Number.isSafeInteger(platformCap) || userCap < 1 || platformCap < 1 || reservedBytes > userCap || reservedBytes > platformCap) {
     return reply.code(413).send({ error: 'upload_limit_configuration_invalid' });
   }
   const quotaClient = await pool.connect();
@@ -292,17 +295,17 @@ app.post('/v1/media/uploads', { preHandler: authenticate }, async (request, repl
     );
     const userBytes = Number(usage.rows[0].user_bytes);
     const platformBytes = Number(usage.rows[0].platform_bytes);
-    if (userBytes + maxBytes > userCap) {
+    if (userBytes + reservedBytes > userCap) {
       await quotaClient.query('ROLLBACK');
       return reply.code(413).send({ error: 'user_storage_quota_exceeded', message: 'Had storan akaun telah dicapai.' });
     }
-    if (platformBytes + maxBytes > platformCap) {
+    if (platformBytes + reservedBytes > platformCap) {
       await quotaClient.query('ROLLBACK');
       return reply.code(507).send({ error: 'platform_storage_quota_reached', message: 'Muat naik sementara dihentikan kerana had storan platform.' });
     }
     await quotaClient.query(
       'INSERT INTO media_upload_intents(owner_id,object_key,media_type,content_type,max_bytes,expires_at) VALUES($1,$2,$3,$4,$5,$6)',
-      [request.user.sub, objectKey, input.mediaType, input.contentType, maxBytes, expiresAt]
+      [request.user.sub, objectKey, input.mediaType, input.contentType, reservedBytes, expiresAt]
     );
     await quotaClient.query('COMMIT');
   } catch (error) {
@@ -310,14 +313,14 @@ app.post('/v1/media/uploads', { preHandler: authenticate }, async (request, repl
     throw error;
   } finally { quotaClient.release(); }
   const command = new PutObjectCommand({
-    Bucket: env.R2_BUCKET, Key: objectKey, ContentType: input.contentType,
+    Bucket: env.R2_BUCKET, Key: objectKey, ContentType: input.contentType, ContentLength: reservedBytes,
     Metadata: { owner: request.user.sub, intent: id }
   });
   const uploadUrl = await getSignedUrl(s3, command, { expiresIn });
   return reply.code(201).send({
     uploadId: id, uploadUrl, method: 'PUT',
     headers: { 'Content-Type': input.contentType, 'x-amz-meta-owner': request.user.sub, 'x-amz-meta-intent': id },
-    maxBytes, expiresAt
+    maxBytes, expectedBytes: reservedBytes, expiresAt
   });
 });
 
@@ -332,7 +335,7 @@ app.post('/v1/media/uploads/:uploadId/complete', { preHandler: authenticate }, a
   if (!intentResult.rowCount) return reply.code(404).send({ error: 'upload_intent_not_found_or_expired' });
   const intent = intentResult.rows[0];
   const head = await s3.send(new HeadObjectCommand({ Bucket: env.R2_BUCKET, Key: intent.object_key }));
-  if (!head.ContentLength || head.ContentLength > Number(intent.max_bytes) || head.ContentType !== intent.content_type || head.Metadata?.owner !== request.user.sub || head.Metadata?.intent !== uploadId) {
+  if (!head.ContentLength || head.ContentLength !== Number(intent.max_bytes) || head.ContentType !== intent.content_type || head.Metadata?.owner !== request.user.sub || head.Metadata?.intent !== uploadId) {
     await pool.query('UPDATE media_upload_intents SET status=$1 WHERE id=$2', ['rejected', uploadId]);
     return reply.code(400).send({ error: 'uploaded_file_failed_validation' });
   }

@@ -36,6 +36,10 @@ jobs:
       - run: npm run typecheck
       - run: npx wrangler deploy --dry-run
 
+      - name: Apply additive video and poll D1 migration
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
+        run: npx wrangler d1 execute gomogie-db --remote --file=sql/0003_video_polls.sql
+
       - name: Deploy Worker to Cloudflare
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
         uses: cloudflare/wrangler-action@v3

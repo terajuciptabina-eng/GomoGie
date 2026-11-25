@@ -105,7 +105,8 @@
       "isSynthetic": true,
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
-      "audioAvailable": true
+      "audioAvailable": true,
+      "fallbackMediaUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
     },
     {
       "id": "post_0006",
@@ -207,7 +208,8 @@
       "isSynthetic": true,
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
-      "audioAvailable": true
+      "audioAvailable": true,
+      "fallbackMediaUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4"
     },
     {
       "id": "post_0011",
@@ -309,7 +311,8 @@
       "isSynthetic": true,
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
-      "audioAvailable": true
+      "audioAvailable": true,
+      "fallbackMediaUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
     },
     {
       "id": "post_0016",
@@ -411,7 +414,8 @@
       "isSynthetic": true,
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
-      "audioAvailable": true
+      "audioAvailable": true,
+      "fallbackMediaUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4"
     },
     {
       "id": "post_0021",
@@ -513,7 +517,8 @@
       "isSynthetic": true,
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
-      "audioAvailable": true
+      "audioAvailable": true,
+      "fallbackMediaUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4"
     },
     {
       "id": "post_0026",
@@ -615,7 +620,8 @@
       "isSynthetic": true,
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
-      "audioAvailable": true
+      "audioAvailable": true,
+      "fallbackMediaUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4"
     },
     {
       "id": "post_0031",
@@ -717,7 +723,8 @@
       "isSynthetic": true,
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
-      "audioAvailable": true
+      "audioAvailable": true,
+      "fallbackMediaUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4"
     },
     {
       "id": "post_0036",
@@ -819,7 +826,8 @@
       "isSynthetic": true,
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
-      "audioAvailable": true
+      "audioAvailable": true,
+      "fallbackMediaUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4"
     },
     {
       "id": "post_0041",
@@ -921,7 +929,8 @@
       "isSynthetic": true,
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
-      "audioAvailable": true
+      "audioAvailable": true,
+      "fallbackMediaUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4"
     },
     {
       "id": "post_0046",
@@ -1023,7 +1032,8 @@
       "isSynthetic": true,
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
-      "audioAvailable": true
+      "audioAvailable": true,
+      "fallbackMediaUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4"
     },
     {
       "id": "post_0051",

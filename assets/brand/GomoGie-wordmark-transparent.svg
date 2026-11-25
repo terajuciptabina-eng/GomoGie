@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+  <title id="title">GomoGie</title>
+  <desc id="desc">Transparent-background GomoGie wordmark, with Gomo in deep navy and Gie in teal.</desc>
+  <text x="600" y="242" text-anchor="middle" font-family="DejaVu Sans, Arial, Helvetica, sans-serif" font-size="200" font-weight="700" letter-spacing="-7">
+    <tspan fill="#142030">Gomo</tspan><tspan fill="#00AE9C">Gie</tspan>
+  </text>
+</svg>

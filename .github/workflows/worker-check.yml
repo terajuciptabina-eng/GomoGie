@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "workers/api/**"
+      - "index.html"
       - ".github/workflows/worker-check.yml"
   workflow_dispatch:
 
@@ -34,6 +35,24 @@ jobs:
           cache-dependency-path: workers/api/package.json
       - run: npm install --ignore-scripts --no-audit --no-fund
       - run: npm run typecheck
+      - name: Check frontend JavaScript syntax and profile media preservation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path('../../index.html').read_text()
+          scripts = re.findall(r'<script(?:\\s[^>]*)?>(.*?)</script>', html, re.S)
+          inline = [script for script in scripts if script.strip()]
+          assert inline, 'No inline frontend JavaScript found'
+          Path('/tmp/gomogie-frontend-check.js').write_text('\\n'.join(inline))
+          assert 'avatarUrl,coverUrl})' in html, 'Profile save must send both persisted media URLs'
+          assert 'const media=await uploadImage(profileDraft.coverFile,"cover")' in html, 'Cover upload response must be consumed'
+          assert 'const media=await uploadImage(profileDraft.avatarFile,"avatar")' in html, 'Avatar upload response must be consumed'
+          assert 'profileDraft.avatarUrl=URL.createObjectURL(file);const preview=document.querySelector(".profile-avatar")' in html, 'Avatar preview must update without rebuilding the form'
+          assert 'profileDraft.coverUrl=URL.createObjectURL(file);const preview=document.querySelector(".profile-cover")' in html, 'Cover preview must update without rebuilding the form'
+          print('Profile media preservation checks passed.')
+          PY
+          node --check /tmp/gomogie-frontend-check.js
       - run: npx wrangler deploy --dry-run
 
       - name: Deploy Worker to Cloudflare

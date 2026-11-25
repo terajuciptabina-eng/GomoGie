@@ -37,7 +37,8 @@ GomoGie is its own social network. It is not an aggregator for Facebook, YouTube
 - [Roadmap](docs/ROADMAP.md)
 - [Development rules](docs/DEVELOPMENT_RULES.md)
 - [Brand identity](docs/BRAND_IDENTITY.md)
-- [Master wordmark (SVG)](assets/brand/GomoGie-wordmark.svg)
+- [Reference-matched master wordmark (SVG)](assets/brand/GomoGie-wordmark.svg)
+- [Transparent master wordmark (SVG)](assets/brand/GomoGie-wordmark-transparent.svg)
 - [Favicon (SVG)](assets/brand/favicon.svg)
 - [Brand CSS tokens](assets/brand/brand-tokens.css)
 

@@ -107,3 +107,17 @@ Roadmap completion must reflect verified implementation, not planned work.
 - [ ] Deploy updated Cloudflare Worker.
 - [ ] Verify upload, Safari playback/seek/audio and poll vote persistence using real member accounts.
 - [ ] Add transcoding/codec inspection, thumbnail generation, media moderation and usage quotas before broad public video uploads.
+
+
+## Communities implementation — 26 November 2026
+
+- [x] Add additive Cloudflare D1 schema for communities, memberships, roles, community-post links, rules, events and reports (migration 0013).
+- [x] Add authenticated Worker routes for community discovery, creation, detail, owner edit/delete, join/leave, membership lookup, community posts, rules, events, reports and member status/role changes.
+- [x] Enforce public/private/approval visibility and active-membership checks in the Worker.
+- [x] Replace the Communities synthetic-interest directory with a live API-backed directory, create flow, detail view, join/leave, member list, post composer and event/report interactions.
+- [ ] Apply migration 0013 to the production `gomogie-db` D1 database.
+- [ ] Deploy the updated Worker and verify all Communities routes against real accounts.
+- [ ] Complete browser QA for desktop, iPad Safari and iPhone, including private-community requests, moderator actions, report review and event creation.
+- [ ] Add full community rule/event administration UI and report-review queue UI before declaring the Communities module release-complete.
+
+Source implementation is committed, but production activation and the remaining moderation/admin UI checks are not yet verified.

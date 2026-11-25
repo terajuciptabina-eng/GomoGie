@@ -1,0 +1,12 @@
+name = "gomogie-api"
+main = "src/index.js"
+compatibility_date = "2026-11-25"
+
+# First deploy the Worker, then attach the EXISTING D1 database in
+# Cloudflare Dashboard > Worker > Settings > Bindings:
+#   Variable name: DB
+#   D1 database: gomogie-db
+# Keep the database ID out of source until it has been verified.
+[vars]
+APP_ENV = "production"
+ALLOWED_ORIGINS = "https://terajuciptabina-eng.github.io"

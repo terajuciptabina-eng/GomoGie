@@ -54,7 +54,7 @@ jobs:
           assert '/v1/feed?limit=30' in html
           print('Extracted application script and verified Cloudflare feed integration.')
           PY
-          node --check /tmp/gomogie-inline.js
+          node -e 'const fs = require("node:fs"); const vm = require("node:vm"); new vm.Script(fs.readFileSync("/tmp/gomogie-inline.js", "utf8"), { filename: "gomogie-inline.js" }); console.log("Validated browser classic-script syntax.");'
       - name: Validate PWA manifest, icons and offline fixtures
         run: |
           python - <<'PY'

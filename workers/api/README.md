@@ -41,6 +41,16 @@ The API uses the existing table/column names:
 
 The D1 screenshots show these are SQLite/D1 tables. The PostgreSQL migration under `backend/migrations` is a separate, unused alternative and must not be applied to this D1 database.
 
+## Media uploads
+
+See [Media Upload — Implementation & Operations Guide](../../docs/MEDIA_UPLOAD.md) for the R2 architecture, additive D1 migration, upload API, security checks, deployment and acceptance tests. Image uploads require the configured MEDIA_BUCKET R2 binding and the 0002_media_storage.sql migration.
+
+Implemented image routes:
+
+- POST /v1/media — authenticated multipart image upload (avatar, cover, post; JPEG/PNG/WebP/GIF; maximum 8 MiB).
+- GET /v1/media/:mediaId — public delivery for media marked ready.
+- POST /v1/posts accepts an owned mediaId and attaches the uploaded image to the post.
+
 ## Configure and deploy
 
 1. Create/select the Worker named `gomogie-api` in Cloudflare Workers & Pages.
@@ -71,7 +81,7 @@ The current Worker source validates JWT structure and claims, checks that the ac
 - Email verification and password reset are not implemented.
 - Access tokens last 15 minutes; refresh tokens and server-side session revocation are not implemented.
 - Public feed currently returns public posts only. A personalized Following feed and private/follower visibility enforcement still need implementation.
-- Media upload, R2 delivery, image processing, video transcoding, media upload, R2 delivery, image processing, video transcoding and moderation APIs are not implemented yet. Direct text messaging is implemented, but attachments, group conversations, message editing/deletion, typing indicators, realtime delivery and push notifications are not implemented yet.
+- Image upload and R2 delivery are implemented in the Worker source. They require the additive D1 media migration and an existing R2 bucket bound as MEDIA_BUCKET; see the media guide. Image moderation, resizing, EXIF stripping, quota enforcement, orphan cleanup, video upload and transcoding are not implemented. Direct text messaging is implemented, but attachments, group conversations, message editing/deletion, typing indicators, realtime delivery and push notifications are not implemented yet.
 - Configure Cloudflare rate limiting before public exposure. The current Worker code does not yet bind to a rate-limiting namespace.
 - Do not expose this API to public registration until security review, abuse controls and account recovery are complete.
 

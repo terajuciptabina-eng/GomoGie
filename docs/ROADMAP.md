@@ -94,3 +94,16 @@ Roadmap completion must reflect verified implementation, not planned work.
 - [ ] Verify Following feed with two real test accounts, including public follow, private pending follow, unfollow and own private post cases.
 - [ ] Complete server-side privacy/visibility audit across feed, profile, post, comment, media, search and notifications routes.
 - [ ] Complete rate limiting, account recovery, email verification and session revocation before opening registration broadly.
+
+
+## Video and poll delivery — 25 November 2026
+
+- [x] Add D1 schema for video assets, post-video links, polls, options and votes (migration 0003 committed; remote application pending).
+- [x] Add authenticated MP4 upload to R2 and public byte-range video delivery in Worker source.
+- [x] Add video post attachment and feed serialization.
+- [x] Add poll creation, configurable closing duration, one-vote-per-member semantics and result aggregation in Worker source.
+- [x] Add frontend video picker/preview/publish flow and poll builder/vote/results UI.
+- [ ] Apply migration 0003 to production D1.
+- [ ] Deploy updated Cloudflare Worker.
+- [ ] Verify upload, Safari playback/seek/audio and poll vote persistence using real member accounts.
+- [ ] Add transcoding/codec inspection, thumbnail generation, media moderation and usage quotas before broad public video uploads.

@@ -16,7 +16,7 @@ For the current Cloudflare-first path, the production API target is Cloudflare W
 
 ## Existing D1 schema verification
 
-Run the read-only schema query in `workers/api/README.md`. Review every table definition, column, default, foreign key and index before writing API SQL. Existing D1 tables must not be dropped or recreated merely to match the old PostgreSQL model.
+The user supplied Cloudflare D1 Console screenshots showing the actual table definitions. The Worker has been aligned to the visible columns in `users`, `profiles`, `posts`, `reactions`, `comments` and `follows`, with the remaining messaging/media tables identified for later implementation. Existing D1 tables must not be dropped or recreated merely to match the old PostgreSQL model.
 
 ## Delivery sequence
 

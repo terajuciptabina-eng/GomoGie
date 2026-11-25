@@ -224,9 +224,25 @@ async function route(request, env) {
     if (!env.MEDIA_BUCKET) return json({ error: "media_storage_unavailable" }, 503);
     const asset = await env.DB.prepare("SELECT object_key,size_bytes FROM gomogie_video_assets WHERE id=? AND status='ready'").bind(videoReadMatch[1]).first();
     if (!asset) return json({ error: "video_not_found" }, 404);
-    const object = await env.MEDIA_BUCKET.get(asset.object_key);
-    if (!object) return json({ error: "video_not_found" }, 404);
-    return new Response(object.body, { headers: { "content-type": "video/mp4", "content-length": String(asset.size_bytes), "accept-ranges": "bytes", "cache-control": "public, max-age=31536000, immutable", "x-content-type-options": "nosniff" } });
+    const rangeHeader=request.headers.get("Range");
+    let object,headers={"content-type":"video/mp4","accept-ranges":"bytes","cache-control":"public, max-age=31536000, immutable","x-content-type-options":"nosniff"};
+    if(rangeHeader){
+      const match=rangeHeader.match(/^bytes=(\\d*)-(\\d*)$/);
+      if(!match)return new Response(null,{status:416,headers:{"content-range":"bytes */"+asset.size_bytes,"accept-ranges":"bytes"}});
+      let start=match[1]?Number(match[1]):null,end=match[2]?Number(match[2]):null;
+      if(start===null){const suffix=end||0;start=Math.max(0,asset.size_bytes-suffix);end=asset.size_bytes-1}
+      else if(end===null)end=asset.size_bytes-1;
+      if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||end<start||start>=asset.size_bytes)return new Response(null,{status:416,headers:{"content-range":"bytes */"+asset.size_bytes,"accept-ranges":"bytes"}});
+      end=Math.min(end,asset.size_bytes-1);
+      object=await env.MEDIA_BUCKET.get(asset.object_key,{range:{offset:start,length:end-start+1}});
+      if(!object)return json({error:"video_not_found"},404);
+      headers["content-length"]=String(end-start+1);headers["content-range"]="bytes "+start+"-"+end+"/"+asset.size_bytes;
+      return new Response(object.body,{status:206,headers});
+    }
+    object=await env.MEDIA_BUCKET.get(asset.object_key);
+    if(!object)return json({error:"video_not_found"},404);
+    headers["content-length"]=String(asset.size_bytes);
+    return new Response(object.body,{headers});
   }
 
   if (path === "/v1/videos" && method === "POST") {

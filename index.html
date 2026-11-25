@@ -301,7 +301,8 @@ function watch(){
   video.addEventListener("play",hidePlay);
   video.addEventListener("pause",showPlay);
   video.addEventListener("ended",showPlay);
-  video.addEventListener("error",()=>{showPlay();slide.classList.add("video-source-error")});
+  video.dataset.fallbackAttempt="0";
+  video.addEventListener("error",()=>{const attempt=Number(video.dataset.fallbackAttempt||"0");if(attempt===0){video.dataset.fallbackAttempt="1";video.poster=safePoster;video.src="https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";video.load();startPlayback(false);return}showPlay();slide.classList.add("video-source-error");let notice=slide.querySelector(".watch-video-error");if(!notice){notice=document.createElement("div");notice.className="watch-video-error";notice.textContent="Video unavailable. Please try again later.";slide.appendChild(notice)}});
   video.addEventListener("volumechange",()=>{if(!video.muted&&video.volume>0)watchAudioUnlocked=true;else if(video.muted)watchAudioUnlocked=false;if(video.paused)showPlay();else hidePlay()});
   video.addEventListener("click",()=>{if(video.muted)startPlayback(true);else if(video.paused)startPlayback(false);else video.pause()});
   startPlayback(false);

@@ -69,6 +69,10 @@ jobs:
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
         run: npx wrangler d1 execute gomogie-db --remote --file=sql/0012_reliable_publisher_feeds.sql
 
+      - name: Apply Communities D1 migration
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
+        run: npx wrangler d1 execute gomogie-db --remote --file=sql/0013_communities.sql
+
       - name: Deploy Worker to Cloudflare
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
         uses: cloudflare/wrangler-action@v3

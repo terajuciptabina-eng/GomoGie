@@ -159,7 +159,9 @@ app.get('/v1/auth/me', { preHandler: authenticate }, async (request, reply) => {
 });
 
 app.get('/v1/feed', async (request, reply) => {
-  const limit = Math.min(Math.max(Number(request.query.limit || 20), 1), 50);
+  const parsedLimit = z.coerce.number().int().min(1).max(50).default(20).safeParse(request.query.limit);
+  if (!parsedLimit.success) return reply.code(400).send({ error: 'invalid_limit' });
+  const limit = parsedLimit.data;
   let cursor = null;
   if (request.query.before) {
     try {
@@ -271,10 +273,42 @@ app.post('/v1/media/uploads', { preHandler: authenticate }, async (request, repl
   const objectKey = `uploads/${request.user.sub}/${id}.${extension}`;
   const expiresIn = Math.min(Math.max(Number(env.R2_UPLOAD_URL_TTL_SECONDS || 300), 60), 600);
   const expiresAt = new Date(Date.now() + expiresIn * 1000);
-  await pool.query(
-    'INSERT INTO media_upload_intents(owner_id,object_key,media_type,content_type,max_bytes,expires_at) VALUES($1,$2,$3,$4,$5,$6)',
-    [request.user.sub, objectKey, input.mediaType, input.contentType, maxBytes, expiresAt]
-  );
+  const userCap = Number(env.R2_USER_STORAGE_CAP_BYTES || 524288000);
+  const platformCap = Number(env.R2_PLATFORM_STORAGE_CAP_BYTES || 8589934592);
+  if (!Number.isSafeInteger(userCap) || !Number.isSafeInteger(platformCap) || userCap < 1 || platformCap < 1 || maxBytes > userCap || maxBytes > platformCap) {
+    return reply.code(413).send({ error: 'upload_limit_configuration_invalid' });
+  }
+  const quotaClient = await pool.connect();
+  try {
+    await quotaClient.query('BEGIN');
+    await quotaClient.query('SELECT pg_advisory_xact_lock($1)', [812734612]);
+    const usage = await quotaClient.query(
+      `SELECT
+        COALESCE((SELECT SUM(size_bytes) FROM media_assets WHERE owner_id=$1 AND status <> 'deleted'),0)
+        + COALESCE((SELECT SUM(max_bytes) FROM media_upload_intents WHERE owner_id=$1 AND status='pending' AND expires_at > now()),0) AS user_bytes,
+        COALESCE((SELECT SUM(size_bytes) FROM media_assets WHERE status <> 'deleted'),0)
+        + COALESCE((SELECT SUM(max_bytes) FROM media_upload_intents WHERE status='pending' AND expires_at > now()),0) AS platform_bytes`,
+      [request.user.sub]
+    );
+    const userBytes = Number(usage.rows[0].user_bytes);
+    const platformBytes = Number(usage.rows[0].platform_bytes);
+    if (userBytes + maxBytes > userCap) {
+      await quotaClient.query('ROLLBACK');
+      return reply.code(413).send({ error: 'user_storage_quota_exceeded', message: 'Had storan akaun telah dicapai.' });
+    }
+    if (platformBytes + maxBytes > platformCap) {
+      await quotaClient.query('ROLLBACK');
+      return reply.code(507).send({ error: 'platform_storage_quota_reached', message: 'Muat naik sementara dihentikan kerana had storan platform.' });
+    }
+    await quotaClient.query(
+      'INSERT INTO media_upload_intents(owner_id,object_key,media_type,content_type,max_bytes,expires_at) VALUES($1,$2,$3,$4,$5,$6)',
+      [request.user.sub, objectKey, input.mediaType, input.contentType, maxBytes, expiresAt]
+    );
+    await quotaClient.query('COMMIT');
+  } catch (error) {
+    await quotaClient.query('ROLLBACK');
+    throw error;
+  } finally { quotaClient.release(); }
   const command = new PutObjectCommand({
     Bucket: env.R2_BUCKET, Key: objectKey, ContentType: input.contentType,
     Metadata: { owner: request.user.sub, intent: id }

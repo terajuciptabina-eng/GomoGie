@@ -689,10 +689,12 @@ document.addEventListener("touchend",()=>{
  else springBack();
 },{passive:true});
 document.addEventListener("touchcancel",()=>{if(!pullArmed)return;pullArmed=false;pullDistance=0;springBack()},{passive:true});
-// PWA update lifecycle: check for a new deployment whenever the installed app opens or returns to the foreground.
+// PWA update lifecycle: check on launch, return to foreground, and reconnect.
 if("serviceWorker" in navigator){
  const hadController=!!navigator.serviceWorker.controller;
  let reloadingForUpdate=false;
+ let appRegistration=null;
+ const checkForAppUpdate=()=>{if(appRegistration&&navigator.onLine)appRegistration.update().catch(error=>console.warn("GomoGie update check deferred:",error))};
  navigator.serviceWorker.addEventListener("controllerchange",()=>{
   if(hadController&&!reloadingForUpdate){
    reloadingForUpdate=true;
@@ -701,12 +703,12 @@ if("serviceWorker" in navigator){
  });
  window.addEventListener("load",async()=>{
   try{
-   const registration=await navigator.serviceWorker.register("./sw.js",{scope:"./",updateViaCache:"none"});
-   await registration.update();
-   document.addEventListener("visibilitychange",()=>{
-    if(document.visibilityState==="visible")registration.update().catch(()=>{});
-   });
-   window.addEventListener("focus",()=>registration.update().catch(()=>{}));
+   appRegistration=await navigator.serviceWorker.register("./sw.js",{scope:"./",updateViaCache:"none"});
+   await appRegistration.update();
+   document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")checkForAppUpdate()});
+   window.addEventListener("focus",checkForAppUpdate);
+   window.addEventListener("pageshow",checkForAppUpdate);
+   window.addEventListener("online",checkForAppUpdate);
   }catch(error){console.warn("GomoGie update check unavailable:",error)}
  });
 }

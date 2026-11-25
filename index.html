@@ -111,6 +111,38 @@ body.pull-releasing .top,body.pull-releasing .layout{transform:translate3d(0,0,0
 .thread-compose textarea{width:100%;min-height:68px;max-height:150px;resize:vertical;border:1px solid var(--line);border-radius:12px;padding:10px;font:inherit}
 .thread-compose button{justify-self:end}.thread-replying{font-size:12px;color:var(--muted)}
 @media(max-width:700px){.thread-layer{padding:0;align-items:end}.thread-dialog{width:100%;max-height:88dvh;border-radius:20px 20px 0 0}.thread-item.reply{margin-left:12px;padding-left:9px}.trend-topic{min-height:44px}.quoted-post{overflow-wrap:anywhere}}
+
+/* Modern in-app notification centre */
+.notification-layer{position:fixed;inset:0;z-index:90;background:rgba(13,24,29,.46);display:flex;justify-content:flex-end;align-items:stretch;padding:0}
+.notification-panel{width:min(440px,100%);height:100%;background:#fff;box-shadow:-18px 0 55px rgba(12,25,30,.18);display:flex;flex-direction:column;animation:notificationIn .2s ease-out}
+@keyframes notificationIn{from{transform:translateX(18px);opacity:.7}to{transform:translateX(0);opacity:1}}
+.notification-header{display:flex;align-items:center;justify-content:space-between;padding:22px 22px 16px;border-bottom:1px solid #edf0f1}
+.notification-heading{display:flex;align-items:center;gap:10px}.notification-heading h2{font-size:20px;letter-spacing:-.5px;margin:0;color:#142329}
+.notification-count{font-size:11px;font-weight:750;color:#087f72;background:#e7f6f2;border-radius:99px;padding:5px 9px}
+.notification-header-actions{display:flex;align-items:center;gap:8px}
+.notification-mark-all{border:0;background:transparent;color:#078879;font-size:12px;font-weight:700;padding:9px 7px}
+.notification-close{width:36px;height:36px;border:0;border-radius:50%;background:#f1f4f4;color:#35464b;font-size:22px;line-height:1}
+.notification-tabs{display:flex;gap:7px;padding:13px 20px;border-bottom:1px solid #edf0f1}
+.notification-tab{border:0;border-radius:99px;padding:8px 14px;background:#f2f5f5;color:#647277;font-size:12px;font-weight:700}
+.notification-tab.active{background:#e5f5f1;color:#087f72}
+.notification-list{overflow:auto;overscroll-behavior:contain;flex:1;padding:6px 10px 20px}
+.notification-row{width:100%;display:flex;align-items:flex-start;gap:12px;text-align:left;padding:14px 12px;border:0;border-radius:13px;background:#fff;position:relative;color:#26363b}
+.notification-row:hover{background:#f7faf9}
+.notification-row.unread{background:#f0faf7}
+.notification-avatar-wrap{position:relative;flex:0 0 46px}
+.notification-avatar{width:46px;height:46px;border-radius:50%;object-fit:cover;background:#e9eeee;display:grid;place-items:center;color:#52646a;font-weight:750;font-size:15px}
+.notification-type-icon{position:absolute;right:-3px;bottom:-3px;width:21px;height:21px;border-radius:50%;display:grid;place-items:center;border:2px solid white;background:#e5f5f1;color:#078879;font-size:11px;font-weight:800}
+.notification-copy{min-width:0;flex:1;padding-top:2px}
+.notification-message{font-size:13px;line-height:1.5;color:#35464b;overflow-wrap:anywhere}
+.notification-message strong{color:#15272d;font-weight:750}
+.notification-time{font-size:11px;color:#8a989c;margin-top:5px}
+.notification-unread-dot{width:8px;height:8px;border-radius:50%;background:#0a9c89;flex:0 0 8px;margin:7px 2px 0 0}
+.notification-empty{display:grid;justify-items:center;text-align:center;padding:64px 24px;color:#849196}
+.notification-empty-icon{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;background:#f0f6f4;color:#168f80;font-size:25px;margin-bottom:14px}
+.notification-empty strong{font-size:15px;color:#34464b;margin-bottom:5px}
+.notification-empty span{font-size:12px;line-height:1.5;max-width:250px}
+.notification-loading{padding:30px 16px;text-align:center;color:#7a898d;font-size:13px}
+@media(max-width:600px){.notification-layer{align-items:flex-end}.notification-panel{width:100%;height:min(88dvh,780px);border-radius:22px 22px 0 0;box-shadow:0 -16px 45px rgba(12,25,30,.18);padding-bottom:env(safe-area-inset-bottom)}.notification-header{padding:18px 17px 13px}.notification-list{padding-left:8px;padding-right:8px}}
 </style>
 </head>
 <body>
@@ -306,8 +338,49 @@ function extras(){
  if(trends){const counts=new Map();posts.forEach(p=>{const tags=String(p.text||"").match(/#[\p{L}\p{N}_]+/gu)||[];tags.forEach(tag=>{const key=tag.slice(1).toLowerCase();counts.set(key,(counts.get(key)||0)+1)})});const top=[...counts].sort((a,b)=>b[1]-a[1]).slice(0,6);trends.innerHTML=top.length?top.map(([tag,count],i)=>'<button class="trend-topic" type="button" data-topic="'+esc(tag)+'"><span>'+(i+1)+'. #'+esc(tag)+'</span><small>'+count+' posts</small></button>').join(""):'<div class="empty">Topics will trend as members publish with hashtags.</div>'}
  if(suggestions)suggestions.innerHTML=accounts.filter(a=>a.id!==currentUser?.id).slice(0,4).map(a=>'<div class="people" data-open-profile="'+esc(a.id)+'"><img class="avatar" src="'+esc(a.avatarUrl||"")+'" alt=""><div class="meta"><strong>'+esc(a.displayName||a.handle)+'</strong><div class="handle">GomoGie member</div></div></div>').join("")||'<div class="empty">No member suggestions yet.</div>';
 }
+function notificationRelativeTime(value){
+ const date=new Date(value),seconds=Math.max(0,Math.floor((Date.now()-date.getTime())/1000));
+ if(!Number.isFinite(date.getTime()))return "";
+ if(seconds<60)return "Just now";
+ if(seconds<3600)return Math.floor(seconds/60)+"m ago";
+ if(seconds<86400)return Math.floor(seconds/3600)+"h ago";
+ if(seconds<604800)return Math.floor(seconds/86400)+"d ago";
+ return date.toLocaleDateString(undefined,{day:"numeric",month:"short",year:date.getFullYear()!==new Date().getFullYear()?"numeric":undefined});
+}
+function notificationAction(type){
+ if(type==="reaction")return {verb:"liked your post",icon:"♥"};
+ if(type==="comment")return {verb:"replied to your post",icon:"↩"};
+ if(type==="follow")return {verb:"started following you",icon:"＋"};
+ return {verb:"interacted with you",icon:"•"};
+}
+async function openNotificationCenter(){
+ if(!currentUser){openAuth();return}
+ const layer=document.createElement("div");layer.className="notification-layer";
+ layer.innerHTML='<section class="notification-panel" role="dialog" aria-modal="true" aria-label="Notifications"><header class="notification-header"><div class="notification-heading"><h2>Notifications</h2><span class="notification-count" id="notificationCount">…</span></div><div class="notification-header-actions"><button class="notification-mark-all" id="notificationMarkAll" type="button">Mark all read</button><button class="notification-close" id="notificationClose" type="button" aria-label="Close">×</button></div></header><div class="notification-tabs"><button type="button" class="notification-tab active" data-notification-filter="all">All</button><button type="button" class="notification-tab" data-notification-filter="unread">Unread</button></div><div class="notification-list" id="notificationList"><div class="notification-loading">Loading notifications…</div></div></section>';
+ document.body.appendChild(layer);
+ let items=[],filter="all",unreadCount=0;
+ const list=layer.querySelector("#notificationList"),count=layer.querySelector("#notificationCount"),markAll=layer.querySelector("#notificationMarkAll");
+ const close=()=>layer.remove();
+ layer.querySelector("#notificationClose").onclick=close;
+ layer.addEventListener("click",e=>{if(e.target===layer)close()});
+ const onKey=e=>{if(e.key==="Escape"){close();document.removeEventListener("keydown",onKey)}};
+ document.addEventListener("keydown",onKey);
+ const renderList=()=>{
+  const visible=filter==="unread"?items.filter(n=>!n.isRead):items;
+  count.textContent=unreadCount+" unread";
+  markAll.hidden=unreadCount===0;
+  layer.querySelectorAll("[data-notification-filter]").forEach(b=>b.classList.toggle("active",b.dataset.notificationFilter===filter));
+  if(!visible.length){list.innerHTML='<div class="notification-empty"><div class="notification-empty-icon">♧</div><strong>'+ (filter==="unread"?"You’re all caught up":"No notifications yet")+'</strong><span>'+(filter==="unread"?"There are no unread updates right now.":"When someone likes, replies to or follows you, you’ll see it here.")+'</span></div>';return}
+  list.innerHTML=visible.map(n=>{const actor=n.actor||{},name=actor.displayName||actor.username||"GomoGie member",action=notificationAction(n.type),initial=(name.trim()[0]||"G").toUpperCase(),avatar=actor.avatarUrl?'<img class="notification-avatar" src="'+esc(actor.avatarUrl)+'" alt="">':'<span class="notification-avatar">'+esc(initial)+'</span>';return '<button class="notification-row '+(!n.isRead?"unread":"")+'" type="button" data-notification-id="'+esc(n.id)+'" data-notification-type="'+esc(n.type)+'" data-notification-entity="'+esc(n.entityId||"")+'" data-notification-actor="'+esc(actor.id||"")+'"><span class="notification-avatar-wrap">'+avatar+'<span class="notification-type-icon">'+action.icon+'</span></span><span class="notification-copy"><span class="notification-message"><strong>'+esc(name)+'</strong> '+action.verb+'</span><span class="notification-time">'+esc(notificationRelativeTime(n.createdAt))+'</span></span>'+(!n.isRead?'<span class="notification-unread-dot" aria-label="Unread"></span>':'')+'</button>'}).join("");
+ };
+ const load=async()=>{const data=await apiRequest("/v1/notifications?limit=50");items=data.items||[];unreadCount=Number(data.unreadCount||0);renderList()};
+ layer.querySelectorAll("[data-notification-filter]").forEach(b=>b.onclick=()=>{filter=b.dataset.notificationFilter;renderList()});
+ markAll.onclick=async()=>{if(!unreadCount)return;markAll.disabled=true;try{await apiRequest("/v1/notifications/read-all",{method:"PATCH"});items=items.map(n=>({...n,isRead:true}));unreadCount=0;renderList();const top=document.getElementById("notify");if(top)top.textContent="♧ Notifications"}catch(error){alert(error.message)}finally{markAll.disabled=false}};
+ list.onclick=async e=>{const row=e.target.closest("[data-notification-id]");if(!row)return;const id=row.dataset.notificationId,type=row.dataset.notificationType,entity=row.dataset.notificationEntity,actor=row.dataset.notificationActor,n=items.find(x=>x.id===id);if(n&&!n.isRead){try{await apiRequest("/v1/notifications/"+encodeURIComponent(id)+"/read",{method:"PATCH"});n.isRead=true;unreadCount=Math.max(0,unreadCount-1);renderList()}catch(error){alert(error.message);return}}close();if(type==="follow"&&actor){active="profile";selectedProfileId=actor;profileTab="posts";render();return}if(entity){active="home";render();requestAnimationFrame(()=>{const target=document.getElementById("post-"+entity);if(target)target.scrollIntoView({behavior:"smooth",block:"center"})})}};
+ try{await load()}catch(error){list.innerHTML='<div class="notification-empty"><strong>Couldn’t load notifications</strong><span>'+esc(error.message)+'</span></div>'}
+}
 document.getElementById("search").addEventListener("keydown",e=>{if(e.key==="Enter"){searchQuery=e.target.value.trim();active="pulse";render()}});document.getElementById("search").addEventListener("input",e=>{if(!e.target.value.trim()){searchQuery="";if(active==="pulse")render()}});
-document.getElementById("notify").onclick=async()=>{if(!currentUser){openAuth();return}const button=document.getElementById("notify");button.disabled=true;try{const data=await apiRequest("/v1/notifications?limit=30");const items=data.items||[];const lines=items.map(n=>{const actor=n.actor?.displayName||n.actor?.username||"A member";const action=n.type==="reaction"?"liked your post":n.type==="comment"?"commented on your post":n.type==="follow"?"started following you":("activity: "+n.type);return (n.isRead?"":"• ")+actor+" "+action+" · "+new Date(n.createdAt).toLocaleString()});let message="Notifications · "+Number(data.unreadCount||0)+" unread\n\n"+(lines.length?lines.join("\n\n"):"You have no notifications.");if(Number(data.unreadCount||0)>0&&confirm(message+"\n\nMark all as read?")){await apiRequest("/v1/notifications/read-all",{method:"PATCH"});message="All notifications marked as read."}alert(message)}catch(error){alert(error.message)}finally{button.disabled=false}};
+document.getElementById("notify").onclick=()=>openNotificationCenter();
 document.getElementById("authButton").onclick=()=>currentUser?signOut():openAuth();document.getElementById("closeAuth").onclick=closeAuth;document.getElementById("authLayer").addEventListener("click",e=>{if(e.target.id==="authLayer")closeAuth()});document.getElementById("showRegister").onclick=()=>setAuthMode("register");document.getElementById("loginForm").onsubmit=async e=>{e.preventDefault();const form=e.currentTarget,button=document.getElementById("loginSubmit"),data=new FormData(form);button.disabled=true;setAuthError("");try{const registering=authMode==="register";const payload=registering?{displayName:String(data.get("displayName")||"").trim(),username:String(data.get("username")||"").trim(),email:String(data.get("email")||"").trim(),password:String(data.get("registerPassword")||"")}:{login:String(data.get("login")||"").trim(),password:String(data.get("password")||"")};const response=await fetch(API_BASE+(registering?"/v1/auth/register":"/v1/auth/login"),{method:"POST",headers:{"content-type":"application/json",accept:"application/json"},body:JSON.stringify(payload),cache:"no-store"});const result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.message||result.error||(registering?"Registration failed.":"Login failed. Check your details."));if(!validAccessToken(result.accessToken))throw new Error("Server tidak memulangkan token sesi yang sah.");await saveToken(result.accessToken);currentUser={...result.user};saveAuthDiagnostic({stage:"login_saved",tokenCookiePresent:!!readTokenCookie(),tokenLocalStoragePresent:(()=>{try{return !!localStorage.getItem(TOKEN_KEY)}catch{return false}})(),rememberedUserPresent:true});try{localStorage.setItem(USER_KEY,JSON.stringify(currentUser))}catch(storageError){console.warn("Remembered user profile unavailable:",storageError)}try{if(!registering&&document.getElementById("rememberLogin")?.checked)localStorage.setItem("gomogie-remembered-login",payload.login);else if(!registering)localStorage.removeItem("gomogie-remembered-login")}catch(storageError){console.warn("Remembered username unavailable:",storageError)}await restoreSession();closeAuth();render()}catch(error){setAuthError(error.message)}finally{button.disabled=false}};
 try{const rememberedLogin=localStorage.getItem("gomogie-remembered-login");const loginInput=document.querySelector("#loginFields input[name=login]");if(rememberedLogin&&loginInput)loginInput.value=rememberedLogin}catch(storageError){console.warn("Remembered username unavailable:",storageError)}
 const refreshIndicator=document.getElementById("refreshIndicator"),refreshLabel=document.getElementById("refreshLabel");

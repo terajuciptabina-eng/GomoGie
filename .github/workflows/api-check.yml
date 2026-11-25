@@ -1,0 +1,33 @@
+name: API checks
+
+on:
+  push:
+    branches: [main, "feat/**"]
+    paths:
+      - "backend/**"
+      - ".github/workflows/api-check.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/api-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm install --package-lock-only --ignore-scripts --no-audit
+      - run: npm ci --ignore-scripts --no-audit
+      - run: npm run check
+      - run: npm test

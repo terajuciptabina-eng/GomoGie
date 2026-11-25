@@ -46,7 +46,7 @@ await app.register(cors, {
 await app.register(jwt, { secret: env.JWT_SECRET, sign: { expiresIn: env.JWT_TTL || '15m' } });
 await app.register(rateLimit, { max: 120, timeWindow: '1 minute' });
 
-const uploadEnabled = Boolean(env.R2_ACCOUNT_ID && env.R2_ACCESS_KEY_ID && env.R2_SECRET_ACCESS_KEY && env.R2_BUCKET && env.R2_PUBLIC_BASE_URL);
+const uploadEnabled = Boolean(env.R2_ACCOUNT_ID && env.R2_ACCESS_KEY_ID && env.R2_SECRET_ACCESS_KEY && env.R2_BUCKET);
 const s3 = uploadEnabled ? new S3Client({
   region: 'auto',
   endpoint: `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
@@ -160,28 +160,36 @@ app.get('/v1/auth/me', { preHandler: authenticate }, async (request, reply) => {
 
 app.get('/v1/feed', async (request) => {
   const limit = Math.min(Math.max(Number(request.query.limit || 20), 1), 50);
-  const cursor = request.query.before || null;
+  let cursor = null;
+  if (request.query.before) {
+    try {
+      const decoded = Buffer.from(request.query.before, 'base64url').toString('utf8');
+      const [createdAt, id] = decoded.split('|');
+      if (!createdAt || !z.string().uuid().safeParse(id).success || Number.isNaN(Date.parse(createdAt))) throw new Error('invalid cursor');
+      cursor = { createdAt: new Date(createdAt).toISOString(), id };
+    } catch { return { error: 'invalid_cursor' }; }
+  }
   const result = await pool.query(
     `SELECT p.id,p.body,p.created_at,p.author_id,pr.handle,pr.display_name,
        (SELECT count(*)::int FROM reactions r WHERE r.post_id=p.id) AS reaction_count,
        (SELECT count(*)::int FROM comments c WHERE c.post_id=p.id AND c.status='published') AS comment_count
      FROM posts p JOIN profiles pr ON pr.user_id=p.author_id
      WHERE p.status='published' AND p.visibility='public'
-       AND ($1::timestamptz IS NULL OR p.created_at < $1::timestamptz)
-     ORDER BY p.created_at DESC,p.id DESC LIMIT $2`,
-    [cursor, limit]
+       AND ($1::timestamptz IS NULL OR (p.created_at,p.id) < ($1::timestamptz,$2::uuid))
+     ORDER BY p.created_at DESC,p.id DESC LIMIT $3`,
+    [cursor?.createdAt || null, cursor?.id || null, limit]
   );
   return { items: result.rows.map(row => ({
     id: row.id, body: row.body, createdAt: row.created_at,
     author: { id: row.author_id, handle: row.handle, displayName: row.display_name },
     reactionCount: row.reaction_count, commentCount: row.comment_count
-  })), nextCursor: result.rows.length ? result.rows[result.rows.length - 1].created_at : null };
+  })), nextCursor: result.rows.length ? Buffer.from(`${result.rows[result.rows.length - 1].created_at.toISOString()}|${result.rows[result.rows.length - 1].id}`).toString('base64url') : null };
 });
 
 app.post('/v1/posts', { preHandler: authenticate }, async (request, reply) => {
   const input = z.object({
     body: z.string().trim().min(1).max(5000),
-    visibility: z.enum(['public','followers']).default('public')
+    visibility: z.enum(['public']).default('public')
   }).parse(request.body);
   const result = await pool.query(
     'INSERT INTO posts(author_id,body,visibility) VALUES($1,$2,$3) RETURNING id,body,visibility,created_at',
@@ -195,7 +203,7 @@ app.post('/v1/posts/:postId/reactions', { preHandler: authenticate }, async (req
   const input = z.object({ type: z.enum(['like','love','care','haha','wow','sad','angry']).default('like') }).parse(request.body || {});
   const result = await pool.query(
     `INSERT INTO reactions(user_id,post_id,reaction_type)
-     SELECT $1,p.id,$3 FROM posts p WHERE p.id=$2 AND p.status='published'
+     SELECT $1,p.id,$3 FROM posts p WHERE p.id=$2 AND p.status='published' AND p.visibility='public'
      ON CONFLICT(user_id,post_id) DO UPDATE SET reaction_type=EXCLUDED.reaction_type
      RETURNING post_id,reaction_type`,
     [request.user.sub, postId, input.type]
@@ -215,7 +223,7 @@ app.post('/v1/posts/:postId/comments', { preHandler: authenticate }, async (requ
   const input = z.object({ body: z.string().trim().min(1).max(2000) }).parse(request.body);
   const result = await pool.query(
     `INSERT INTO comments(post_id,author_id,body)
-     SELECT id,$2,$3 FROM posts WHERE id=$1 AND status='published'
+     SELECT id,$2,$3 FROM posts WHERE id=$1 AND status='published' AND visibility='public'
      RETURNING id,post_id,body,created_at`,
     [postId, request.user.sub, input.body]
   );
@@ -274,7 +282,7 @@ app.post('/v1/media/uploads', { preHandler: authenticate }, async (request, repl
   const uploadUrl = await getSignedUrl(s3, command, { expiresIn });
   return reply.code(201).send({
     uploadId: id, uploadUrl, method: 'PUT',
-    headers: { 'Content-Type': input.contentType },
+    headers: { 'Content-Type': input.contentType, 'x-amz-meta-owner': request.user.sub, 'x-amz-meta-intent': id },
     maxBytes, expiresAt
   });
 });
@@ -305,7 +313,7 @@ app.post('/v1/media/uploads/:uploadId/complete', { preHandler: authenticate }, a
     await client.query('UPDATE media_upload_intents SET status=$1 WHERE id=$2', ['completed', uploadId]);
     await client.query('COMMIT');
     return reply.code(201).send({
-      media: { ...asset.rows[0], url: `${env.R2_PUBLIC_BASE_URL.replace(/\/$/, '')}/${intent.object_key}` },
+      media: { ...asset.rows[0], status: 'quarantined' },
       notice: 'Fail disahkan pada peringkat metadata. Imbasan malware dan transkod video masih perlu diaktifkan sebelum penerbitan awam.'
     });
   } catch (error) {

@@ -159,7 +159,7 @@ async function route(request, env) {
   }
 
   const publicCommentsRead = method === "GET" && /^\/v1\/posts\/[0-9a-f-]+\/comments$/i.test(path);
-  const needsAuth = path === "/v1/auth/me" || (path.startsWith("/v1/posts") && !publicCommentsRead) || path.startsWith("/v1/users/") || path.startsWith("/v1/notifications");
+  const needsAuth = path === "/v1/auth/me" || (path.startsWith("/v1/posts") && !publicCommentsRead) || path.startsWith("/v1/users/") || path.startsWith("/v1/notifications") || path.startsWith("/v1/conversations");
   const auth = needsAuth ? await authenticate(request, env) : null;
   if (needsAuth && !auth) return json({ error: "unauthorized", message: "Sila log masuk semula." }, 401);
 
@@ -314,6 +314,87 @@ async function route(request, env) {
     await env.DB.prepare("DELETE FROM follows WHERE follower_id=? AND following_id=(SELECT id FROM users WHERE username=? COLLATE NOCASE)")
       .bind(auth.sub, followMatch[1]).run();
     return new Response(null, { status: 204 });
+  }
+
+
+  if (path === "/v1/conversations" && method === "GET") {
+    const rows = await env.DB.prepare(
+      "SELECT c.id,c.type,c.title,c.created_at,other.user_id AS other_id,u.username,p.display_name,p.avatar_url," +
+      "(SELECT m.content FROM messages m WHERE m.conversation_id=c.id ORDER BY m.created_at DESC LIMIT 1) AS last_message," +
+      "(SELECT m.created_at FROM messages m WHERE m.conversation_id=c.id ORDER BY m.created_at DESC LIMIT 1) AS last_message_at," +
+      "(SELECT COUNT(*) FROM messages m WHERE m.conversation_id=c.id AND m.sender_id<>? AND m.created_at>COALESCE(mine.last_read_at,'1970-01-01T00:00:00.000Z')) AS unread_count " +
+      "FROM conversations c JOIN conversation_members mine ON mine.conversation_id=c.id AND mine.user_id=? " +
+      "JOIN conversation_members other ON other.conversation_id=c.id AND other.user_id<>? " +
+      "LEFT JOIN users u ON u.id=other.user_id LEFT JOIN profiles p ON p.user_id=other.user_id " +
+      "WHERE c.type='direct' ORDER BY COALESCE(last_message_at,c.created_at) DESC LIMIT 100"
+    ).bind(auth.sub, auth.sub, auth.sub).all();
+    return json({ items: (rows.results || []).map(row => ({
+      id: row.id, type: row.type, title: row.title,
+      createdAt: row.created_at, lastMessage: row.last_message || "",
+      lastMessageAt: row.last_message_at || row.created_at,
+      unreadCount: Number(row.unread_count || 0),
+      participant: { id: row.other_id, username: row.username, displayName: row.display_name || row.username, avatarUrl: row.avatar_url }
+    })) });
+  }
+
+  if (path === "/v1/conversations" && method === "POST") {
+    const input = await readJson(request);
+    if (!input || !text(input.username, 24) || !/^[a-zA-Z0-9_]{3,24}$/.test(input.username.trim())) {
+      return json({ error: "validation_error", message: "Username penerima tidak sah." }, 400);
+    }
+    const recipient = await env.DB.prepare(
+      "SELECT id,username FROM users WHERE username=? COLLATE NOCASE AND status='active'"
+    ).bind(input.username.trim()).first();
+    if (!recipient) return json({ error: "user_not_found", message: "Pengguna tidak ditemui." }, 404);
+    if (recipient.id === auth.sub) return json({ error: "cannot_message_self", message: "Anda tidak boleh memulakan perbualan dengan akaun sendiri." }, 400);
+    let existing = await env.DB.prepare(
+      "SELECT c.id FROM conversations c " +
+      "JOIN conversation_members mine ON mine.conversation_id=c.id AND mine.user_id=? " +
+      "JOIN conversation_members other ON other.conversation_id=c.id AND other.user_id=? " +
+      "WHERE c.type='direct' AND (SELECT COUNT(*) FROM conversation_members all_members WHERE all_members.conversation_id=c.id)=2 LIMIT 1"
+    ).bind(auth.sub, recipient.id).first();
+    if (existing) return json({ conversation: { id: existing.id }, created: false });
+    const id = uuid(), now = new Date().toISOString();
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO conversations (id,type,title,created_by,created_at) VALUES (?,'direct',NULL,?,?)").bind(id, auth.sub, now),
+      env.DB.prepare("INSERT INTO conversation_members (conversation_id,user_id,joined_at,last_read_at) VALUES (?,?,?,?)").bind(id, auth.sub, now, now),
+      env.DB.prepare("INSERT INTO conversation_members (conversation_id,user_id,joined_at,last_read_at) VALUES (?,?,?,NULL)").bind(id, recipient.id, now)
+    ]);
+    return json({ conversation: { id }, created: true }, 201);
+  }
+
+  const conversationMessagesMatch = path.match(/^\/v1\/conversations\/([0-9a-f-]+)\/messages$/i);
+  if (conversationMessagesMatch) {
+    const conversationId = conversationMessagesMatch[1];
+    const membership = await env.DB.prepare(
+      "SELECT conversation_id FROM conversation_members WHERE conversation_id=? AND user_id=?"
+    ).bind(conversationId, auth.sub).first();
+    if (!membership) return json({ error: "conversation_not_found" }, 404);
+    if (method === "GET") {
+      const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit") || 50)));
+      const rows = await env.DB.prepare(
+        "SELECT m.id,m.conversation_id,m.sender_id,m.content,m.media_id,m.status,m.created_at,m.edited_at,u.username,p.display_name,p.avatar_url " +
+        "FROM messages m JOIN users u ON u.id=m.sender_id LEFT JOIN profiles p ON p.user_id=m.sender_id " +
+        "WHERE m.conversation_id=? ORDER BY m.created_at DESC LIMIT ?"
+      ).bind(conversationId, limit).all();
+      const now = new Date().toISOString();
+      await env.DB.prepare("UPDATE conversation_members SET last_read_at=? WHERE conversation_id=? AND user_id=?").bind(now, conversationId, auth.sub).run();
+      return json({ items: (rows.results || []).reverse().map(row => ({
+        id: row.id, conversationId: row.conversation_id, senderId: row.sender_id,
+        content: row.content, mediaId: row.media_id, status: row.status,
+        createdAt: row.created_at, editedAt: row.edited_at,
+        sender: { username: row.username, displayName: row.display_name || row.username, avatarUrl: row.avatar_url }
+      })) });
+    }
+    if (method === "POST") {
+      const input = await readJson(request);
+      if (!input || !text(input.content, 4000)) return json({ error: "validation_error", message: "Mesej diperlukan (maksimum 4,000 aksara)." }, 400);
+      const id = uuid(), now = new Date().toISOString();
+      await env.DB.prepare(
+        "INSERT INTO messages (id,conversation_id,sender_id,content,media_id,status,created_at,edited_at) VALUES (?,?,?,?,NULL,'sent',?,NULL)"
+      ).bind(id, conversationId, auth.sub, input.content.trim(), now).run();
+      return json({ message: { id, conversationId, senderId: auth.sub, content: input.content.trim(), mediaId: null, status: "sent", createdAt: now } }, 201);
+    }
   }
 
   return json({ error: "not_found" }, 404);

@@ -155,6 +155,30 @@ async function fetchNewsOgImage(articleUrl){
   }catch{}
   return "";
 }
+async function fetchNewsArticleContent(articleUrl){
+ try{
+  const target=new URL(articleUrl);
+  if(!["http:","https:"].includes(target.protocol))return null;
+  const response=await fetch(target.href,{headers:{accept:"text/html,application/xhtml+xml;q=0.9","user-agent":"Mozilla/5.0 (compatible; GomoGieNews/1.1)"},signal:AbortSignal.timeout(8000)});
+  if(!response.ok||!/html|xhtml/i.test(response.headers.get("content-type")||""))return null;
+  const reader=response.body?.getReader();if(!reader)return null;
+  const chunks=[];let total=0;
+  while(total<500000){const part=await reader.read();if(part.done)break;const chunk=part.value.slice(0,500000-total);chunks.push(chunk);total+=chunk.length;if(chunk.length<part.value.length)break}
+  try{await reader.cancel()}catch{}
+  const bytes=new Uint8Array(total);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length}
+  const html=new TextDecoder().decode(bytes);
+  const meta=(key)=>{const tags=html.match(/<meta\\b[^>]*>/gi)||[];for(const tag of tags){const name=tag.match(/(?:name|property)\\s*=\\s*["']([^"']+)["']/i)?.[1]?.toLowerCase(),content=tag.match(/content\\s*=\\s*["']([^"']*)["']/i)?.[1]||"";if(name===key.toLowerCase()&&content)return decodeNewsXml(content)}return""};
+  const description=meta("og:description")||meta("description")||meta("twitter:description");
+  const article=html.match(/<article\\b[^>]*>([\\s\\S]*?)<\\/article>/i)?.[1]||html.match(/<main\\b[^>]*>([\\s\\S]*?)<\\/main>/i)?.[1]||html;
+  const clean=article.replace(/<(script|style|nav|footer|header|aside|form|noscript|svg)\\b[^>]*>[\\s\\S]*?<\\/\\1>/gi," ").replace(/<(?:div|section|ul|ol|figure|figcaption|h[1-6])\\b[^>]*>/gi," ").replace(/<\\/(?:div|section|ul|ol|figure|figcaption|h[1-6])\\s*>/gi," ");
+  const paragraphs=[...clean.matchAll(/<p\\b[^>]*>([\\s\\S]*?)<\\/p>/gi)].map(m=>decodeNewsXml(m[1])).filter(p=>p.length>45&&!/^(share|read more|related|subscribe|advertisement|iklan|berita berkaitan|baca juga)\\b/i.test(p));
+  const unique=[...new Set(paragraphs)];
+  let body=unique.join("\\n\\n").slice(0,6000);
+  if(body.length<180){const text=decodeNewsXml(clean);if(text.length>body.length)body=text.slice(0,6000)}
+  if(body.length<160)return description?{summary:description.slice(0,700),body:""}:null;
+  return{summary:(description||body).slice(0,700),body};
+ }catch{return null}
+}
 async function syncNewsFeeds(env){const now=new Date().toISOString();let inserted=0,checked=0,errors=0;for(const feed of NEWS_FEEDS){try{const source=await env.DB.prepare("SELECT active FROM gomogie_news_sources WHERE id=?").bind(feed.id).first();if(!source||!source.active)continue;const res=await fetch(feed.url,{headers:{accept:"application/rss+xml, application/xml, text/xml;q=0.9"},signal:AbortSignal.timeout(10000)});if(!res.ok)throw new Error("RSS HTTP "+res.status);const xml=(await res.text()).slice(0,1500000);const blocks=[...xml.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)].map(x=>x[1]);for(const block of blocks.slice(0,40)){const title=newsTag(block,"title").slice(0,240),link=newsTag(block,"link"),guid=newsTag(block,"guid"),mediaUrl=newsImageFromRss(block,link),bodyText=(newsTag(block,"content:encoded")||newsTag(block,"description")).slice(0,6000),summary=bodyText.slice(0,700),dateRaw=newsTag(block,"pubDate")||newsTag(block,"dc:date");if(!title||!link||!/^https?:\/\//i.test(link))continue;const canonical=new URL(link);["utm_source","utm_medium","utm_campaign","utm_content","utm_term","fbclid","gclid"].forEach(k=>canonical.searchParams.delete(k));canonical.hash="";const parsed=Date.parse(dateRaw),published=Number.isFinite(parsed)?new Date(parsed).toISOString():now;if(Date.now()-Date.parse(published)>72*3600000)continue;const result=await env.DB.prepare("INSERT INTO gomogie_news_items (id,source_id,external_id,title,summary,body_text,image_url,canonical_url,category,region_code,published_at,fetched_at,status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?, 'published') ON CONFLICT(canonical_url) DO UPDATE SET summary=CASE WHEN length(excluded.summary)>length(gomogie_news_items.summary) THEN excluded.summary ELSE gomogie_news_items.summary END,body_text=CASE WHEN length(excluded.body_text)>length(COALESCE(gomogie_news_items.body_text,'')) THEN excluded.body_text ELSE gomogie_news_items.body_text END,image_url=COALESCE(NULLIF(excluded.image_url,''),gomogie_news_items.image_url),fetched_at=excluded.fetched_at").bind(uuid(),feed.id,guid||canonical.href,title,summary,bodyText,(mediaUrl?new URL(mediaUrl,canonical).href:''),canonical.href,newsCategory(title,summary),newsRegion(title,summary),published,now).run();inserted+=Number(result.meta?.changes||0);checked++}await env.DB.prepare("UPDATE gomogie_news_sources SET last_checked_at=?,last_error=NULL WHERE id=?").bind(now,feed.id).run()}catch(error){errors++;await env.DB.prepare("UPDATE gomogie_news_sources SET last_checked_at=?,last_error=? WHERE id=?").bind(now,String(error.message||error).slice(0,300),feed.id).run().catch(()=>{})}}await env.DB.prepare("UPDATE gomogie_news_items SET status='archived' WHERE status='published' AND julianday(published_at)<julianday('now','-72 hours')").run();await env.DB.prepare("DELETE FROM gomogie_news_items WHERE julianday(published_at)<julianday('now','-30 days')").run();return{inserted,checked,errors,at:now}}
 
 
@@ -504,8 +528,13 @@ async function route(request, env) {
         rows=await readItems();
       }
     }
-    const missingImages=(rows.results||[]).filter(item=>!item.image_url&&item.canonical_url).slice(0,20);
-    await Promise.all(missingImages.map(async item=>{const image=await fetchNewsOgImage(item.canonical_url);if(image){item.image_url=image;await env.DB.prepare("UPDATE gomogie_news_items SET image_url=? WHERE id=? AND (image_url IS NULL OR image_url='')").bind(image,item.id).run()}}));
+    const currentItems=(rows.results||[]);
+    const missingImages=currentItems.filter(item=>!item.image_url&&item.canonical_url).slice(0,12);
+    const needArticle=currentItems.filter(item=>item.canonical_url&&(!item.body_text||String(item.body_text).trim().length<180||String(item.body_text).trim()===String(item.summary||"").trim())).slice(0,8);
+    await Promise.all([
+      ...missingImages.map(async item=>{const image=await fetchNewsOgImage(item.canonical_url);if(image){item.image_url=image;await env.DB.prepare("UPDATE gomogie_news_items SET image_url=? WHERE id=? AND (image_url IS NULL OR image_url='')").bind(image,item.id).run()}}),
+      ...needArticle.map(async item=>{const article=await fetchNewsArticleContent(item.canonical_url);if(article){if(article.body)item.body_text=article.body;if(!item.summary||String(item.summary).trim()===String(item.body_text||"").trim())item.summary=article.summary||String(article.body||"").slice(0,700);await env.DB.prepare("UPDATE gomogie_news_items SET summary=CASE WHEN ?<>'' THEN ? ELSE summary END,body_text=CASE WHEN ?<>'' THEN ? ELSE body_text END WHERE id=?").bind(article.summary||"",article.summary||"",article.body||"",article.body||"",item.id).run()}})
+    ]);
     const source=await env.DB.prepare("SELECT name,last_checked_at,last_error FROM gomogie_news_sources WHERE id='bernama-en'").first();
     return json({mode,region,interests,refreshed,sourceStatus:{name:source?.name||"BERNAMA",lastCheckedAt:source?.last_checked_at||null,lastError:source?.last_error||null},items:(rows.results||[]).map(x=>({...x,title:decodeNewsXml(x.title).replace(/Â/g,""),summary:decodeNewsXml(x.summary).replace(/Â/g,""),body_text:decodeNewsXml(x.body_text).replace(/Â/g,""),trendScore:Number(x.trend_score||0)}))});
   }

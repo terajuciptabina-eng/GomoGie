@@ -134,7 +134,19 @@ const NEWS_FEEDS=[
 {id:"reddit-popular",name:"Reddit Popular",url:"https://www.reddit.com/r/popular/.rss",language:"en",contentType:"article"},
 {id:"reddit-videos",name:"Reddit Videos",url:"https://www.reddit.com/r/videos/.rss",language:"en",contentType:"video"},
 {id:"reddit-malaysia",name:"Reddit Malaysia",url:"https://www.reddit.com/r/malaysia/.rss",language:"en",contentType:"article"},
-{id:"hackernews-top",name:"Hacker News",url:"https://news.ycombinator.com/rss",language:"en",contentType:"article"}
+{id:"hackernews-top",name:"Hacker News",url:"https://news.ycombinator.com/rss",language:"en",contentType:"article"},
+{id:"bbc-world",name:"BBC News World",url:"https://feeds.bbci.co.uk/news/world/rss.xml",language:"en",contentType:"article"},
+{id:"bbc-top",name:"BBC News",url:"https://feeds.bbci.co.uk/news/rss.xml",language:"en",contentType:"article"},
+{id:"bbc-tech",name:"BBC Technology",url:"https://feeds.bbci.co.uk/news/technology/rss.xml",language:"en",contentType:"article"},
+{id:"bbc-sport",name:"BBC Sport",url:"https://feeds.bbci.co.uk/sport/rss.xml",language:"en",contentType:"article"},
+{id:"guardian-world",name:"The Guardian World",url:"https://www.theguardian.com/world/rss",language:"en",contentType:"article"},
+{id:"aljazeera-en",name:"Al Jazeera English",url:"https://www.aljazeera.com/xml/rss/all.xml",language:"en",contentType:"article"},
+{id:"npr-news",name:"NPR News",url:"https://feeds.npr.org/1001/rss.xml",language:"en",contentType:"article"},
+{id:"theverge-tech",name:"The Verge",url:"https://www.theverge.com/rss/index.xml",language:"en",contentType:"article"},
+{id:"techcrunch",name:"TechCrunch",url:"https://techcrunch.com/feed/",language:"en",contentType:"article"},
+{id:"wired-tech",name:"WIRED",url:"https://www.wired.com/feed/rss",language:"en",contentType:"article"},
+{id:"sciencedaily",name:"ScienceDaily",url:"https://www.sciencedaily.com/rss/all.xml",language:"en",contentType:"article"},
+{id:"ign-gaming",name:"IGN",url:"https://www.ign.com/rss/articles/feed",language:"en",contentType:"article"}
 ];
 function decodeNewsXml(v){let s=String(v||"").replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,"$1");const entities=()=>s.replace(/&amp;/gi,"&").replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").replace(/&lt;/gi,"<").replace(/&gt;/gi,">").replace(/&#(\d+);/g,(_,n)=>String.fromCodePoint(Number(n))).replace(/&#x([\da-f]+);/gi,(_,n)=>String.fromCodePoint(parseInt(n,16)));s=entities();s=s.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi," ").replace(/<br\s*\/?\s*>|<\/(p|div|li|h[1-6])\s*>/gi," ").replace(/<[^>]*>/g," ");s=entities().replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim();return s.replace(/Â/g,"").replace(/â€™/g,"'").replace(/â€œ|â€/g,'"').replace(/â€“|â€”/g,"-")}
 function newsTag(block,name){const m=block.match(new RegExp("<"+name+"(?:\\s[^>]*)?>([\\s\\S]*?)</"+name+">","i"));return m?decodeNewsXml(m[1]):""}
@@ -315,14 +327,19 @@ async function route(request, env) {
   }
   if (path === "/v1/news/status" && method === "GET") {
     try {
-      const [sources, counts] = await Promise.all([
+      const [sources, counts, bySource] = await Promise.all([
         env.DB.prepare("SELECT id,name,active,last_checked_at,last_error FROM gomogie_news_sources ORDER BY name,id").all(),
-        env.DB.prepare("SELECT status,content_type,COUNT(*) AS total FROM gomogie_news_items GROUP BY status,content_type").all()
+        env.DB.prepare("SELECT status,content_type,COUNT(*) AS total FROM gomogie_news_items GROUP BY status,content_type").all(),
+        env.DB.prepare("SELECT s.id,s.name,COUNT(CASE WHEN n.status='published' THEN 1 END) AS published_count,MAX(n.published_at) AS latest_published_at,(SELECT title FROM gomogie_news_items x WHERE x.source_id=s.id AND x.status='published' ORDER BY x.published_at DESC LIMIT 1) AS latest_title FROM gomogie_news_sources s LEFT JOIN gomogie_news_items n ON n.source_id=s.id GROUP BY s.id,s.name ORDER BY published_count DESC,s.name").all()
       ]);
+      const sourceState = new Map((bySource.results || []).map(row => [row.id, row]));
       return json({
         checkedAt: new Date().toISOString(),
         schedule: "*/15 * * * *",
-        sources: (sources.results || []).map(row => ({ id: row.id, name: row.name, active: Boolean(row.active), lastCheckedAt: row.last_checked_at, lastError: row.last_error })),
+        sources: (sources.results || []).map(row => {
+          const stats = sourceState.get(row.id) || {};
+          return { id: row.id, name: row.name, active: Boolean(row.active), lastCheckedAt: row.last_checked_at, lastError: row.last_error, publishedCount: Number(stats.published_count || 0), latestPublishedAt: stats.latest_published_at || null, latestTitle: stats.latest_title || null };
+        }),
         counts: counts.results || []
       });
     } catch (error) {

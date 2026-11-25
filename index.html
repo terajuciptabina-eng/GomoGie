@@ -118,6 +118,7 @@ function connect(){
  loadConversations();
 }
 function studio(){const mine=currentUser?posts.filter(p=>p.authorId===currentUser.id):[];view.innerHTML='<h2 class="section-title">Studio</h2><section class="panel"><h3>Creator Studio</h3><p>Only verified live data is shown here. Reach, views and engagement analytics will appear when those metrics are supported by the API.</p><div class="directory"><div class="person-card"><strong>'+mine.length+'</strong><small>Loaded posts</small></div></div></section>'}
+function discoverProfiles(){const people=accounts.filter(a=>a&&a.id);view.innerHTML='<h2 class="section-title">Discover members</h2>'+(people.length?'<div class="directory">'+people.map(a=>'<button class="person-card" data-open-profile="'+esc(a.id)+'"><img class="avatar" src="'+esc(a.avatarUrl||"") +'" alt=""><strong>'+esc(a.displayName||a.handle||"GomoGie member")+'</strong><small>@'+esc(a.handle||"member")+'</small></button>').join("")+'</div>':'<div class="empty">No live member profiles are available yet.</div>')}
 function profile(){
  const a=accounts.find(x=>x.id===selectedProfileId)||(currentUser&&accounts.find(x=>x.id===currentUser.id));if(!a){view.innerHTML='<div class="empty">No live member profile is available yet. Publish a post or open a member profile from the live feed.</div>';return}
  const mine=!!currentUser&&a.id===currentUser.id,ownPosts=posts.filter(p=>p.authorId===a.id),shown=profileTab==="reels"?ownPosts.filter(p=>p.type==="video"):profileTab==="saved"?ownPosts.filter(p=>savedPosts.has(p.id)):ownPosts;

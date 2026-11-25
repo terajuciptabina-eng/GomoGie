@@ -197,7 +197,7 @@ async function route(request, env) {
     }
     const now = new Date().toISOString();
     await env.DB.prepare(
-      "UPDATE profiles SET display_name=?,bio=?,location=?,website=?,avatar_url=?,cover_url=?,updated_at=? WHERE user_id=?"
+      "UPDATE profiles SET display_name=?,bio=?,location=?,website=?,avatar_url=COALESCE(?,avatar_url),cover_url=COALESCE(?,cover_url),updated_at=? WHERE user_id=?"
     ).bind(input.displayName.trim(), fields.bio, fields.location, fields.website,
       fields.avatarUrl || null, fields.coverUrl || null, now, auth.sub).run();
     const row = await env.DB.prepare(

@@ -2,7 +2,7 @@
 
 ## Dataset disclosure
 
-The prototype includes 1,000 synthetic account records and 120 synthetic post records. Every account, handle, bio, caption, timestamp and engagement count is generated for demonstration. These are not real people, members, creators, customers or measured platform activity.
+The prototype includes 1,000 synthetic account records and 120 synthetic post records. The public interface discloses this once in a site-wide preview notice ("GomoGie preview · Sample profiles and activity") rather than attaching a visible synthetic label to each profile. Every account, handle, bio, caption, timestamp and engagement count is generated for demonstration. These are not real people, members, creators, customers or measured platform activity.
 
 Avatar URLs use a public placeholder-avatar service and are not evidence that the fictional account holder is a real person. They are prototype-only references and should be replaced with generated initials/illustrations or properly licensed and consented images before public production.
 
@@ -23,7 +23,7 @@ Unsplash is not selected as a bulk seed source for this project because its lice
 - Do not scrape Pexels/Unsplash or bypass their official access mechanisms. For production automation, review official APIs and their current terms first.
 - Keep provider/source-page metadata with each asset. Before public launch, conduct an asset-by-asset review and keep a licence/consent record.
 - Do not imply a person, creator, photographer or brand depicted in stock media uses or endorses GomoGie.
-- Synthetic profile identities must remain clearly labelled throughout the prototype.
+- The public prototype uses one site-wide notice stating that profiles and activity are sample preview content. Individual profile cards and posts should not carry intrusive DEMO/SYNTHETIC labels. Preserve `isSynthetic: true`, synthetic IDs and dataset provenance in the underlying fixtures and internal documentation; never represent these records as actual members or measured platform activity.
 - Do not treat the 1,000 fixture records as real user acquisition, active accounts or investor traction.
 
 ## Production replacement plan

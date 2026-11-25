@@ -168,13 +168,13 @@ async function route(request, env) {
     return json({ user: { id: user.id, email: user.email, username: user.username }, accessToken: await signToken(user, env), tokenType: "Bearer", expiresIn: 900 });
   }
 
-  const publicCommentsRead = method === "GET" && /^\\/v1\\/posts\\/[0-9a-f-]+\\/comments$/i.test(path);
-  const publicMediaRead = method === "GET" && /^\\/v1\\/media\\/[0-9a-f-]+$/i.test(path);
+  const publicCommentsRead = method === "GET" && /^\/v1\/posts\/[0-9a-f-]+\/comments$/i.test(path);
+  const publicMediaRead = method === "GET" && /^\/v1\/media\/[0-9a-f-]+$/i.test(path);
   const needsAuth = path === "/v1/auth/me" || (path.startsWith("/v1/posts") && !publicCommentsRead) || (path.startsWith("/v1/media") && !publicMediaRead) || path.startsWith("/v1/users/") || path.startsWith("/v1/notifications") || path.startsWith("/v1/conversations");
   const auth = needsAuth ? await authenticate(request, env) : null;
   if (needsAuth && !auth) return json({ error: "unauthorized", message: "Sila log masuk semula." }, 401);
 
-  const mediaReadMatch = path.match(/^\\/v1\\/media\\/([0-9a-f-]+)$/i);
+  const mediaReadMatch = path.match(/^\/v1\/media\/([0-9a-f-]+)$/i);
   if (mediaReadMatch && method === "GET") {
     if (!env.MEDIA_BUCKET) return json({ error: "media_storage_unavailable" }, 503);
     const asset = await env.DB.prepare("SELECT object_key,mime_type,size_bytes FROM gomogie_media_assets WHERE id=? AND status='ready'").bind(mediaReadMatch[1]).first();

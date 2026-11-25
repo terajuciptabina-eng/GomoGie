@@ -89,3 +89,13 @@ The current Worker source validates JWT structure and claims, checks that the ac
 - Do not expose this API to public registration until security review, abuse controls and account recovery are complete.
 
 A successful readiness response proves only that the Worker can query D1. It does not mean the whole social platform is production-ready.
+
+
+## Viral News
+
+- `GET /v1/news?mode=global` — global discovery feed.
+- `GET /v1/news?mode=for-you` — personalised region/interests feed for signed-in members; anonymous requests receive global stories.
+- `GET /v1/news/preferences` and `PUT /v1/news/preferences` — read/update member region and category interests.
+- Cloudflare Cron Trigger ingests the configured BERNAMA English RSS source every 15 minutes.
+- Additive D1 migration: `sql/0004_viral_news.sql`.
+- News cards are attributed and link to the publisher. The system stores only RSS headlines and short descriptions; it does not copy full articles or publisher images. Confirm publisher rights before public/commercial launch.

@@ -61,22 +61,36 @@ async function signToken(user, env) {
 
 async function authenticate(request, env) {
   const value = request.headers.get("Authorization") || "";
-  const match = value.match(/^Bearer\s+(.+)$/i);
+  const match = value.match(/^Bearer\\s+(.+)$/i);
   if (!match || !env.JWT_SECRET || env.JWT_SECRET.length < 32) return null;
   try {
-    const [head, body, signature] = match[1].split(".");
-    if (!head || !body || !signature) return null;
+    const parts = match[1].split(".");
+    if (parts.length !== 3 || parts.some(part => !part)) return null;
+    const [head, body, signature] = parts;
+    const header = JSON.parse(decoder.decode(fromB64url(head)));
+    if (header.alg !== "HS256" || header.typ !== "JWT") return null;
     const key = await crypto.subtle.importKey("raw", encoder.encode(env.JWT_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["verify"]);
     const valid = await crypto.subtle.verify("HMAC", key, fromB64url(signature), encoder.encode(head + "." + body));
     if (!valid) return null;
     const payload = JSON.parse(decoder.decode(fromB64url(body)));
-    if (!payload.sub || payload.exp <= Math.floor(Date.now() / 1000)) return null;
+    const now = Math.floor(Date.now() / 1000);
+    if (typeof payload.sub !== "string" || !payload.sub || !Number.isInteger(payload.exp) ||
+        !Number.isInteger(payload.iat) || payload.exp <= now || payload.iat > now + 60 ||
+        payload.exp - payload.iat > 900) return null;
+    const account = await env.DB.prepare("SELECT status FROM users WHERE id = ?").bind(payload.sub).first();
+    if (!account || account.status !== "active") return null;
     return payload;
   } catch { return null; }
 }
 
-async function readJson(request) {
-  try { return await request.json(); } catch { return null; }
+async function readJson(request, maxBytes = 65536) {
+  try {
+    const declaredLength = Number(request.headers.get("content-length") || 0);
+    if (declaredLength > maxBytes) return null;
+    const raw = await request.text();
+    if (encoder.encode(raw).byteLength > maxBytes) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
 }
 
 function uuid() { return crypto.randomUUID(); }
@@ -141,8 +155,8 @@ async function route(request, env) {
     return json({ user: { id: user.id, email: user.email, username: user.username }, accessToken: await signToken(user, env), tokenType: "Bearer", expiresIn: 900 });
   }
 
-  const auth = await authenticate(request, env);
   const needsAuth = path === "/v1/auth/me" || path.startsWith("/v1/posts") || path.startsWith("/v1/users/");
+  const auth = needsAuth ? await authenticate(request, env) : null;
   if (needsAuth && !auth) return json({ error: "unauthorized", message: "Sila log masuk semula." }, 401);
 
   if (path === "/v1/auth/me" && method === "GET") {
@@ -230,10 +244,19 @@ export default {
       const response = await route(request, env);
       const resultHeaders = new Headers(response.headers);
       for (const [key, value] of Object.entries(headers)) resultHeaders.set(key, value);
+      resultHeaders.set("x-content-type-options", "nosniff");
+      resultHeaders.set("referrer-policy", "no-referrer");
+      resultHeaders.set("x-frame-options", "DENY");
+      resultHeaders.set("permissions-policy", "camera=(), microphone=(), geolocation=()");
       return new Response(response.body, { status: response.status, statusText: response.statusText, headers: resultHeaders });
     } catch (error) {
       console.error("GomoGie API error", error);
-      return json({ error: "internal_error", message: "Ralat pelayan. Cuba lagi." }, 500, headers);
+      return json({ error: "internal_error", message: "Ralat pelayan. Cuba lagi." }, 500, {
+        ...headers,
+        "x-content-type-options": "nosniff",
+        "referrer-policy": "no-referrer",
+        "x-frame-options": "DENY"
+      });
     }
   }
 };

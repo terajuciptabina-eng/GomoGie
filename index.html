@@ -306,18 +306,28 @@ function watch(){
   const showPlay=()=>{play.style.display="grid";play.textContent=video.muted?"🔊":"▶"};
   const hidePlay=()=>{play.style.display="none"};
   play.onclick=()=>{if(video.muted){video.muted=false;video.defaultMuted=false;video.volume=1;watchAudioUnlocked=true;playVisible(video)}else if(video.paused)playVisible(video);else video.pause()};
+  video.dataset.fallbackAttempt="0";
+  video.dataset.fallbackTimer="0";
+  const tryBackup=reason=>{
+   const fallback=slide.dataset.fallbackMediaUrl;
+   if(!fallback||video.dataset.fallbackAttempt==="1"||fallback===video.currentSrc)return false;
+   video.dataset.fallbackAttempt="1";
+   setStatus(slide,reason+" · Switching to backup source…");
+   video.pause();video.src=fallback;video.load();
+   if(slide.dataset.active==="1")playVisible(video);
+   return true;
+  };
+  video.addEventListener("loadstart",()=>{if(video.dataset.fallbackTimer!=="0")clearTimeout(Number(video.dataset.fallbackTimer));video.dataset.fallbackTimer=String(setTimeout(()=>{if(video.readyState<2&&slide.dataset.active==="1")tryBackup("Video source timed out")},12000))});
   video.addEventListener("loadedmetadata",()=>setStatus(slide,"Video ready · Loading frames…"));
-  video.addEventListener("loadeddata",()=>{slide.classList.remove("video-source-error");const notice=slide.querySelector(".watch-video-error");if(notice)notice.remove();setStatus(slide,video.paused?"Ready to play":(watchAudioUnlocked?"Playing":"Playing · Tap speaker for sound"));});
+  video.addEventListener("loadeddata",()=>{if(video.dataset.fallbackTimer!=="0")clearTimeout(Number(video.dataset.fallbackTimer));video.dataset.fallbackTimer="0";slide.classList.remove("video-source-error");const notice=slide.querySelector(".watch-video-error");if(notice)notice.remove();setStatus(slide,video.paused?"Ready to play":(watchAudioUnlocked?"Playing":"Playing · Tap speaker for sound"));});
   video.addEventListener("canplay",()=>{setStatus(slide,"Video ready");if(slide.dataset.active==="1"&&video.paused)playVisible(video)});
   video.addEventListener("playing",()=>{hidePlay();setStatus(slide,watchAudioUnlocked?"Playing":"Playing · Tap speaker for sound")});
   video.addEventListener("waiting",()=>setStatus(slide,"Buffering video…"));
-  video.addEventListener("stalled",()=>setStatus(slide,"Connection stalled · Trying to load…"));
+  video.addEventListener("stalled",()=>{setStatus(slide,"Video source stalled · Checking backup…");tryBackup("Video source stalled")});
   video.addEventListener("pause",()=>{if(!video.ended)showPlay()});
   video.addEventListener("ended",()=>{showPlay();setStatus(slide,"Video ended");const next=slide.nextElementSibling;if(next)next.scrollIntoView({behavior:"smooth",block:"center"})});
-  video.dataset.fallbackAttempt="0";
   video.addEventListener("error",()=>{
-   const fallback=slide.dataset.fallbackMediaUrl;
-   if(fallback&&video.dataset.fallbackAttempt!=="1"&&fallback!==video.currentSrc){video.dataset.fallbackAttempt="1";setStatus(slide,"Primary source failed · Trying backup…");video.src=fallback;video.load();if(slide.dataset.active==="1")playVisible(video);return}
+   if(tryBackup("Primary video source failed"))return;
    showPlay();slide.classList.add("video-source-error");const e=video.error;const reason=e?({1:"Playback aborted",2:"Network error",3:"Video format or decoding error",4:"Video source unsupported"}[e.code]||"Unknown media error"):"Unknown media error";setStatus(slide,"Unable to play: "+reason);let notice=slide.querySelector(".watch-video-error");if(!notice){notice=document.createElement("div");notice.className="watch-video-error";notice.textContent="Unable to play this video ("+(e?"code "+e.code:"no media error code")+").";slide.appendChild(notice)}
   });
   video.addEventListener("volumechange",()=>{if(!video.muted&&video.volume>0){watchAudioUnlocked=true;setStatus(slide,"Sound on")}});

@@ -118,3 +118,38 @@ A first prototype is acceptable when the principal navigation areas are coherent
 - Fair-use limits and cost-control thresholds.
 - Sustainable monetisation approach that preserves free core access.
 - Domain and trademark clearance.
+
+
+## 11. Combined product inspirations and GomoGie capabilities
+
+GomoGie combines product ideas from five categories of social platforms while maintaining its own brand, interface, data model and implementation:
+
+- Facebook-inspired social networking: friend/follower graph, feed, groups/communities, pages and events.
+- Twitter/X-inspired public conversation: short posts, replies, reposts, quote posts, hashtags and trending topics.
+- Instagram-inspired visual sharing: photo posts, carousels, stories, creator profiles, saves and short-form video.
+- YouTube-inspired video platform: long-form video, channels, subscriptions/follows, playlists and live video.
+- TikTok-inspired discovery: vertical full-screen short-video feed, For You recommendations, Following feed, creator discovery and future remix/reply formats.
+
+These are functional inspirations, not permission to copy another platform's protected branding, source code, exact UI, trademarks or proprietary assets. GomoGie must develop its own interaction design and identity.
+
+## 12. Synthetic prototype population and public media
+
+- Prototype dataset target: 1,000 synthetic accounts and 120 synthetic posts.
+- All demo identities, handles, bios, counts, captions and activity are fictional and must carry clear demo labeling.
+- Synthetic accounts are not real registered users and must never be used to imply real traction, active membership or endorsements.
+- Public stock images/videos may be used for prototype media only after checking the relevant asset licence and third-party rights.
+- Store media source/provider and source-page references in the dataset. Prefer official provider embeds or permitted hosted URLs; do not scrape or mirror media.
+- Public profile-photo placeholders are for prototype display only. Replace or re-license them before production.
+- Never imply a person shown in stock media is a GomoGie user, employee, creator or endorser.
+- Production media must be user-uploaded with rights warranties, or sourced under a documented licence and consent process.
+
+## 13. Prototype acceptance criteria
+
+- The static prototype loads 1,000 synthetic account records and 120 synthetic post records from versioned JSON.
+- Navigation demonstrates Home, Pulse, Watch, Communities, Connect and Studio.
+- Home displays story-style profile circles, a post composer and a mixed feed.
+- Watch distinguishes For You and Following as separate product modes; recommendation logic in the prototype is illustrative only.
+- Like, follow, comment, share and composer interactions are explicitly simulated and do not persist to a backend.
+- Media failures must degrade gracefully to thumbnails or source links.
+- All prototype pages must identify synthetic data and avoid implying a production service is live.
+

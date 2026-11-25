@@ -174,6 +174,24 @@ async function route(request, env) {
   const auth = needsAuth ? await authenticate(request, env) : null;
   if (needsAuth && !auth) return json({ error: "unauthorized", message: "Sila log masuk semula." }, 401);
 
+  if (path === "/v1/auth/me" && method === "GET") {
+    const user = await env.DB.prepare("SELECT id,email,username FROM users WHERE id=? AND status='active'").bind(auth.sub).first();
+    if (!user) return json({ error: "unauthorized", message: "Akaun tidak aktif." }, 401);
+    const profile = await env.DB.prepare("SELECT display_name,bio,avatar_url,cover_url,website,location,is_private FROM profiles WHERE user_id=?").bind(auth.sub).first();
+    return json({
+      user,
+      profile: {
+        displayName: profile?.display_name || user.username,
+        bio: profile?.bio || "",
+        avatarUrl: profile?.avatar_url || "",
+        coverUrl: profile?.cover_url || "",
+        website: profile?.website || "",
+        location: profile?.location || "",
+        isPrivate: Boolean(profile?.is_private)
+      }
+    });
+  }
+
   if (path === "/v1/auth/remember" && method === "POST") {
     return json({ accessToken: await signToken(auth, env, 2592000), tokenType: "Bearer", expiresIn: 2592000 });
   }

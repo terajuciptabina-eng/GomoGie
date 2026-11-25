@@ -284,39 +284,51 @@ function watch(){
  const seenMedia=new Set();
  const vids=posts.filter(p=>p.type==="video"&&!p.isWatchDuplicate&&(watchMode==="for-you"||followed.has(p.authorId))&&p.mediaUrl&&!seenMedia.has(p.mediaUrl)&&seenMedia.add(p.mediaUrl));
  const safePoster="https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg?auto=compress&cs=tinysrgb&w=1200";
- view.innerHTML='<section class="watch-page"><div class="watch-top"><h2>Watch</h2><div class="watch-tabs"><button id="forYouTab" class="'+(watchMode==="for-you"?"selected":"")+'">For You</button><button id="followingTab" class="'+(watchMode==="following"?"selected":"")+'">Following</button></div></div>'+(vids.length?'<div class="watch-stream" id="watchStream">'+vids.map(p=>{const a=account(p.authorId)||{id:p.authorId,displayName:"GomoGie member"};return '<article class="watch-slide" data-video-id="'+esc(p.id)+'" data-fallback-media-url="'+esc(p.fallbackMediaUrl||"")+'"><video class="watch-video" autoplay muted playsinline webkit-playsinline controls preload="metadata" poster="'+esc(p.thumbnailUrl||safePoster)+'" src="'+esc(p.mediaUrl||"")+'" aria-label="Video by '+esc(a.displayName)+'"></video><button class="watch-play" aria-label="Unmute or pause video">🔊</button><div class="watch-shade"></div><div class="watch-caption"><strong>'+esc(a.displayName)+' </strong><p>'+esc(p.text)+'</p><small>Autoplay · Tap speaker to enable sound</small></div><div class="watch-actions"><button data-watch-like="'+esc(p.id)+'">♡<small>'+(Number(p.likes||0)+(liked.has(p.id)?1:0)).toLocaleString()+'</small></button><button data-watch-comment="'+esc(p.id)+'">◯<small>'+Number(p.comments||0)+'</small></button><button data-watch-share="'+esc(p.id)+'">↗<small>Share</small></button><button data-watch-save="'+esc(p.id)+'">⌑<small>Save</small></button><button data-watch-follow="'+esc(a.id)+'">'+(followed.has(a.id)?"✓":"＋")+'<small>'+(followed.has(a.id)?"Following":"Follow")+'</small></button></div></article>'}).join("")+'</div>':'<div class="empty">Your Following video feed is empty. Follow creators from Profile to see their videos here.</div>')+'</section>';
+ view.innerHTML='<section class="watch-page"><div class="watch-top"><h2>Watch</h2><div class="watch-tabs"><button id="forYouTab" class="'+(watchMode==="for-you"?"selected":"")+'">For You</button><button id="followingTab" class="'+(watchMode==="following"?"selected":"")+'">Following</button></div></div>'+(vids.length?'<div class="watch-stream" id="watchStream">'+vids.map(p=>{const a=account(p.authorId)||{id:p.authorId,displayName:"GomoGie member"};return '<article class="watch-slide" data-video-id="'+esc(p.id)+'" data-fallback-media-url="'+esc(p.fallbackMediaUrl||"")+'"><video class="watch-video" muted playsinline webkit-playsinline controls preload="auto" poster="'+esc(p.thumbnailUrl||safePoster)+'" src="'+esc(p.mediaUrl||"")+'" aria-label="Video by '+esc(a.displayName)+'"></video><button class="watch-play" aria-label="Play video and enable sound">▶</button><div class="watch-shade"></div><div class="watch-caption"><strong>'+esc(a.displayName)+' </strong><p>'+esc(p.text)+'</p><small class="watch-video-status" aria-live="polite">Loading video…</small></div><div class="watch-actions"><button data-watch-like="'+esc(p.id)+'">♡<small>'+(Number(p.likes||0)+(liked.has(p.id)?1:0)).toLocaleString()+'</small></button><button data-watch-comment="'+esc(p.id)+'">◯<small>'+Number(p.comments||0)+'</small></button><button data-watch-share="'+esc(p.id)+'">↗<small>Share</small></button><button data-watch-save="'+esc(p.id)+'">⌑<small>Save</small></button><button data-watch-follow="'+esc(a.id)+'">'+(followed.has(a.id)?"✓":"＋")+'<small>'+(followed.has(a.id)?"Following":"Follow")+'</small></button></div></article>'}).join("")+'</div>':'<div class="empty">Your Following video feed is empty. Follow creators from Profile to see their videos here.</div>')+'</section>';
  const fy=document.getElementById("forYouTab"),ft=document.getElementById("followingTab");
  if(fy)fy.onclick=()=>{watchMode="for-you";render()};
  if(ft)ft.onclick=()=>{watchMode="following";render()};
- document.querySelectorAll(".watch-slide").forEach(slide=>{
+ const stream=document.getElementById("watchStream");
+ const slides=[...document.querySelectorAll(".watch-slide")];
+ const setStatus=(slide,message)=>{const status=slide.querySelector(".watch-video-status");if(status)status.textContent=message};
+ const playVisible=video=>{
+  if(!video||video.ended)return;
+  const slide=video.closest(".watch-slide");
+  if(!slide)return;
+  document.querySelectorAll(".watch-video").forEach(other=>{if(other!==video&&!other.paused)other.pause()});
+  if(watchAudioUnlocked){video.muted=false;video.defaultMuted=false}else{video.muted=true;video.defaultMuted=true}
+  if(video.networkState===HTMLMediaElement.NETWORK_EMPTY)video.load();
+  const result=video.play();
+  if(result&&typeof result.then==="function")result.then(()=>{slide.querySelector(".watch-play").style.display="none";setStatus(slide,watchAudioUnlocked?"Playing":"Playing · Tap speaker for sound")}).catch(error=>{slide.querySelector(".watch-play").style.display="grid";setStatus(slide,error&&error.name==="NotAllowedError"?"Tap play to start video":"Waiting for video…")});
+ };
+ slides.forEach(slide=>{
   const video=slide.querySelector("video"),play=slide.querySelector(".watch-play");
   const showPlay=()=>{play.style.display="grid";play.textContent=video.muted?"🔊":"▶"};
   const hidePlay=()=>{play.style.display="none"};
-  const startPlayback=(withSound=false)=>{
-   if(withSound){video.muted=false;video.defaultMuted=false;video.volume=1;watchAudioUnlocked=true}
-   else if(!watchAudioUnlocked){video.muted=true;video.defaultMuted=true}
-   const result=video.play();
-   if(result&&typeof result.then==="function")result.then(hidePlay).catch(()=>{showPlay();slide.classList.add("video-playback-error")});
-  };
-  play.onclick=()=>{if(video.paused){startPlayback(true)}else if(video.muted){startPlayback(true);play.style.display="none"}else video.pause()};
-  video.addEventListener("play",hidePlay);
-  video.addEventListener("pause",showPlay);
-  video.addEventListener("ended",()=>{showPlay();video.pause();const next=slide.nextElementSibling;if(next){next.scrollIntoView({behavior:"smooth",block:"center"})}});
+  play.onclick=()=>{if(video.muted){video.muted=false;video.defaultMuted=false;video.volume=1;watchAudioUnlocked=true;playVisible(video)}else if(video.paused)playVisible(video);else video.pause()};
+  video.addEventListener("loadedmetadata",()=>setStatus(slide,"Video ready · Loading frames…"));
+  video.addEventListener("loadeddata",()=>{slide.classList.remove("video-source-error");const notice=slide.querySelector(".watch-video-error");if(notice)notice.remove();setStatus(slide,video.paused?"Ready to play":(watchAudioUnlocked?"Playing":"Playing · Tap speaker for sound"));});
+  video.addEventListener("canplay",()=>{setStatus(slide,"Video ready");if(slide.dataset.active==="1"&&video.paused)playVisible(video)});
+  video.addEventListener("playing",()=>{hidePlay();setStatus(slide,watchAudioUnlocked?"Playing":"Playing · Tap speaker for sound")});
+  video.addEventListener("waiting",()=>setStatus(slide,"Buffering video…"));
+  video.addEventListener("stalled",()=>setStatus(slide,"Connection stalled · Trying to load…"));
+  video.addEventListener("pause",()=>{if(!video.ended)showPlay()});
+  video.addEventListener("ended",()=>{showPlay();setStatus(slide,"Video ended");const next=slide.nextElementSibling;if(next)next.scrollIntoView({behavior:"smooth",block:"center"})});
   video.dataset.fallbackAttempt="0";
-  video.addEventListener("loadeddata",()=>{slide.classList.remove("video-source-error");const notice=slide.querySelector(".watch-video-error");if(notice)notice.remove();if(!video.paused)hidePlay()});
-  video.addEventListener("error",()=>{const fallback=slide.dataset.fallbackMediaUrl;if(fallback&&video.dataset.fallbackAttempt!=="1"){video.dataset.fallbackAttempt="1";video.src=fallback;video.load();startPlayback(false);return}showPlay();slide.classList.add("video-source-error");let notice=slide.querySelector(".watch-video-error");if(!notice){notice=document.createElement("div");notice.className="watch-video-error";const e=video.error;notice.textContent="Video load failed (code "+(e?e.code:"unknown")+"). Source: "+(video.currentSrc||"not selected");slide.appendChild(notice)}});
-  video.addEventListener("volumechange",()=>{if(!video.muted&&video.volume>0)watchAudioUnlocked=true;else if(video.muted)watchAudioUnlocked=false;if(video.paused)showPlay();else hidePlay()});
-  video.addEventListener("click",()=>{if(video.muted)startPlayback(true);else if(video.paused)startPlayback(false);else video.pause()});
+  video.addEventListener("error",()=>{
+   const fallback=slide.dataset.fallbackMediaUrl;
+   if(fallback&&video.dataset.fallbackAttempt!=="1"&&fallback!==video.currentSrc){video.dataset.fallbackAttempt="1";setStatus(slide,"Primary source failed · Trying backup…");video.src=fallback;video.load();if(slide.dataset.active==="1")playVisible(video);return}
+   showPlay();slide.classList.add("video-source-error");const e=video.error;const reason=e?({1:"Playback aborted",2:"Network error",3:"Video format or decoding error",4:"Video source unsupported"}[e.code]||"Unknown media error"):"Unknown media error";setStatus(slide,"Unable to play: "+reason);let notice=slide.querySelector(".watch-video-error");if(!notice){notice=document.createElement("div");notice.className="watch-video-error";notice.textContent="Unable to play this video ("+(e?"code "+e.code:"no media error code")+").";slide.appendChild(notice)}
+  });
+  video.addEventListener("volumechange",()=>{if(!video.muted&&video.volume>0){watchAudioUnlocked=true;setStatus(slide,"Sound on")}});
  });
  const observer=new IntersectionObserver(entries=>entries.forEach(entry=>{
-  const video=entry.target.querySelector("video"),play=entry.target.querySelector(".watch-play");
-  if(entry.isIntersecting&&entry.intersectionRatio>=0.55){
-   document.querySelectorAll(".watch-video").forEach(other=>{if(other!==video&&!other.paused)other.pause()});
-   if(watchAudioUnlocked){video.muted=false;video.defaultMuted=false}else{video.muted=true;video.defaultMuted=true}
-   const result=video.play();if(result&&typeof result.then==="function")result.then(()=>play.style.display="none").catch(()=>{play.style.display="grid"});
-  }else{if(!video.paused)video.pause();play.style.display="grid"}
- }),{threshold:[0,0.35,0.55,0.75,1]});
- document.querySelectorAll(".watch-slide").forEach(slide=>observer.observe(slide));
+  const slide=entry.target,video=slide.querySelector("video");
+  if(entry.isIntersecting&&entry.intersectionRatio>=0.5){slide.dataset.active="1";playVisible(video)}
+  else{slide.dataset.active="0";if(!video.paused)video.pause()}
+ }),{root:stream,threshold:[0,0.25,0.5,0.75,1],rootMargin:"0px"});
+ slides.forEach(slide=>observer.observe(slide));
+ if(slides.length){slides[0].dataset.active="1";playVisible(slides[0].querySelector("video"))}
  document.querySelectorAll("[data-watch-like]").forEach(b=>b.onclick=async()=>{const id=b.dataset.watchLike,post=posts.find(p=>p.id===id);if(!currentUser){openAuth();return}if(!post)return;try{if(liked.has(id)){await apiRequest("/v1/posts/"+encodeURIComponent(id)+"/reactions",{method:"DELETE"});liked.delete(id)}else{await apiRequest("/v1/posts/"+encodeURIComponent(id)+"/reactions",{method:"POST",body:JSON.stringify({type:"like"})});liked.add(id)}render()}catch(error){alert(error.message)}});
  document.querySelectorAll("[data-watch-follow]").forEach(b=>b.onclick=async()=>{const id=b.dataset.watchFollow,target=account(id);if(!currentUser){openAuth();return}if(!target)return;try{if(followed.has(id)){await apiRequest("/v1/users/"+encodeURIComponent(target.handle)+"/follow",{method:"DELETE"});followed.delete(id)}else{await apiRequest("/v1/users/"+encodeURIComponent(target.handle)+"/follow",{method:"POST"});followed.add(id)}render()}catch(error){alert(error.message)}});
  document.querySelectorAll("[data-watch-comment]").forEach(b=>b.onclick=async()=>{const id=b.dataset.watchComment;if(!currentUser){openAuth();return}const content=prompt("Write a comment");if(!content||!content.trim())return;try{await apiRequest("/v1/posts/"+encodeURIComponent(id)+"/comments",{method:"POST",body:JSON.stringify({content:content.trim()})});const post=posts.find(p=>p.id===id);if(post)post.comments=Number(post.comments||0)+1;render()}catch(error){alert(error.message)}});

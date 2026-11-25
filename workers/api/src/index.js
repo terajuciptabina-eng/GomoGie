@@ -409,7 +409,8 @@ async function route(request, env) {
   const optionalFeedAuth = path === "/v1/feed" && !!request.headers.get("Authorization");
   const optionalNewsAuth = path === "/v1/news" && !!request.headers.get("Authorization");
   const newsPreferencesRequest = path === "/v1/news/preferences";
-  const needsAuth = newsPreferencesRequest || followingFeedRequest || optionalFeedAuth || optionalNewsAuth || path === "/v1/auth/me" || (path === "/v1/auth/remember" && method === "POST") || (path.startsWith("/v1/posts") && !publicCommentsRead) || (path.startsWith("/v1/media") && !publicMediaRead) || (path.startsWith("/v1/videos") && !publicVideoRead) || path.startsWith("/v1/users/") || path.startsWith("/v1/notifications") || path.startsWith("/v1/conversations");
+  const communityRequest = path === "/v1/communities" || path.startsWith("/v1/communities/");
+  const needsAuth = communityRequest || newsPreferencesRequest || followingFeedRequest || optionalFeedAuth || optionalNewsAuth || path === "/v1/auth/me" || (path === "/v1/auth/remember" && method === "POST") || (path.startsWith("/v1/posts") && !publicCommentsRead) || (path.startsWith("/v1/media") && !publicMediaRead) || (path.startsWith("/v1/videos") && !publicVideoRead) || path.startsWith("/v1/users/") || path.startsWith("/v1/notifications") || path.startsWith("/v1/conversations");
   const authDiagnostic = {};
   const auth = needsAuth ? await authenticate(request, env, authDiagnostic) : null;
   if (needsAuth && !auth) return json({ error: "unauthorized", code: authDiagnostic.reason || "authentication_failed", message: "Sesi tidak dapat disahkan." }, 401);
@@ -434,6 +435,96 @@ async function route(request, env) {
 
   if (path === "/v1/auth/remember" && method === "POST") {
     return json({ accessToken: await signToken(auth, env, 2592000), tokenType: "Bearer", expiresIn: 2592000 });
+  }
+
+
+  // Communities: all membership and content access is enforced server-side.
+  if (path === "/v1/communities" && method === "GET") {
+    const q = (url.searchParams.get("q") || "").trim().slice(0,80);
+    const rows = await env.DB.prepare(
+      "SELECT c.id,c.owner_id,c.name,c.slug,c.description,c.visibility,c.created_at," +
+      "(SELECT COUNT(*) FROM community_members cm WHERE cm.community_id=c.id AND cm.status='active') member_count," +
+      "(SELECT status FROM community_members mine WHERE mine.community_id=c.id AND mine.user_id=?) my_status," +
+      "(SELECT membership_role FROM community_members mine WHERE mine.community_id=c.id AND mine.user_id=?) my_role," +
+      "u.username owner_username,p.display_name owner_name,p.avatar_url owner_avatar " +
+      "FROM communities c JOIN users u ON u.id=c.owner_id LEFT JOIN profiles p ON p.user_id=u.id " +
+      "WHERE (c.visibility='public' OR c.owner_id=? OR EXISTS(SELECT 1 FROM community_members mine WHERE mine.community_id=c.id AND mine.user_id=? AND mine.status='active')) " +
+      "AND (?='' OR c.name LIKE '%'||?||'%' OR c.description LIKE '%'||?||'%') ORDER BY member_count DESC,c.created_at DESC LIMIT 100"
+    ).bind(auth.sub,auth.sub,auth.sub,auth.sub,q,q,q).all();
+    return json({items:(rows.results||[]).map(c=>({id:c.id,name:c.name,slug:c.slug,description:c.description,visibility:c.visibility,createdAt:c.created_at,memberCount:Number(c.member_count||0),membershipStatus:c.my_status||null,membershipRole:c.my_role||null,owner:{id:c.owner_id,username:c.owner_username,displayName:c.owner_name||c.owner_username,avatarUrl:c.owner_avatar||""}}))});
+  }
+  if (path === "/v1/communities" && method === "POST") {
+    const input=await readJson(request);
+    const name=String(input?.name||"").trim(),description=String(input?.description||"").trim(),visibility=input?.visibility||"public";
+    if(!text(name,60)||description.length>500||!["public","private","approval"].includes(visibility))return json({error:"validation_error",message:"Nama komuniti diperlukan (maksimum 60 aksara); penerangan maksimum 500 aksara."},400);
+    const slugBase=name.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,48)||"community";
+    const slug=slugBase+"-"+uuid().slice(0,8),id=uuid(),now=new Date().toISOString();
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO communities (id,owner_id,name,slug,description,visibility,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)").bind(id,auth.sub,name,slug,description,visibility,now,now),
+      env.DB.prepare("INSERT INTO community_members (community_id,user_id,membership_role,status,joined_at) VALUES (?,?, 'owner','active',?)").bind(id,auth.sub,now)
+    ]);
+    return json({community:{id,name,slug,description,visibility,createdAt:now,memberCount:1,membershipStatus:"active",membershipRole:"owner"}},201);
+  }
+  const communityPath=path.match(/^\/v1\/communities\/([a-z0-9-]+)(?:\/(join|leave|members|posts))?$/i);
+  if(communityPath){
+    const slug=communityPath[1],action=communityPath[2]||"";
+    const community=await env.DB.prepare("SELECT * FROM communities WHERE slug=?").bind(slug).first();
+    if(!community)return json({error:"community_not_found"},404);
+    const mine=await env.DB.prepare("SELECT membership_role,status FROM community_members WHERE community_id=? AND user_id=?").bind(community.id,auth.sub).first();
+    const isMember=mine?.status==="active",isManager=isMember&&["owner","moderator"].includes(mine.membership_role);
+    if(community.visibility!=="public"&&community.owner_id!==auth.sub&&!isMember)return json({error:"community_not_found"},404);
+    if(action==="join"&&method==="POST"){
+      if(isMember)return json({membershipStatus:"active",membershipRole:mine.membership_role});
+      const status=community.visibility==="approval"||community.visibility==="private"?"pending":"active",now=new Date().toISOString();
+      await env.DB.prepare("INSERT INTO community_members (community_id,user_id,membership_role,status,joined_at) VALUES (?,?,'member',?,?) ON CONFLICT(community_id,user_id) DO UPDATE SET status=excluded.status,joined_at=excluded.joined_at").bind(community.id,auth.sub,status,now).run();
+      return json({membershipStatus:status},201);
+    }
+    if(action==="leave"&&method==="POST"){
+      if(community.owner_id===auth.sub)return json({error:"owner_cannot_leave",message:"Pemilik perlu memindahkan pemilikan atau memadam komuniti."},409);
+      await env.DB.prepare("DELETE FROM community_members WHERE community_id=? AND user_id=?").bind(community.id,auth.sub).run();
+      return json({left:true});
+    }
+    if(action==="members"&&method==="GET"){
+      if(community.visibility!=="public"&&!isMember&&community.owner_id!==auth.sub)return json({error:"forbidden"},403);
+      const rows=await env.DB.prepare("SELECT cm.user_id,cm.membership_role,cm.status,cm.joined_at,u.username,p.display_name,p.avatar_url FROM community_members cm JOIN users u ON u.id=cm.user_id LEFT JOIN profiles p ON p.user_id=u.id WHERE cm.community_id=? ORDER BY CASE cm.membership_role WHEN 'owner' THEN 0 WHEN 'moderator' THEN 1 ELSE 2 END,cm.joined_at LIMIT 200").bind(community.id).all();
+      return json({items:(rows.results||[]).map(m=>({userId:m.user_id,username:m.username,displayName:m.display_name||m.username,avatarUrl:m.avatar_url||"",role:m.membership_role,status:m.status,joinedAt:m.joined_at}))});
+    }
+    if(action==="posts"&&method==="GET"){
+      if(!isMember&&community.visibility!=="public")return json({error:"forbidden"},403);
+      const rows=await env.DB.prepare("SELECT p.id,p.user_id,p.content,p.visibility,p.created_at,u.username,pr.display_name,pr.avatar_url FROM community_posts cp JOIN posts p ON p.id=cp.post_id JOIN users u ON u.id=p.user_id LEFT JOIN profiles pr ON pr.user_id=u.id WHERE cp.community_id=? AND p.status='published' ORDER BY p.created_at DESC LIMIT 50").bind(community.id).all();
+      return json({items:(rows.results||[]).map(p=>({id:p.id,content:p.content,createdAt:p.created_at,author:{id:p.user_id,username:p.username,displayName:p.display_name||p.username,avatarUrl:p.avatar_url||""}}))});
+    }
+    if(action==="posts"&&method==="POST"){
+      if(!isMember)return json({error:"membership_required",message:"Sertai komuniti dahulu untuk membuat hantaran."},403);
+      const input=await readJson(request);if(!text(input?.content,5000))return json({error:"validation_error",message:"Hantaran diperlukan (maksimum 5,000 aksara)."},400);
+      const id=uuid(),now=new Date().toISOString();
+      await env.DB.batch([
+        env.DB.prepare("INSERT INTO posts (id,user_id,content,visibility,status,comments_enabled,created_at,updated_at) VALUES (?,?,?,'public','published',1,?,?)").bind(id,auth.sub,input.content.trim(),now,now),
+        env.DB.prepare("INSERT INTO community_posts (community_id,post_id,created_at) VALUES (?,?,?)").bind(community.id,id,now)
+      ]);
+      return json({post:{id,content:input.content.trim(),createdAt:now}},201);
+    }
+    if(!action&&method==="PATCH"){
+      if(community.owner_id!==auth.sub)return json({error:"forbidden"},403);
+      const input=await readJson(request),name=String(input?.name||"").trim(),description=String(input?.description||"").trim(),visibility=input?.visibility||community.visibility;
+      if(!text(name,60)||description.length>500||!["public","private","approval"].includes(visibility))return json({error:"validation_error"},400);
+      await env.DB.prepare("UPDATE communities SET name=?,description=?,visibility=?,updated_at=? WHERE id=?").bind(name,description,visibility,new Date().toISOString(),community.id).run();
+      return json({updated:true});
+    }
+    if(!action&&method==="DELETE"){
+      if(community.owner_id!==auth.sub)return json({error:"forbidden"},403);
+      await env.DB.batch([
+        env.DB.prepare("DELETE FROM community_posts WHERE community_id=?").bind(community.id),
+        env.DB.prepare("DELETE FROM community_members WHERE community_id=?").bind(community.id),
+        env.DB.prepare("DELETE FROM communities WHERE id=?").bind(community.id)
+      ]);
+      return json({deleted:true});
+    }
+    if(!action&&method==="GET"){
+      const count=await env.DB.prepare("SELECT COUNT(*) n FROM community_members WHERE community_id=? AND status='active'").bind(community.id).first();
+      const owner=await env.DB.prepare("SELECT u.id,u.username,p.display_name,p.avatar_url FROM users u LEFT JOIN profiles p ON p.user_id=u.id WHERE u.id=?").bind(community.owner_id).first();
+      return json({community:{id:community.id,name:community.name,slug:community.slug,description:community.description,visibility:community.visibility,createdAt:community.created_at,memberCount:Number(count?.n||0),membershipStatus:mine?.status||null,membershipRole:mine?.membership_role||null,owner:{id:owner.id,username:owner.username,displayName:owner.display_name||owner.username,avatarUrl:owner.avatar_url||""}}});
+    }
   }
 
   const mediaReadMatch = path.match(/^\/v1\/media\/([0-9a-f-]+)$/i);

@@ -61,7 +61,7 @@ async function signToken(user, env) {
 
 async function authenticate(request, env) {
   const value = request.headers.get("Authorization") || "";
-  const match = value.match(/^Bearer\\s+(.+)$/i);
+  const match = value.match(/^Bearer\s+(.+)$/i);
   if (!match || !env.JWT_SECRET || env.JWT_SECRET.length < 32) return null;
   try {
     const parts = match[1].split(".");

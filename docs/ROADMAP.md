@@ -73,3 +73,16 @@ Roadmap completion must reflect verified implementation, not planned work.
 - [ ] Add messaging conversation UI with clear simulation label.
 - [ ] Add profile settings, privacy controls and report/block mock flows.
 
+
+
+## Profile experience prototype
+- [x] Profile header with cover photo and avatar.
+- [x] Display name, handle, bio, location, website and join year.
+- [x] Posts, followers and following summary.
+- [x] Profile post grid with image and video tiles.
+- [x] Posts, Videos and Saved tabs.
+- [x] Edit profile demo form with local avatar/cover preview.
+- [x] Open a profile from a feed post or the top-right profile avatar.
+- [x] Discover profiles through search and profile directory.
+- [ ] Persist profile edits, follows and saved posts using a secure backend after authentication is implemented.
+- [ ] Implement real upload, image processing, privacy settings, block/report and follow relationship APIs.

@@ -609,7 +609,6 @@ function updateConnectionState(){const n=document.getElementById("connectionNoti
 window.addEventListener("online",updateConnectionState);window.addEventListener("offline",updateConnectionState);
 async function loadGomoGieData(){
  accounts=[];posts=[];localPendingPosts=[];
- const notice=document.querySelector(".preview-notice");
  let liveAccounts=[],livePosts=[];
  try{
   const liveItems=await fetchPublicApiFeed();

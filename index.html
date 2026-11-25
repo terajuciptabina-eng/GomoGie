@@ -21,6 +21,9 @@
 .refresh-indicator.loading .refresh-spinner{animation:gomogie-spin .7s linear infinite}
 @keyframes gomogie-spin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.refresh-spinner{animation:none!important}.refresh-indicator{transition:none}}
+body.pull-dragging .top,body.pull-dragging .layout{transform:translate3d(0,var(--pull-offset,0px),0);transition:none;will-change:transform}
+body.pull-releasing .top,body.pull-releasing .layout{transform:translate3d(0,0,0);transition:transform .62s cubic-bezier(.22,1.35,.36,1);will-change:transform}
+@media(prefers-reduced-motion:reduce){body.pull-releasing .top,body.pull-releasing .layout{transition:transform .18s ease}}
 </style>
 </head>
 <body>
@@ -91,12 +94,24 @@ function extras(){document.getElementById("trends").innerHTML=["#Architecture","
 document.getElementById("search").addEventListener("input",e=>{const q=e.target.value.toLowerCase().trim();if(!q)return;active="profile";selectedProfileId=null;render();const cards=[...document.querySelectorAll(".person-card")];cards.forEach(c=>c.style.display=c.innerText.toLowerCase().includes(q)?"":"none")});
 document.getElementById("notify").onclick=()=>alert("Notifications are simulated in this prototype.");
 const refreshIndicator=document.getElementById("refreshIndicator"),refreshLabel=document.getElementById("refreshLabel");
-let refreshStartY=0,pullDistance=0,pullArmed=false,isRefreshing=false;
+let refreshStartY=0,pullDistance=0,pullArmed=false,isRefreshing=false,releaseTimer=null;
+function setPullOffset(px){document.body.style.setProperty("--pull-offset",px+"px")}
 function paintPull(distance){
- const shown=Math.min(distance,92);
+ const rubber=distance<=120?distance*.58:69.6+(distance-120)*.22;
+ const shown=Math.min(rubber,105);
+ setPullOffset(shown);
  refreshIndicator.style.transform="translate(-50%,"+Math.max(-72,shown-72)+"px)";
- refreshIndicator.classList.toggle("visible",distance>5);
- refreshLabel.textContent=distance>=76?"Release to refresh":"Pull to refresh";
+ refreshIndicator.classList.toggle("visible",distance>7);
+ refreshLabel.textContent=distance>=88?"Release to refresh":"Pull to refresh";
+}
+function springBack(){
+ document.body.classList.remove("pull-dragging");
+ document.body.classList.add("pull-releasing");
+ setPullOffset(0);
+ refreshIndicator.classList.remove("visible");
+ refreshIndicator.style.transform="translate(-50%,-72px)";
+ clearTimeout(releaseTimer);
+ releaseTimer=setTimeout(()=>document.body.classList.remove("pull-releasing"),680);
 }
 async function loadGomoGieData(){
  const stamp=Date.now();
@@ -111,6 +126,8 @@ async function loadGomoGieData(){
 async function refreshGomoGie(){
  if(isRefreshing)return;
  isRefreshing=true;pullArmed=false;pullDistance=0;
+ document.body.classList.remove("pull-dragging","pull-releasing");
+ setPullOffset(0);
  refreshIndicator.classList.add("visible","loading");
  refreshLabel.textContent="Refreshing GomoGie…";
  refreshIndicator.style.transform="translate(-50%,0px)";
@@ -129,25 +146,27 @@ document.addEventListener("touchstart",e=>{
  if(isRefreshing||window.scrollY>0||!e.touches||e.touches.length!==1)return;
  if(e.target.closest("input,textarea,select,[contenteditable=true]"))return;
  refreshStartY=e.touches[0].clientY;pullDistance=0;pullArmed=true;
+ document.body.classList.remove("pull-releasing");
+ document.body.classList.add("pull-dragging");
 },{passive:true});
 document.addEventListener("touchmove",e=>{
  if(!pullArmed||isRefreshing||!e.touches||e.touches.length!==1)return;
  const delta=e.touches[0].clientY-refreshStartY;
- if(delta<=0){pullDistance=0;paintPull(0);return}
+ if(delta<=0){pullDistance=0;setPullOffset(0);refreshIndicator.classList.remove("visible");return}
  if(window.scrollY<=0){
   pullDistance=delta;
-  if(delta>8)e.preventDefault();
+  if(delta>4)e.preventDefault();
   paintPull(delta);
  }
 },{passive:false});
 document.addEventListener("touchend",()=>{
  if(!pullArmed)return;
- const shouldRefresh=pullDistance>=76;
+ const shouldRefresh=pullDistance>=88;
  pullArmed=false;
  if(shouldRefresh)refreshGomoGie();
- else paintPull(0);
+ else springBack();
 },{passive:true});
-document.addEventListener("touchcancel",()=>{pullArmed=false;pullDistance=0;paintPull(0)},{passive:true});
+document.addEventListener("touchcancel",()=>{if(!pullArmed)return;pullArmed=false;pullDistance=0;springBack()},{passive:true});
 loadGomoGieData().catch(()=>{view.innerHTML='<div class="empty">Unable to load GomoGie content. Please check your connection and refresh.</div>'});
 </script>
 </body></html>

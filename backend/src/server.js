@@ -8,6 +8,7 @@ import bcrypt from 'bcryptjs';
 import pg from 'pg';
 import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
+import { getMediaPolicy } from './media-policy.js';
 import { S3Client, PutObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
@@ -253,11 +254,10 @@ app.post('/v1/media/uploads', { preHandler: authenticate }, async (request, repl
     mediaType: z.enum(['image','video']),
     contentType: z.string().min(1).max(100)
   }).parse(request.body);
-  const allowed = input.mediaType === 'image'
-    ? ['image/jpeg','image/png','image/webp','image/avif']
-    : ['video/mp4','video/webm','video/quicktime'];
-  if (!allowed.includes(input.contentType)) return reply.code(415).send({ error: 'unsupported_media_type' });
-  const maxBytes = Number(input.mediaType === 'image' ? env.R2_MAX_IMAGE_BYTES || 10485760 : env.R2_MAX_VIDEO_BYTES || 104857600);
+  let policy;
+  try { policy = getMediaPolicy(input.mediaType, input.contentType, env); }
+  catch { return reply.code(415).send({ error: 'unsupported_media_type' }); }
+  const maxBytes = policy.maxBytes;
   const id = randomUUID();
   const extension = input.contentType.split('/')[1].replace('jpeg','jpg').replace('quicktime','mov');
   const objectKey = `uploads/${request.user.sub}/${id}.${extension}`;
@@ -290,7 +290,7 @@ app.post('/v1/media/uploads/:uploadId/complete', { preHandler: authenticate }, a
   if (!intentResult.rowCount) return reply.code(404).send({ error: 'upload_intent_not_found_or_expired' });
   const intent = intentResult.rows[0];
   const head = await s3.send(new HeadObjectCommand({ Bucket: env.R2_BUCKET, Key: intent.object_key }));
-  if (!head.ContentLength || head.ContentLength > Number(intent.max_bytes) || head.ContentType !== intent.content_type) {
+  if (!head.ContentLength || head.ContentLength > Number(intent.max_bytes) || head.ContentType !== intent.content_type || head.Metadata?.owner !== request.user.sub || head.Metadata?.intent !== uploadId) {
     await pool.query('UPDATE media_upload_intents SET status=$1 WHERE id=$2', ['rejected', uploadId]);
     return reply.code(400).send({ error: 'uploaded_file_failed_validation' });
   }

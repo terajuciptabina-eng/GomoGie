@@ -1,9 +1,18 @@
 const CACHE_PREFIX="gomogie-shell-";
-const CACHE_NAME=CACHE_PREFIX+"v30";
+const CACHE_NAME=CACHE_PREFIX+"v31";
 const APP_SHELL=["./","./index.html","./manifest.webmanifest","./assets/brand/favicon.svg","./assets/brand/apple-touch-icon.png","./assets/brand/icon-192.png","./assets/brand/icon-512.png","./assets/brand/GomoGie-wordmark-transparent.svg","./assets/brand/brand-tokens.css","./data/demo-accounts.json","./data/demo-posts.json"];
 const scopedURL=path=>new URL(path,self.registration.scope).href;
 const normalizedDataURL=value=>{const clean=new URL(value);clean.search="";clean.hash="";return clean.href};
-self.addEventListener("install",event=>{event.waitUntil((async()=>{const cache=await caches.open(CACHE_NAME);await cache.addAll(APP_SHELL.map(scopedURL));await self.skipWaiting()})())});
+self.addEventListener("install",event=>{event.waitUntil((async()=>{
+ const cache=await caches.open(CACHE_NAME);
+ await Promise.all(APP_SHELL.map(async path=>{
+  const url=scopedURL(path);
+  const response=await fetch(new Request(url,{cache:"reload"}));
+  if(!response.ok)throw new Error("Unable to refresh app shell: "+path+" ("+response.status+")");
+  await cache.put(url,response);
+ }));
+ await self.skipWaiting();
+})())});
 self.addEventListener("activate",event=>{event.waitUntil((async()=>{const keys=await caches.keys();await Promise.all(keys.filter(key=>key.startsWith(CACHE_PREFIX)&&key!==CACHE_NAME).map(key=>caches.delete(key)));await self.clients.claim()})())});
 self.addEventListener("fetch",event=>{
  const request=event.request,url=new URL(request.url);

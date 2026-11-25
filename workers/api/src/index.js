@@ -95,6 +95,16 @@ async function readJson(request, maxBytes = 65536) {
 
 function uuid() { return crypto.randomUUID(); }
 
+const IMAGE_LIMIT = 8 * 1024 * 1024;
+function detectImageType(bytes) {
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
+  if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "image/png";
+  if (bytes.length >= 12 && String.fromCharCode(...bytes.slice(0,4)) === "RIFF" && String.fromCharCode(...bytes.slice(8,12)) === "WEBP") return "image/webp";
+  if (bytes.length >= 6 && ["GIF87a","GIF89a"].includes(String.fromCharCode(...bytes.slice(0,6)))) return "image/gif";
+  return null;
+}
+function mediaUrl(id) { return "/v1/media/" + encodeURIComponent(id); }
+
 async function route(request, env) {
   const url = new URL(request.url);
   const method = request.method;
@@ -158,10 +168,44 @@ async function route(request, env) {
     return json({ user: { id: user.id, email: user.email, username: user.username }, accessToken: await signToken(user, env), tokenType: "Bearer", expiresIn: 900 });
   }
 
-  const publicCommentsRead = method === "GET" && /^\/v1\/posts\/[0-9a-f-]+\/comments$/i.test(path);
-  const needsAuth = path === "/v1/auth/me" || (path.startsWith("/v1/posts") && !publicCommentsRead) || path.startsWith("/v1/users/") || path.startsWith("/v1/notifications") || path.startsWith("/v1/conversations");
+  const publicCommentsRead = method === "GET" && /^\\/v1\\/posts\\/[0-9a-f-]+\\/comments$/i.test(path);
+  const publicMediaRead = method === "GET" && /^\\/v1\\/media\\/[0-9a-f-]+$/i.test(path);
+  const needsAuth = path === "/v1/auth/me" || (path.startsWith("/v1/posts") && !publicCommentsRead) || (path.startsWith("/v1/media") && !publicMediaRead) || path.startsWith("/v1/users/") || path.startsWith("/v1/notifications") || path.startsWith("/v1/conversations");
   const auth = needsAuth ? await authenticate(request, env) : null;
   if (needsAuth && !auth) return json({ error: "unauthorized", message: "Sila log masuk semula." }, 401);
+
+  const mediaReadMatch = path.match(/^\\/v1\\/media\\/([0-9a-f-]+)$/i);
+  if (mediaReadMatch && method === "GET") {
+    if (!env.MEDIA_BUCKET) return json({ error: "media_storage_unavailable" }, 503);
+    const asset = await env.DB.prepare("SELECT object_key,mime_type,size_bytes FROM gomogie_media_assets WHERE id=? AND status='ready'").bind(mediaReadMatch[1]).first();
+    if (!asset) return json({ error: "media_not_found" }, 404);
+    const object = await env.MEDIA_BUCKET.get(asset.object_key);
+    if (!object) return json({ error: "media_not_found" }, 404);
+    return new Response(object.body, { headers: { "content-type": asset.mime_type, "content-length": String(asset.size_bytes), "cache-control": "public, max-age=31536000, immutable", "x-content-type-options": "nosniff" } });
+  }
+
+  if (path === "/v1/media" && method === "POST") {
+    if (!env.MEDIA_BUCKET) return json({ error: "media_storage_unavailable", message: "Cloudflare R2 belum dihubungkan kepada Worker." }, 503);
+    const form = await request.formData();
+    const file = form.get("file"), purpose = form.get("purpose");
+    if (!(file instanceof File) || !["avatar","cover","post"].includes(purpose)) return json({ error: "validation_error", message: "Fail gambar dan tujuan upload diperlukan." }, 400);
+    if (!file.size || file.size > IMAGE_LIMIT) return json({ error: "file_size_invalid", message: "Saiz gambar maksimum ialah 8 MB." }, 413);
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const detected = detectImageType(bytes);
+    if (!detected || detected !== file.type) return json({ error: "unsupported_image", message: "Format yang disokong: JPEG, PNG, WebP dan GIF." }, 415);
+    const id = uuid(), now = new Date().toISOString();
+    const extension = ({ "image/jpeg":"jpg", "image/png":"png", "image/webp":"webp", "image/gif":"gif" })[detected];
+    const key = "users/" + auth.sub + "/" + purpose + "/" + id + "." + extension;
+    await env.MEDIA_BUCKET.put(key, bytes, { httpMetadata: { contentType: detected, cacheControl: "public, max-age=31536000, immutable" }, customMetadata: { ownerId: auth.sub, purpose } });
+    try {
+      await env.DB.prepare("INSERT INTO gomogie_media_assets (id,owner_id,purpose,object_key,mime_type,size_bytes,status,created_at) VALUES (?,?,?,?,?,?,?,?)").bind(id, auth.sub, purpose, key, detected, file.size, "ready", now).run();
+      if (purpose === "avatar" || purpose === "cover") {
+        const column = purpose === "avatar" ? "avatar_url" : "cover_url";
+        await env.DB.prepare("UPDATE profiles SET " + column + "=?,updated_at=? WHERE user_id=?").bind(mediaUrl(id), now, auth.sub).run();
+      }
+    } catch (error) { await env.MEDIA_BUCKET.delete(key); throw error; }
+    return json({ media: { id, purpose, url: mediaUrl(id), mimeType: detected, size: file.size, createdAt: now } }, 201);
+  }
 
   if (path === "/v1/auth/me" && method === "GET") {
     const row = await env.DB.prepare("SELECT u.id,u.email,u.username,u.status,u.created_at,p.display_name,p.bio,p.avatar_url,p.cover_url,p.website,p.location,p.is_private FROM users u LEFT JOIN profiles p ON p.user_id=u.id WHERE u.id=?")
@@ -231,19 +275,30 @@ async function route(request, env) {
   if (path === "/v1/feed" && method === "GET") {
     const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit") || 20)));
     const rows = await env.DB.prepare(
-      "SELECT p.id,p.user_id,p.content,p.visibility,p.created_at,p.comments_enabled, u.username, pr.display_name,pr.avatar_url, (SELECT COUNT(*) FROM reactions r WHERE r.post_id=p.id) AS reaction_count, (SELECT COUNT(*) FROM comments c WHERE c.post_id=p.id AND c.status='published') AS comment_count FROM posts p JOIN users u ON u.id=p.user_id LEFT JOIN profiles pr ON pr.user_id=p.user_id WHERE p.status='published' AND p.visibility='public' ORDER BY p.created_at DESC LIMIT ?"
+      "SELECT p.id,p.user_id,p.content,p.visibility,p.created_at,p.comments_enabled,u.username,pr.display_name,pr.avatar_url," +
+      "(SELECT COUNT(*) FROM reactions r WHERE r.post_id=p.id) AS reaction_count," +
+      "(SELECT COUNT(*) FROM comments c WHERE c.post_id=p.id AND c.status='published') AS comment_count,ma.id AS media_id " +
+      "FROM posts p JOIN users u ON u.id=p.user_id LEFT JOIN profiles pr ON pr.user_id=p.user_id " +
+      "LEFT JOIN gomogie_post_media pm ON pm.post_id=p.id LEFT JOIN gomogie_media_assets ma ON ma.id=pm.media_id AND ma.status='ready' " +
+      "WHERE p.status='published' AND p.visibility='public' ORDER BY p.created_at DESC LIMIT ?"
     ).bind(limit).all();
-    return json({ items: (rows.results || []).map(row => ({ id: row.id, content: row.content, visibility: row.visibility, createdAt: row.created_at, commentsEnabled: Boolean(row.comments_enabled), author: { id: row.user_id, username: row.username, displayName: row.display_name, avatarUrl: row.avatar_url }, reactionCount: row.reaction_count, commentCount: row.comment_count })) });
+    return json({ items: (rows.results || []).map(row => ({ id: row.id, content: row.content, visibility: row.visibility, createdAt: row.created_at, commentsEnabled: Boolean(row.comments_enabled), author: { id: row.user_id, username: row.username, displayName: row.display_name, avatarUrl: row.avatar_url }, mediaType: row.media_id ? "image" : "text", mediaUrl: row.media_id ? mediaUrl(row.media_id) : "", reactionCount: row.reaction_count, commentCount: row.comment_count })) });
   }
 
   if (path === "/v1/posts" && method === "POST") {
     const input = await readJson(request);
-    if (!input || !text(input.content, 5000)) return json({ error: "validation_error", message: "Kandungan posting diperlukan (maksimum 5,000 aksara)." }, 400);
+    if (!input || typeof input.content !== "string" || input.content.length > 5000 ||
+        (!input.content.trim() && !text(input.mediaId, 64))) return json({ error: "validation_error", message: "Tulis kandungan atau lampirkan gambar." }, 400);
     const visibility = ["public", "followers", "private"].includes(input.visibility) ? input.visibility : "public";
     const id = uuid(), now = new Date().toISOString();
-    await env.DB.prepare("INSERT INTO posts (id,user_id,content,visibility,status,comments_enabled,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)")
-      .bind(id, auth.sub, input.content.trim(), visibility, "published", input.commentsEnabled === false ? 0 : 1, now, now).run();
-    return json({ post: { id, userId: auth.sub, content: input.content.trim(), visibility, status: "published", createdAt: now } }, 201);
+    let media = null;
+    if (input.mediaId) {
+      media = await env.DB.prepare("SELECT id FROM gomogie_media_assets WHERE id=? AND owner_id=? AND purpose='post' AND status='ready'").bind(input.mediaId, auth.sub).first();
+      if (!media) return json({ error: "media_not_found", message: "Gambar post tidak ditemui atau bukan milik akaun ini." }, 404);
+    }
+    await env.DB.prepare("INSERT INTO posts (id,user_id,content,visibility,status,comments_enabled,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)").bind(id, auth.sub, input.content.trim(), visibility, "published", input.commentsEnabled === false ? 0 : 1, now, now).run();
+    if (media) await env.DB.prepare("INSERT INTO gomogie_post_media (post_id,media_id,position,created_at) VALUES (?,?,?,?)").bind(id, media.id, 0, now).run();
+    return json({ post: { id, userId: auth.sub, content: input.content.trim(), visibility, status: "published", mediaType: media ? "image" : "text", mediaUrl: media ? mediaUrl(media.id) : "", createdAt: now } }, 201);
   }
 
   const reactionMatch = path.match(/^\/v1\/posts\/([0-9a-f-]+)\/reactions$/i);

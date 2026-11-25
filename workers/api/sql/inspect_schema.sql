@@ -12,3 +12,5 @@ PRAGMA table_info(conversation_members);
 PRAGMA table_info(messages);
 PRAGMA table_info(users);
 PRAGMA table_info(profiles);
+PRAGMA table_info(media_assets);
+PRAGMA table_info(post_media);

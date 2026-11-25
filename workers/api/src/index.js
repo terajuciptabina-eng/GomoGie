@@ -227,7 +227,7 @@ async function route(request, env) {
     const rangeHeader=request.headers.get("Range");
     let object,headers={"content-type":"video/mp4","accept-ranges":"bytes","cache-control":"public, max-age=31536000, immutable","x-content-type-options":"nosniff"};
     if(rangeHeader){
-      const match=rangeHeader.match(/^bytes=(\\d*)-(\\d*)$/);
+      const match=rangeHeader.match(/^bytes=(\d*)-(\d*)$/);
       if(!match)return new Response(null,{status:416,headers:{"content-range":"bytes */"+asset.size_bytes,"accept-ranges":"bytes"}});
       let start=match[1]?Number(match[1]):null,end=match[2]?Number(match[2]):null;
       if(start===null){const suffix=end||0;start=Math.max(0,asset.size_bytes-suffix);end=asset.size_bytes-1}

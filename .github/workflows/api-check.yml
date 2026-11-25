@@ -5,6 +5,7 @@ on:
     branches: [main, "feat/**"]
     paths:
       - "backend/**"
+      - "workers/**"
       - ".github/workflows/api-check.yml"
   pull_request:
     paths:
@@ -28,6 +29,7 @@ jobs:
       - run: npm install --ignore-scripts --no-audit --no-fund
       - run: npm run check
       - run: npm test
+      - run: node --check ../workers/api/src/index.js
       - run: bash -n scripts/*.sh
       - run: cp .env.example .env && docker compose config --quiet
       - run: docker build -t gomogie-api:ci .

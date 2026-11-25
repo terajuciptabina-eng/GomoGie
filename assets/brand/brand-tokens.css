@@ -1,0 +1,25 @@
+:root {
+  --gomogie-navy: #142030;
+  --gomogie-teal: #00AE9C;
+  --gomogie-white: #FFFFFF;
+  --gomogie-text: #142030;
+  --gomogie-muted: #667085;
+  --gomogie-border: #E5E7EB;
+  --gomogie-surface: #FFFFFF;
+  --gomogie-surface-subtle: #F7F9FA;
+  --gomogie-focus: #00AE9C;
+}
+
+/* Brand wordmark usage */
+.gomogie-wordmark {
+  display: inline-block;
+  width: min(100%, 13rem);
+  height: auto;
+  vertical-align: middle;
+}
+
+/* Accessible focus treatment for interactive controls */
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 3px solid var(--gomogie-focus);
+  outline-offset: 3px;
+}

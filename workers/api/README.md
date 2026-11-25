@@ -44,6 +44,10 @@ The API uses the existing table/column names:
 
 The D1 screenshots show these are SQLite/D1 tables. The PostgreSQL migration under `backend/migrations` is a separate, unused alternative and must not be applied to this D1 database.
 
+## Communities
+
+Additive D1 migration: `sql/0013_communities.sql`. Apply it before using the Communities API. Authenticated routes: `GET/POST /v1/communities`, `GET/PATCH/DELETE /v1/communities/:slug`, `POST /join`, `POST /leave`, `GET /members`, and `GET/POST /posts`. Visibility and membership checks are enforced by the Worker. Public communities are discoverable; private/approval communities are only disclosed to members/owners. The current API supports owner/member roles; moderator assignment and pending-request moderation UI are not yet exposed.
+
 ## Media uploads
 
 See [Media Upload — Implementation & Operations Guide](../../docs/MEDIA_UPLOAD.md) for the R2 architecture, additive D1 migration, upload API, security checks, deployment and acceptance tests. Image uploads require the configured MEDIA_BUCKET R2 binding and the 0002_media_storage.sql migration.

@@ -132,7 +132,7 @@ async function route(request, env) {
     };
     let target = validateTarget(requested);
     if (!target) return json({ error: "invalid_url" }, 400);
-    const cacheKey = new Request("https://gomogie-link-preview-cache.invalid/" + encodeURIComponent(target.href));
+    const cacheKey = new Request("https://gomogie-link-preview-cache-v2.invalid/" + encodeURIComponent(target.href));
     const cached = await caches.default.match(cacheKey);
     if (cached) return new Response(cached.body, { status: cached.status, headers: cached.headers });
     let response = null;

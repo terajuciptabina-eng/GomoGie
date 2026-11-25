@@ -60,11 +60,11 @@ async function fetchPublicApiFeed(){
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const account=id=>accounts.find(a=>a.id===id)||accounts[0];
 function nav(){const html=Object.entries(labels).map(([k,v])=>'<button data-page="'+k+'" class="'+(active===k?'active':'')+'"><span class="ico">'+v[0]+'</span>'+v[1]+'</button>').join("");document.getElementById("sideNav").innerHTML=html;document.getElementById("mobileNav").innerHTML=Object.entries(labels).filter(([k])=>k!=="studio").map(([k,v])=>'<button data-page="'+k+'" class="'+(active===k?'active':'')+'"><span>'+v[0]+'</span>'+v[1]+'</button>').join("");document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>{active=b.dataset.page;if(active==="profile")selectedProfileId=currentUser?.id||accounts[0]?.id;editingProfile=false;render()})}
-function stories(){return '<div class="stories">'+accounts.slice(0,12).map(a=>'<div class="story"><img src="'+a.avatarUrl+'" alt=""><div>'+esc(a.displayName.split(" ")[0])+'</div></div>').join("")+'</div>'}
-function postCard(p){const a=account(p.authorId),isLiked=liked.has(p.id);let media=p.type==="video"?'<video class="post-media" controls playsinline preload="none" poster="'+p.thumbnailUrl+'" src="'+p.mediaUrl+'"></video>':p.type==="image"?'<img class="post-media" loading="lazy" src="'+p.mediaUrl+'" alt="Public stock image">':"";return '<article class="card"><div class="post-head" data-open-profile="'+a.id+'" style="cursor:pointer"><img class="avatar" src="'+a.avatarUrl+'" alt=""><div class="meta"><div class="name">'+esc(a.displayName)+' </div><div class="handle">@'+esc(a.handle)+'</div></div><span>•••</span></div><div class="post-text">'+esc(p.text)+' '+p.hashtags.map(h=>'#'+esc(h)).join(" ")+'</div>'+media+'<div class="post-actions"><button class="'+(isLiked?'liked':'')+'" data-like="'+p.id+'">'+(isLiked?'♥':'♡')+' '+(p.likes+(isLiked?1:0)).toLocaleString()+'</button><button data-comment="'+p.id+'">◯ '+p.comments+' comments</button><button data-share="'+p.id+'">↗ '+p.shares+' share</button><button data-save="'+p.id+'">'+(savedPosts.has(p.id)?"▣ Saved":"⌑ Save")+'</button></div><div class="post-footer">Media: '+esc(p.mediaSource||"GomoGie")+'</div></article>'}
-function composer(){return '<section class="composer"><div class="composer-row"><img class="avatar" src="'+accounts[0].avatarUrl+'"><input id="composerText" placeholder="Share something with your community…"></div><div class="compose-actions"><button class="soft">▧ Photo</button><button class="soft">▷ Video</button><button class="soft">▤ Poll</button><button class="soft" id="createPost">Post</button></div></section>'}
-function feed(){view.innerHTML=stories()+composer()+posts.slice(0,30).map(postCard).join("")}
-function pulse(){view.innerHTML='<h2 class="section-title">Pulse · Public conversations</h2><div class="panel"><h3>What is happening?</h3>'+["#Architecture","#TravelMY","#CoffeeCulture","#TechForGood","#WeekendProjects","#FoodDiscoveries"].map((t,i)=>'<div class="trend"><span><strong>'+t+'</strong><br><small>Trending conversation</small></span><span>'+formatCompactCount((12.4-i*1.3)*1000)+' posts</span></div>').join("")+'</div>'+posts.filter(p=>p.type==="text").slice(0,15).map(postCard).join("")}
+function stories(){const people=accounts.filter(a=>a&&a.id).slice(0,12);return people.length?'<div class="stories">'+people.map(a=>'<div class="story" data-open-profile="'+esc(a.id)+'"><img src="'+esc(a.avatarUrl||"") +'" alt=""><div>'+esc((a.displayName||a.handle||"Member").split(" ")[0])+'</div></div>').join("")+'</div>':""}
+function postCard(p){const a=account(p.authorId)||{id:p.authorId,handle:"member",displayName:"GomoGie member",avatarUrl:""};const isLiked=liked.has(p.id);const media=p.type==="video"&&p.mediaUrl?'<video class="post-media" controls playsinline preload="metadata" poster="'+esc(p.thumbnailUrl||"") +'" src="'+esc(p.mediaUrl)+'"></video>':p.type==="image"&&p.mediaUrl?'<img class="post-media" loading="lazy" src="'+esc(p.mediaUrl)+'" alt="Post media">':"";return '<article class="card"><div class="post-head" data-open-profile="'+esc(a.id)+'" style="cursor:pointer"><img class="avatar" src="'+esc(a.avatarUrl||"") +'" alt=""><div class="meta"><div class="name">'+esc(a.displayName||a.handle||"GomoGie member")+' </div><div class="handle">@'+esc(a.handle||"member")+'</div></div><span>•••</span></div><div class="post-text">'+esc(p.text||"")+' '+(p.hashtags||[]).map(h=>'#'+esc(h)).join(" ")+'</div>'+media+'<div class="post-actions"><button class="'+(isLiked?'liked':'')+'" data-like="'+esc(p.id)+'">'+(isLiked?'♥':'♡')+' '+(Number(p.likes||0)+(isLiked?1:0)).toLocaleString()+'</button><button data-comment="'+esc(p.id)+'">◯ '+Number(p.comments||0)+' comments</button><button data-share="'+esc(p.id)+'">↗ Share</button><button data-save="'+esc(p.id)+'">'+(savedPosts.has(p.id)?"▣ Saved":"⌑ Save")+'</button></div><div class="post-footer">GomoGie live post</div></article>'}
+function composer(){const me=currentUser&&account(currentUser.id);return '<section class="composer"><div class="composer-row"><img class="avatar" src="'+esc(me?.avatarUrl||"") +'" alt=""><input id="composerText" placeholder="'+(currentUser?"Share something with your community…":"Log in to share with your community…") +'" '+(currentUser?"":"readonly")+'></div><div class="compose-actions"><button class="soft" type="button" data-requires-login>▧ Photo</button><button class="soft" type="button" data-requires-login>▷ Video</button><button class="soft" type="button" data-requires-login>▤ Poll</button><button class="soft" id="createPost">Post</button></div></section>'}
+function feed(){view.innerHTML=stories()+composer()+(posts.length?posts.slice(0,30).map(postCard).join(""):'<div class="empty">No public posts yet. Be the first to share something on GomoGie.</div>')}
+function pulse(){view.innerHTML='<h2 class="section-title">Pulse · Public conversations</h2>'+(posts.length?posts.filter(p=>p.type==="text").slice(0,30).map(postCard).join(""):'<div class="empty">No public conversations yet. Trends will appear when members publish posts and hashtags.</div>')}
 function watch(){
  const vids=posts.filter(p=>p.type==="video"&&(watchMode==="for-you"||followed.has(p.authorId)));
  view.innerHTML='<section class="watch-page"><div class="watch-top"><h2>Watch</h2><div class="watch-tabs"><button id="forYouTab" class="'+(watchMode==="for-you"?"selected":"")+'">For You</button><button id="followingTab" class="'+(watchMode==="following"?"selected":"")+'">Following</button></div></div>'+(vids.length?'<div class="watch-stream" id="watchStream">'+vids.map((p,i)=>{const a=account(p.authorId);return '<article class="watch-slide" data-video-id="'+p.id+'"><video class="watch-video" playsinline webkit-playsinline muted loop preload="metadata" poster="'+p.thumbnailUrl+'" src="'+p.mediaUrl+'"></video><button class="watch-play" aria-label="Play or pause video">▶</button><div class="watch-shade"></div><div class="watch-caption"><strong>'+esc(a.displayName)+' </strong><p>'+esc(p.text)+'</p><small>Media: '+esc(p.mediaSource||"GomoGie")+'</small></div><div class="watch-actions"><button data-watch-like="'+p.id+'">♡<small>'+(p.likes+(liked.has(p.id)?1:0)).toLocaleString()+'</small></button><button data-watch-comment="'+p.id+'">◯<small>'+p.comments+'</small></button><button data-watch-share="'+p.id+'">↗<small>Share</small></button><button data-watch-save="'+p.id+'">⌑<small>Save</small></button><button data-watch-follow="'+a.id+'">'+(followed.has(a.id)?"✓":"＋")+'<small>'+(followed.has(a.id)?"Following":"Follow")+'</small></button></div></article>'}).join("")+'</div>':'<div class="empty">Your Following video feed is empty. Follow creators from Profile to see their videos here.</div>')+'</section>';
@@ -90,7 +90,7 @@ function watch(){
  document.querySelectorAll("[data-watch-share]").forEach(b=>b.onclick=()=>alert("Sharing is simulated in this prototype."));
  document.querySelectorAll("[data-watch-save]").forEach(b=>b.onclick=()=>{const id=b.dataset.watchSave;savedPosts.has(id)?savedPosts.delete(id):savedPosts.add(id);render()});
 }
-function communities(){const groups=[["Architecture & Design","42.1K members"],["Coffee Lovers","18.7K members"],["Travel Malaysia","36.4K members"],["Home Renovation","12.9K members"],["Photography Club","24.3K members"],["Tech & Startups","9.8K members"]];view.innerHTML='<h2 class="section-title">Communities</h2><div class="directory">'+groups.map((g,i)=>'<div class="person-card"><div style="font-size:32px;color:var(--teal)">'+["⌂","☕","⌖","▦","◎","⌘"][i]+'</div><strong>'+g[0]+'</strong><small>'+g[1]+'</small><p><button class="follow">Join community</button></p></div>').join("")+'</div>'}
+function communities(){view.innerHTML='<h2 class="section-title">Communities</h2><div class="empty">Community listings and membership are not connected to the live database yet. No sample communities are shown.</div>'}
 async function loadConversations(){
  const list=document.getElementById("conversationList");if(!list)return;
  try{
@@ -117,7 +117,7 @@ function connect(){
  document.getElementById("newConversationForm").onsubmit=async e=>{e.preventDefault();const form=e.currentTarget,button=form.querySelector("button"),username=String(new FormData(form).get("username")||"").trim();button.disabled=true;try{const data=await apiRequest("/v1/conversations",{method:"POST",body:JSON.stringify({username})});await loadConversations();await openConversation(data.conversation.id,username)}catch(error){alert(error.message)}finally{button.disabled=false}};
  loadConversations();
 }
-function studio(){view.innerHTML='<h2 class="section-title">Studio</h2><section class="panel"><h3>Creator Studio</h3><p>Publish, manage and review your content. Creator analytics are preview values.</p><div class="directory"><div class="person-card"><strong>12.8K</strong><small>Views</small></div><div class="person-card"><strong>1,240</strong><small>Followers</small></div><div class="person-card"><strong>8.4%</strong><small>Engagement</small></div></div><p></p></section>'}
+function studio(){const mine=currentUser?posts.filter(p=>p.authorId===currentUser.id):[];view.innerHTML='<h2 class="section-title">Studio</h2><section class="panel"><h3>Creator Studio</h3><p>Only verified live data is shown here. Reach, views and engagement analytics will appear when those metrics are supported by the API.</p><div class="directory"><div class="person-card"><strong>'+mine.length+'</strong><small>Loaded posts</small></div></div></section>'}
 function profile(){
  if(!selectedProfileId){discoverProfiles();return}
  const a=accounts.find(x=>x.id===selectedProfileId)||(currentUser&&accounts.find(x=>x.id===currentUser.id))||accounts[0];if(!a){view.innerHTML='<div class="empty">No profile selected.</div>';return}
@@ -170,50 +170,21 @@ async function saveLocalPendingPosts(){try{await localSet("pending-posts",localP
 function updateConnectionState(){const n=document.getElementById("connectionNotice");if(n){n.classList.toggle("visible",!navigator.onLine);n.textContent="You are offline. Showing your last loaded feed; publishing and messaging are unavailable."}}
 window.addEventListener("online",updateConnectionState);window.addEventListener("offline",updateConnectionState);
 async function loadGomoGieData(){
- const stamp=Date.now();let a,p;
+ accounts=[];posts=[];localPendingPosts=[];
+ const notice=document.querySelector(".preview-notice");
  try{
-  const results=await Promise.all([
-   fetch("data/demo-accounts.json?refresh="+stamp,{cache:"no-store"}).then(r=>{if(!r.ok)throw new Error("Accounts unavailable");return r.json()}),
-   fetch("data/demo-posts.json?refresh="+stamp,{cache:"no-store"}).then(r=>{if(!r.ok)throw new Error("Posts unavailable");return r.json()})
-  ]);
-  a=results[0];p=results[1];
-  if(!Array.isArray(a.accounts)||!Array.isArray(p.posts))throw new Error("Invalid GomoGie data");
-  accounts=a.accounts;posts=p.posts;
-  try{
-   const liveItems=await fetchPublicApiFeed();
-   if(liveItems.length){
-    const liveAccounts=liveItems.map(item=>item.author).filter(Boolean).map(author=>({
-     id:author.id,handle:author.username,displayName:author.displayName||author.username,
-     avatarUrl:author.avatarUrl||"",coverUrl:"",bio:"",location:"",website:"",
-     joined:"GomoGie",followers:0,following:0
-    }));
-    const accountIds=new Set(accounts.map(item=>item.id));
-    accounts=[...accounts,...liveAccounts.filter(item=>!accountIds.has(item.id))];
-    posts=liveItems.map(item=>({
-     id:item.id,authorId:item.author?.id,type:"text",text:item.content||"",hashtags:[],
-     likes:Number(item.reactionCount||0),comments:Number(item.commentCount||0),shares:0,
-     mediaSource:"GomoGie live API",createdAt:item.createdAt
-    }));
-    const notice=document.querySelector(".preview-notice");
-    if(notice)notice.textContent="GomoGie · Live public community feed";
-   }else{
-    const notice=document.querySelector(".preview-notice");
-    if(notice)notice.textContent="GomoGie preview · Sample activity (live feed is empty)";
-   }
-  }catch(apiError){
-   console.warn("Live API feed unavailable; using preview data:",apiError);
-   const notice=document.querySelector(".preview-notice");
-   if(notice)notice.textContent="GomoGie preview · Sample activity (API temporarily unavailable)";
-  }
-  try{await localSet("last-feed",{accounts,posts,savedAt:Date.now()})}catch(e){console.warn("Feed cache unavailable",e)}
+  const liveItems=await fetchPublicApiFeed();
+  accounts=liveItems.map(item=>item.author).filter(Boolean).map(author=>({id:author.id,handle:author.username,displayName:author.displayName||author.username,avatarUrl:author.avatarUrl||"",coverUrl:"",bio:"",location:"",website:"",joined:"GomoGie",followers:0,following:0}));
+  posts=liveItems.map(item=>({id:item.id,authorId:item.author?.id,type:item.mediaType==="video"?"video":item.mediaType==="image"?"image":"text",text:item.content||"",hashtags:Array.isArray(item.hashtags)?item.hashtags:[],mediaUrl:item.mediaUrl||"",thumbnailUrl:item.thumbnailUrl||"",likes:Number(item.reactionCount||0),comments:Number(item.commentCount||0),shares:0,createdAt:item.createdAt}));
+  if(notice)notice.textContent="GomoGie · Live public community feed";
  }catch(error){
-  const cached=await localGet("last-feed");
-  if(!cached||!Array.isArray(cached.accounts)||!Array.isArray(cached.posts))throw error;
-  accounts=cached.accounts;posts=cached.posts;
+  console.error("Live GomoGie feed failed:",error);
+  if(notice)notice.textContent="GomoGie · Live service temporarily unavailable";
  }
- try{localPendingPosts=await localGet("pending-posts")||[]}catch(e){localPendingPosts=[]}
- const ids=new Set(posts.map(x=>x.id));posts=[...localPendingPosts.filter(x=>!ids.has(x.id)),...posts];
- await restoreSession();extras();render();updateConnectionState();
+ await restoreSession();
+ if(currentUser&&!accounts.some(a=>a.id===currentUser.id)){accounts.unshift({id:currentUser.id,handle:currentUser.username,displayName:currentUser.displayName||currentUser.username,avatarUrl:currentUser.avatarUrl||"",coverUrl:currentUser.coverUrl||"",bio:currentUser.bio||"",location:currentUser.location||"",website:currentUser.website||"",joined:"GomoGie",followers:0,following:0})}
+ const me=currentUser&&accounts.find(a=>a.id===currentUser.id);if(me&&currentUser){Object.assign(me,{handle:currentUser.username,displayName:currentUser.displayName||currentUser.username,avatarUrl:currentUser.avatarUrl||me.avatarUrl,bio:currentUser.bio||"",location:currentUser.location||"",website:currentUser.website||"",coverUrl:currentUser.coverUrl||me.coverUrl})}
+ extras();render();updateConnectionState();
 }
 async function refreshGomoGie(){
  if(isRefreshing)return;

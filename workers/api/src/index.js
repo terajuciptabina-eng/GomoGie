@@ -119,6 +119,64 @@ async function route(request, env) {
   const method = request.method;
   const path = url.pathname;
 
+  if (path === "/v1/link-preview" && method === "GET") {
+    const requested = url.searchParams.get("url") || "";
+    const validateTarget = value => {
+      let target; try { target = new URL(value); } catch { return null; }
+      if (!["http:","https:"].includes(target.protocol) || target.username || target.password || (target.port && !["80","443"].includes(target.port))) return null;
+      const host = target.hostname.toLowerCase().replace(/\.$/, "");
+      if (!host || host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal") || host.endsWith(".test") ||
+          /^(127\.|10\.|192\.168\.|169\.254\.|0\.|22[4-9]\.|23[0-9]\.)/.test(host) || /^172\.(1[6-9]|2[0-9]|3[01])\./.test(host) ||
+          host === "::1" || host.startsWith("[fc") || host.startsWith("[fd") || host.startsWith("[fe80")) return null;
+      target.hash = ""; return target;
+    };
+    let target = validateTarget(requested);
+    if (!target) return json({ error: "invalid_url" }, 400);
+    const cacheKey = new Request("https://gomogie-link-preview-cache.invalid/" + encodeURIComponent(target.href));
+    const cached = await caches.default.match(cacheKey);
+    if (cached) return new Response(cached.body, { status: cached.status, headers: cached.headers });
+    let response = null;
+    for (let hop = 0; hop < 4; hop++) {
+      try { response = await fetch(target.href, { redirect: "manual", headers: { accept: "text/html,application/xhtml+xml;q=0.9", "user-agent": "GomoGieLinkPreview/1.0" }, signal: AbortSignal.timeout(5000) }); }
+      catch { return json({ error: "preview_unavailable" }, 502); }
+      if ([301,302,303,307,308].includes(response.status)) {
+        const location = response.headers.get("location");
+        if (!location || hop === 3) return json({ error: "too_many_redirects" }, 502);
+        target = validateTarget(new URL(location, target).href);
+        if (!target) return json({ error: "invalid_redirect" }, 400);
+        continue;
+      }
+      break;
+    }
+    const type = response?.headers.get("content-type") || "";
+    if (!response?.ok || !/text\/(html|xhtml)/i.test(type)) return json({ error: "not_html" }, 415);
+    const reader = response.body?.getReader();
+    if (!reader) return json({ error: "empty_response" }, 502);
+    const chunks = []; let total = 0;
+    while (true) { const part = await reader.read(); if (part.done) break; total += part.value.byteLength; if (total > 524288) { await reader.cancel(); return json({ error: "page_too_large" }, 413); } chunks.push(part.value); }
+    const bytes = new Uint8Array(total); let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
+    const source = decoder.decode(bytes);
+    const decode = value => String(value || "").replace(/&amp;/gi,"&").replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").replace(/&lt;/gi,"<").replace(/&gt;/gi,">").replace(/&#(\d+);/g,(_,n)=>String.fromCodePoint(Number(n))).replace(/&#x([\da-f]+);/gi,(_,n)=>String.fromCodePoint(parseInt(n,16))).trim();
+    const getMeta = key => {
+      const tags = source.match(/<meta\b[^>]*>/gi) || [];
+      for (const tag of tags) {
+        const name = tag.match(/\b(?:property|name)\s*=\s*["']([^"']+)["']/i)?.[1];
+        const content = tag.match(/\bcontent\s*=\s*["']([^"']*)["']/i)?.[1];
+        if (name?.toLowerCase() === key.toLowerCase() && content) return decode(content).slice(0,2000);
+      }
+      return "";
+    };
+    const title = getMeta("og:title") || getMeta("twitter:title") || decode(source.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || "");
+    const description = getMeta("og:description") || getMeta("description") || getMeta("twitter:description");
+    let image = getMeta("og:image") || getMeta("twitter:image");
+    if (image) { try { image = new URL(image, target).href; if (!/^https?:\/\//i.test(image)) image = ""; } catch { image = ""; } }
+    const result = { url: target.href, hostname: target.hostname, title: title.slice(0,180), description: description.slice(0,300), image };
+    const output = json(result, 200, { "cache-control": "public, max-age=3600" });
+    await caches.default.put(cacheKey, output.clone());
+    return output;
+  }
+
   if (path === "/health/live" && method === "GET") {
     return json({ status: "ok", service: "gomogie-api", runtime: "cloudflare-workers" });
   }

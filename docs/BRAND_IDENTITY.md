@@ -7,7 +7,8 @@
 - **Primary presentation:** The single word “GomoGie” on a clean light background.
 
 ## Master wordmark
-- Vector master: [assets/brand/GomoGie-wordmark.svg](../assets/brand/GomoGie-wordmark.svg)
+- Vector master (white background): [assets/brand/GomoGie-wordmark.svg](../assets/brand/GomoGie-wordmark.svg)
+- Vector master (transparent): [assets/brand/GomoGie-wordmark-transparent.svg](../assets/brand/GomoGie-wordmark-transparent.svg)
 - Favicon derivative: [assets/brand/favicon.svg](../assets/brand/favicon.svg)
 - Shared CSS tokens: [assets/brand/brand-tokens.css](../assets/brand/brand-tokens.css)
 - Raster exports: PNG on white and transparent background.

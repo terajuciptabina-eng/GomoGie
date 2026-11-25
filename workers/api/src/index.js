@@ -115,7 +115,7 @@ const VIDEO_LIMIT = 50 * 1024 * 1024;
 
 
 
-const NEWS_FEEDS=[{id:"bernama-en",name:"BERNAMA",url:"https://www.bernama.com/en/rssfeed.php",language:"en"}];
+const NEWS_FEEDS=[{id:"bernama-en",name:"BERNAMA",url:"https://www.bernama.com/en/rssfeed.php/",language:"en"}];
 function decodeNewsXml(v){return String(v||"").replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,"$1").replace(/<[^>]+>/g," ").replace(/&amp;/gi,"&").replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").replace(/&lt;/gi,"<").replace(/&gt;/gi,">").replace(/\s+/g," ").trim()}
 function newsTag(block,name){const m=block.match(new RegExp("<"+name+"(?:\\s[^>]*)?>([\\s\\S]*?)</"+name+">","i"));return m?decodeNewsXml(m[1]):""}
 function newsCategory(title,summary){const v=(title+" "+summary).toLowerCase();if(/sport|football|soccer|badminton|tennis|sukan|bola sepak/.test(v))return"sports";if(/business|econom|market|trade|finance|ringgit|bank|perniagaan/.test(v))return"business";if(/technology|digital|artificial intelligence|cyber|software|semiconductor|teknologi/.test(v))return"technology";if(/politic|parliament|minister|election|government|cabinet|politik|menteri/.test(v))return"politics";if(/food|travel|entertainment|culture|lifestyle|celebrity|makanan|hiburan/.test(v))return"lifestyle";if(/world|global|international|asean|united states|china|europe|dunia/.test(v))return"world";return"national"}

@@ -34,6 +34,17 @@ Supported image formats: JPEG, PNG, WebP and GIF. Maximum image size: 8 MiB (8,3
 
 Video upload/transcoding and multiple images per post are not part of this implementation.
 
+## Video editing and upload
+
+The post composer opens a local video editor before upload. It accepts MP4, MOV, M4V, WebM and 3GP source files where the browser can preview the source and the FFmpeg WebAssembly build can decode its codecs. The editor provides:
+
+- Start/end trim in seconds (maximum edited duration: 5 minutes).
+- Center crop presets: original, portrait 9:16, square 1:1 and landscape 16:9.
+- Three H.264 export quality presets with AAC audio.
+- MP4 output preview before publishing.
+
+Video processing runs in the browser using FFmpeg WebAssembly (single-thread core loaded on demand from jsDelivr). The original file is not uploaded; only the rendered MP4 is sent to the existing authenticated `POST /v1/videos` route. The final output must be 50 MiB or smaller. Source files are limited to 150 MiB to reduce memory pressure on mobile devices. Processing is device-intensive; iOS Safari may need a shorter or smaller source if memory is constrained. An internet connection is required for the first-time FFmpeg engine download. The Worker remains MP4-only and verifies the MP4 container signature; no server-side transcoding is performed.
+
 ## 3. D1 schema
 
 The migration is additive and does not alter existing tables:

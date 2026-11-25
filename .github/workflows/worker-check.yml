@@ -6,6 +6,8 @@ on:
     paths:
       - "workers/api/**"
       - ".github/workflows/worker-check.yml"
+  workflow_dispatch:
+
   pull_request:
     paths:
       - "workers/api/**"

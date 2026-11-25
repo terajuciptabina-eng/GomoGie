@@ -1,5 +1,5 @@
 const CACHE_PREFIX="gomogie-shell-";
-const CACHE_NAME=CACHE_PREFIX+"v21";
+const CACHE_NAME=CACHE_PREFIX+"v22";
 const APP_SHELL=["./","./index.html","./manifest.webmanifest","./assets/brand/favicon.svg","./assets/brand/GomoGie-wordmark-transparent.svg","./assets/brand/brand-tokens.css"];
 self.addEventListener("install",event=>{
  event.waitUntil((async()=>{
@@ -25,7 +25,7 @@ self.addEventListener("fetch",event=>{
    const cache=await caches.open(CACHE_NAME);
    try{
     const fresh=await fetch(request,{cache:"no-store"});
-    if(fresh.ok)cache.put("./index.html",fresh.clone());
+    if(fresh.ok)await cache.put("./index.html",fresh.clone());
     return fresh;
    }catch(error){
     return (await cache.match(request))||(await cache.match("./index.html"))||Response.error();
@@ -38,7 +38,7 @@ self.addEventListener("fetch",event=>{
    const cache=await caches.open(CACHE_NAME);
    try{
     const fresh=await fetch(request);
-    if(fresh.ok)cache.put(request,fresh.clone());
+    if(fresh.ok)await cache.put(request,fresh.clone());
     return fresh;
    }catch(error){
     return (await cache.match(request))||Response.error();

@@ -103,7 +103,7 @@ function detectImageType(bytes) {
   if (bytes.length >= 6 && ["GIF87a","GIF89a"].includes(String.fromCharCode(...bytes.slice(0,6)))) return "image/gif";
   return null;
 }
-function mediaUrl(id) { return "https://gomogie-api.terajucibina.workers.dev/v1/media/" + encodeURIComponent(id); }
+function mediaUrl(id) { return "https://gomogie-api.terajuciptabina.workers.dev/v1/media/" + encodeURIComponent(id); }
 
 async function route(request, env) {
   const url = new URL(request.url);

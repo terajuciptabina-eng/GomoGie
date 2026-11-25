@@ -45,9 +45,6 @@ jobs:
         run: npx wrangler d1 execute gomogie-db --remote --file=sql/0004_viral_news.sql
 
 
-      - name: Apply GomoGie Viral News image migration
-        if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
-        run: npx wrangler d1 execute gomogie-db --remote --file=sql/0006_viral_news_images.sql
 
       - name: Deploy Worker to Cloudflare
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}

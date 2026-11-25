@@ -1,43 +1,60 @@
-# GomoGie Cloudflare Workers API foundation
+# GomoGie Cloudflare Workers API
 
-This is the Cloudflare Workers + D1 deployment target for the Cloudflare account currently being configured.
+This Worker targets the existing `gomogie-db` D1 schema. It does not create, drop, or rename the user's existing tables.
 
-## Current scope
+## Implemented routes
 
-- `GET /health/live`: confirms the Worker is running.
-- `GET /health/ready`: confirms the D1 binding can execute a query.
-- CORS is restricted to the configured static frontend origin.
-- No user-facing write endpoints are exposed yet.
+- `GET /health/live` — Worker liveness.
+- `GET /health/ready` — D1 connectivity.
+- `POST /v1/auth/register` — account and profile creation.
+- `POST /v1/auth/login` — login by email or username.
+- `GET /v1/auth/me` — authenticated account/profile.
+- `GET /v1/feed` — published public posts.
+- `POST /v1/posts` — create a post.
+- `POST /v1/posts/:postId/reactions` and `DELETE` — add/remove reaction.
+- `POST /v1/posts/:postId/comments` — add a comment.
+- `POST /v1/users/:username/follow` and `DELETE` — follow/unfollow.
 
-## Configure
+## Schema verified from Cloudflare D1 Console screenshots
 
-1. In Cloudflare Dashboard, open Workers & Pages and create or select the Worker named `gomogie-api`.
-2. Create/select the D1 database named `gomogie-db`.
-3. Copy its database ID into `wrangler.toml`, replacing `REPLACE_WITH_D1_DATABASE_ID`.
-4. Confirm the production frontend origin in `ALLOWED_ORIGINS`.
-5. Deploy from this directory using Wrangler after authenticating the Cloudflare account.
+The API uses the existing table/column names:
 
-Do not put API tokens, passwords, database secrets or private keys in this file or Git.
+- `users`: id, email, username, password_hash, status, created_at, updated_at
+- `profiles`: user_id, display_name, bio, avatar_url, cover_url, website, location, is_private, created_at, updated_at
+- `posts`: id, user_id, content, visibility, status, comments_enabled, created_at, updated_at
+- `reactions`: user_id, post_id, reaction_type, created_at
+- `comments`: id, post_id, user_id, parent_id, content, status, created_at, updated_at
+- `follows`: follower_id, following_id, status, created_at
+- `media_assets`, `post_media`, `conversations`, `conversation_members`, `messages`, `notifications`, `reports`
 
-## Important database gate
+The D1 screenshots show these are SQLite/D1 tables. The PostgreSQL migration under `backend/migrations` is a separate, unused alternative and must not be applied to this D1 database.
 
-The D1 tables were created manually in the Cloudflare Console. Before implementing account/feed mutations, inspect their exact columns and constraints. The PostgreSQL schema under `backend/migrations` is not compatible with D1 and must not be applied to D1.
+## Configure and deploy
 
-Run this single read-only query in the D1 Console and retain the complete result:
+1. Create/select the Worker named `gomogie-api` in Cloudflare Workers & Pages.
+2. Add a D1 database binding named `DB` pointing to the existing `gomogie-db` database. If using Wrangler, copy the database ID from the D1 database details into `wrangler.toml`.
+3. Set `ALLOWED_ORIGINS` to the exact GitHub Pages origin.
+4. Set a strong secret named `JWT_SECRET` (at least 32 characters) through Cloudflare Worker Secrets. Never commit it to Git.
+5. Deploy this Worker from this directory using Wrangler after authenticating the Cloudflare account.
 
-```sql
-SELECT name, sql
-FROM sqlite_master
-WHERE type = 'table'
-  AND name NOT LIKE 'sqlite_%'
-ORDER BY name;
+Example commands from this directory:
+
+```sh
+npm install --save-dev wrangler
+npx wrangler login
+npx wrangler secret put JWT_SECRET
+npx wrangler deploy
 ```
 
-This prevents the Worker from guessing column names or accidentally writing to an incompatible schema. Do not drop or recreate existing tables.
+Do not paste credentials, API tokens, database IDs containing secrets, or the JWT secret into chat or Git.
 
-## Smoke tests after deployment
+## Current limits
 
-- `GET https://<worker-domain>/health/live`
-- `GET https://<worker-domain>/health/ready`
+- Email verification and password reset are not implemented.
+- Access tokens last 15 minutes; refresh tokens and server-side session revocation are not implemented.
+- Public feed currently returns public posts only. A personalized Following feed and private/follower visibility enforcement still need implementation.
+- Media upload, R2 delivery, image processing, video transcoding, messaging, notifications and moderation APIs are not implemented yet.
+- Configure Cloudflare rate limiting before public exposure. The current Worker code does not yet bind to a rate-limiting namespace.
+- Do not expose this API to public registration until security review, abuse controls and account recovery are complete.
 
-A successful readiness response proves only that the Worker can query D1. It does not mean authentication, feeds, media, messaging or production security are complete.
+A successful readiness response proves only that the Worker can query D1. It does not mean the whole social platform is production-ready.

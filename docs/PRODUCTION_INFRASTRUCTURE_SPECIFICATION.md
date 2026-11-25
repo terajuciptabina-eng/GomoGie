@@ -167,3 +167,12 @@ Never run provisioning or paid cloud actions without the account owner's explici
 | Closed beta | Operational checklist and user-facing policy approved | Not ready |
 
 **Release rule:** do not announce production-ready or open public registration until every mandatory public-beta gate is verified.
+
+
+## 11. Upload quarantine and cursor correctness
+- New media rows enter `quarantined`; the API does not return a public playback URL at upload completion.
+- Upload completion checks the signed intent metadata, expected owner, content type and byte ceiling.
+- The R2 bucket should remain private until an authenticated media delivery design and moderation/scanning pipeline are implemented.
+- Configure R2 bucket CORS for the exact GomoGie frontend origin, `PUT` only for browser upload, and the signed `Content-Type`, `x-amz-meta-owner` and `x-amz-meta-intent` headers.
+- Public feed pagination uses a compound timestamp/UUID cursor to avoid skipping records with identical timestamps.
+- Follower-only post visibility is not exposed by this API until server-side privacy filtering is implemented; the initial API accepts public posts only.

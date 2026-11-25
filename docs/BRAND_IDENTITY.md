@@ -8,6 +8,8 @@
 
 ## Master wordmark
 - Vector master: [assets/brand/GomoGie-wordmark.svg](../assets/brand/GomoGie-wordmark.svg)
+- Favicon derivative: [assets/brand/favicon.svg](../assets/brand/favicon.svg)
+- Shared CSS tokens: [assets/brand/brand-tokens.css](../assets/brand/brand-tokens.css)
 - Raster exports: PNG on white and transparent background.
 - Exact casing: `GomoGie`.
 - `Gomo`: deep navy/charcoal.
@@ -39,4 +41,4 @@ These are initial brand tokens. UI contrast combinations must still be checked b
 - Do not present unapproved icon concepts as the official logo.
 
 ## Status and remaining production work
-The wordmark-only direction and initial colour tokens are selected. The SVG master and PNG exports are prepared. Final font selection/licensing, optical kerning review, accessible UI colour validation and trademark/domain clearance remain to be completed.
+The wordmark-only direction and initial colour tokens are selected. The SVG master and PNG exports are prepared. A compact “G” favicon is supplied only as a browser/app tile derivative; it does not replace the wordmark-only primary logo. Shared CSS tokens are supplied for future UI implementation. Final font selection/licensing, optical kerning review, accessible UI colour validation and trademark/domain clearance remain to be completed.

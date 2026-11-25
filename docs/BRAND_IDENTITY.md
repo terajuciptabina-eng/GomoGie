@@ -3,13 +3,14 @@
 ## Official identity
 - **Name:** GomoGie
 - **Tagline:** Connect. Share. Discover.
-- **Logo:** Wordmark only. No separate icon, symbol, badge, play button or media-player motif.
+- **Primary logo:** Original GomoGie wordmark.
+- **App icon:** The original first-letter “G” extracted directly from the approved wordmark. Preserve its exact geometry and navy colour on a plain white square. No border, badge, play button, gradient or additional symbol.
 - **Primary presentation:** The single word “GomoGie” on a clean light background.
 
 ## Master wordmark
 - Vector master (white background): [assets/brand/GomoGie-wordmark.svg](../assets/brand/GomoGie-wordmark.svg)
 - Vector master (transparent): [assets/brand/GomoGie-wordmark-transparent.svg](../assets/brand/GomoGie-wordmark-transparent.svg)
-- Favicon derivative: [assets/brand/favicon.svg](../assets/brand/favicon.svg)
+- App icon / favicon: [assets/brand/favicon.svg](../assets/brand/favicon.svg), using the exact first-letter G path from the transparent master wordmark.
 - Shared CSS tokens: [assets/brand/brand-tokens.css](../assets/brand/brand-tokens.css)
 - Raster exports: PNG on white and transparent background.
 - Exact casing: `GomoGie`.
@@ -21,7 +22,7 @@
 ## Colour tokens
 | Token | Hex | Use |
 |---|---|---|
-| Brand Navy | `#142030` | “Gomo”, primary text |
+| Brand Navy | `#10202D` | Original G letterform, “Gomo”, primary text |
 | Brand Teal | `#00AE9C` | “Gie”, accent |
 | White | `#FFFFFF` | Primary background |
 
@@ -31,8 +32,8 @@ These are initial brand tokens. UI contrast combinations must still be checked b
 - Maintain generous clear space around the wordmark.
 - Do not stretch, skew, rotate or add effects.
 - No gradients, metallic effects, glow, shadows, 3D effects, outlines or decorative flourishes.
-- Do not add a standalone “G” emblem or play/media icon.
-- Use the wordmark alone in compact placements; do not force the tagline into small spaces.
+- The standalone “G” is approved only as the app icon and favicon. Do not alter its original wordmark geometry or add a play/media symbol.
+- Use the approved G app icon in app-icon placements; use the complete wordmark in brand/header placements. Do not force the tagline into small spaces.
 - On dark backgrounds, use a separately reviewed high-contrast treatment rather than applying unapproved effects.
 
 ## Brand consistency

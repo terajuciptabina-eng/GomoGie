@@ -571,9 +571,11 @@ function bind(){
  document.querySelectorAll(".viral-news-card").forEach(card=>{
   const id=card.dataset.newsId;
   const reader=card.querySelector(".viral-news-reader");
-  if(reader)reader.addEventListener("toggle",()=>{if(reader.open){markNewsAsRead(id);setTimeout(()=>{if(active==="pulse")render()},500)}});
+  // Mark as read, but keep the card visible while the reader is open.
+  // The unread filter takes effect on the next Pulse render/navigation.
+  if(reader)reader.addEventListener("toggle",()=>{if(reader.open)markNewsAsRead(id)});
   const sourceLink=card.querySelector(".viral-news-foot a");
-  if(sourceLink)sourceLink.addEventListener("click",()=>{markNewsAsRead(id);setTimeout(()=>{if(active==="pulse")render()},300)});
+  if(sourceLink)sourceLink.addEventListener("click",()=>markNewsAsRead(id));
  });
  document.querySelectorAll("[data-content-filter]").forEach(b=>b.onclick=()=>{newsContentFilter=b.dataset.contentFilter;render()});
  document.querySelectorAll("[data-open-news]").forEach(b=>b.onclick=()=>{active="pulse";render()});

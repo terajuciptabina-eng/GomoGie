@@ -176,9 +176,12 @@ async function loadGomoGieData(){
   accounts=liveItems.map(item=>item.author).filter(Boolean).map(author=>({id:author.id,handle:author.username,displayName:author.displayName||author.username,avatarUrl:author.avatarUrl||"",coverUrl:"",bio:"",location:"",website:"",joined:"GomoGie",followers:0,following:0}));
   posts=liveItems.map(item=>({id:item.id,authorId:item.author?.id,type:item.mediaType==="video"?"video":item.mediaType==="image"?"image":"text",text:item.content||"",hashtags:Array.isArray(item.hashtags)?item.hashtags:[],mediaUrl:item.mediaUrl||"",thumbnailUrl:item.thumbnailUrl||"",likes:Number(item.reactionCount||0),comments:Number(item.commentCount||0),shares:0,createdAt:item.createdAt}));
   if(notice)notice.textContent="GomoGie · Live public community feed";
+  try{await localSet("last-live-feed",{accounts,posts,savedAt:Date.now()})}catch(cacheError){console.warn("Live feed cache unavailable:",cacheError)}
  }catch(error){
   console.error("Live GomoGie feed failed:",error);
-  if(notice)notice.textContent="GomoGie · Live service temporarily unavailable";
+  let cached=null;try{cached=await localGet("last-live-feed")}catch(cacheError){console.warn("Live feed cache unavailable:",cacheError)}
+  if(cached&&Array.isArray(cached.accounts)&&Array.isArray(cached.posts)){accounts=cached.accounts;posts=cached.posts;if(notice)notice.textContent="GomoGie · Showing previously loaded live posts (offline)"}
+  else if(notice)notice.textContent="GomoGie · Live service temporarily unavailable";
  }
  await restoreSession();
  if(currentUser&&!accounts.some(a=>a.id===currentUser.id)){accounts.unshift({id:currentUser.id,handle:currentUser.username,displayName:currentUser.displayName||currentUser.username,avatarUrl:currentUser.avatarUrl||"",coverUrl:currentUser.coverUrl||"",bio:currentUser.bio||"",location:currentUser.location||"",website:currentUser.website||"",joined:"GomoGie",followers:0,following:0})}

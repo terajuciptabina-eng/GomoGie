@@ -86,3 +86,21 @@ Roadmap completion must reflect verified implementation, not planned work.
 - [x] Discover profiles through search and profile directory.
 - [ ] Persist profile edits, follows and saved posts using a secure backend after authentication is implemented.
 - [ ] Implement real upload, image processing, privacy settings, block/report and follow relationship APIs.
+
+
+## Phase 2A — Production infrastructure foundation (25 November 2026)
+- [x] Audit current GitHub Pages prototype and document the production boundary.
+- [x] Select a free-first controlled-beta baseline: Fastify, PostgreSQL, R2, Docker Compose and Cloudflare Tunnel.
+- [x] Add API container, PostgreSQL schema and environment template on a feature branch.
+- [x] Add initial registration/login, public feed, posts, reactions, comments and follow API endpoints.
+- [x] Add short-lived R2 upload intent and object metadata verification endpoints.
+- [x] Add API syntax and media-policy checks in GitHub Actions.
+- [ ] Run local Docker Compose and PostgreSQL integration tests.
+- [ ] Implement email verification, password reset, refresh/revocation sessions and admin MFA.
+- [ ] Implement moderation, media malware scanning, image re-encoding and video processing queue.
+- [ ] Implement encrypted off-host backup and prove a restore.
+- [ ] Provision the Always Free VM and Cloudflare Tunnel with owner-controlled accounts.
+- [ ] Connect the frontend to the real API and remove prototype-only assumptions from production flows.
+- [ ] Complete security, privacy, performance and closed-beta acceptance tests.
+
+Only checked items have repository evidence; infrastructure provisioning and runtime tests remain open.

@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#10202d"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="description" content="GomoGie — Connect. Share. Discover.">
 <link rel="icon" type="image/svg+xml" href="assets/brand/favicon.svg">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/brand/apple-touch-icon.png?v=4">
@@ -84,7 +84,10 @@ body.pull-releasing .top,body.pull-releasing .layout{transform:translate3d(0,0,0
  .watch-stream{height:calc(100svh - 250px - env(safe-area-inset-top) - env(safe-area-inset-bottom))}
 }
 
-.auth-layer{position:fixed;inset:0;z-index:50;background:#07131dcc;display:grid;place-items:center;padding:18px}.auth-layer[hidden]{display:none}.auth-dialog{position:relative;width:min(100%,420px);background:#fff;border-radius:22px;padding:28px;box-shadow:0 24px 80px #0004;display:grid;gap:14px}.auth-dialog h2{margin:0;font-size:24px}.auth-dialog p{margin:0;color:#71808c}.auth-dialog label{display:grid;gap:6px;font-size:13px;font-weight:650}.auth-dialog input{width:100%;border:1px solid #dce4e7;border-radius:10px;padding:12px}.auth-dialog .primary{border:0;border-radius:12px;background:#00ae9c;color:white;padding:12px;font-weight:700}.auth-dialog small{color:#71808c}.auth-close{position:absolute;right:14px;top:10px;border:0;background:none;font-size:26px;color:#71808c}.auth-error{color:#b42318!important;font-size:13px;min-height:18px}</style>
+.auth-layer{position:fixed;inset:0;z-index:50;background:#07131dcc;display:grid;place-items:center;padding:18px}.auth-layer[hidden]{display:none}.auth-dialog{position:relative;width:min(100%,420px);background:#fff;border-radius:22px;padding:28px;box-shadow:0 24px 80px #0004;display:grid;gap:14px}.auth-dialog h2{margin:0;font-size:24px}.auth-dialog p{margin:0;color:#71808c}.auth-dialog label{display:grid;gap:6px;font-size:13px;font-weight:650}.auth-dialog input{width:100%;border:1px solid #dce4e7;border-radius:10px;padding:12px}.auth-dialog .primary{border:0;border-radius:12px;background:#00ae9c;color:white;padding:12px;font-weight:700}.auth-dialog small{color:#71808c}.auth-close{position:absolute;right:14px;top:10px;border:0;background:none;font-size:26px;color:#71808c}.auth-error{color:#b42318!important;font-size:13px;min-height:18px}
+/* Mobile viewport zoom lock: preserve normal panning and scrolling. */
+@media(pointer:coarse) and (max-width:1100px){html,body{touch-action:pan-x pan-y;overscroll-behavior-x:none}}
+</style>
 </head>
 <body>
 <div class="refresh-indicator" id="refreshIndicator" role="status" aria-live="polite"><span class="refresh-spinner" aria-hidden="true"></span><span id="refreshLabel">Pull to refresh</span></div>
@@ -352,5 +355,6 @@ if("serviceWorker" in navigator){
 }
 updateConnectionState();
 loadGomoGieData().catch(()=>{view.innerHTML='<div class="empty">Unable to load GomoGie content. Please check your connection and refresh.</div>'});
+if("ontouchstart" in window){document.addEventListener("gesturestart",e=>e.preventDefault(),{passive:false});document.addEventListener("gesturechange",e=>e.preventDefault(),{passive:false});document.addEventListener("gestureend",e=>e.preventDefault(),{passive:false});let lastTouchEnd=0;document.addEventListener("touchend",e=>{const now=Date.now();if(now-lastTouchEnd<=300)e.preventDefault();lastTouchEnd=now},{passive:false})};
 </script>
 </body></html>

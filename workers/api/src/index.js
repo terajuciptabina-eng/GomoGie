@@ -376,15 +376,22 @@ async function route(request, env) {
     const post = await env.DB.prepare("SELECT id,comments_enabled FROM posts WHERE id=? AND status='published'").bind(commentMatch[1]).first();
     if (!post) return json({ error: "post_not_found" }, 404);
     if (!post.comments_enabled) return json({ error: "comments_disabled" }, 403);
+    let parent = null;
+    if (input.parentId) {
+      parent = await env.DB.prepare("SELECT id,user_id FROM comments WHERE id=? AND post_id=? AND status='published'")
+        .bind(input.parentId, commentMatch[1]).first();
+      if (!parent) return json({ error: "parent_comment_not_found", message: "Reply asal tidak ditemui dalam perbualan ini." }, 404);
+    }
     const id = uuid(), now = new Date().toISOString();
     await env.DB.prepare("INSERT INTO comments (id,post_id,user_id,parent_id,content,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)")
-      .bind(id, commentMatch[1], auth.sub, input.parentId || null, input.content.trim(), "published", now, now).run();
+      .bind(id, commentMatch[1], auth.sub, parent?.id || null, input.content.trim(), "published", now, now).run();
     const owner = await env.DB.prepare("SELECT user_id FROM posts WHERE id=?").bind(commentMatch[1]).first();
-    if (owner && owner.user_id !== auth.sub) {
+    const recipients = new Set([owner?.user_id, parent?.user_id].filter(userId => userId && userId !== auth.sub));
+    for (const recipientId of recipients) {
       await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)")
-        .bind(uuid(), owner.user_id, auth.sub, "comment", commentMatch[1], now).run();
+        .bind(uuid(), recipientId, auth.sub, "comment", commentMatch[1], now).run();
     }
-    return json({ comment: { id, postId: commentMatch[1], userId: auth.sub, content: input.content.trim(), createdAt: now } }, 201);
+    return json({ comment: { id, postId: commentMatch[1], userId: auth.sub, parentId: parent?.id || null, content: input.content.trim(), createdAt: now } }, 201);
   }
 
   if (path === "/v1/users/me/following" && method === "GET") {

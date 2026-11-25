@@ -241,6 +241,16 @@ async function fetchFollowingApiFeed(){
  if(!Array.isArray(payload.items))throw new Error("Invalid Following feed response");
  return payload.items;
 }
+async function fetchSyntheticFixtures(){
+ const [ar,pr]=await Promise.all([fetch("./data/demo-accounts.json",{cache:"no-store"}),fetch("./data/demo-posts.json",{cache:"no-store"})]);
+ if(!ar.ok||!pr.ok)throw new Error("Synthetic demo fixtures unavailable");
+ const [ad,pd]=await Promise.all([ar.json(),pr.json()]);
+ if(ad.synthetic!==true||pd.synthetic!==true||!Array.isArray(ad.accounts)||!Array.isArray(pd.posts))throw new Error("Synthetic fixture provenance check failed");
+ return {
+  accounts:ad.accounts.map(a=>({id:a.id,handle:a.handle,displayName:a.displayName||a.handle,bio:a.bio||"",avatarUrl:a.avatarUrl||"",coverUrl:a.coverUrl||"",location:a.location||"",website:a.website||"",joined:a.joined||"2026",followers:Number(a.followers||0),following:Number(a.following||0),interests:Array.isArray(a.interests)?a.interests:[],isSynthetic:true})),
+  posts:pd.posts.map(p=>({id:p.id,authorId:p.authorId,type:["image","video"].includes(p.type)?p.type:"text",text:p.text||"",hashtags:Array.isArray(p.hashtags)?p.hashtags:[],mediaUrl:["image","video"].includes(p.type)?p.mediaUrl||"":"",thumbnailUrl:p.thumbnailUrl||"",likes:Number(p.likes||0),comments:Number(p.comments||0),shares:Number(p.shares||0),createdAt:p.createdAt||new Date(0).toISOString(),isSynthetic:true,mediaSource:p.mediaSource||"Demo media"}))
+ };
+}
 function normalizeApiFeedItems(items){
  return items.map(item=>({id:item.id,authorId:item.author?.id,type:item.mediaType==="video"?"video":item.mediaType==="image"?"image":"text",text:item.content||"",hashtags:Array.isArray(item.hashtags)?item.hashtags:[],mediaUrl:item.mediaUrl||"",thumbnailUrl:item.thumbnailUrl||"",likes:Number(item.reactionCount||0),comments:Number(item.commentCount||0),shares:0,createdAt:item.createdAt}));
 }
@@ -491,22 +501,26 @@ window.addEventListener("online",updateConnectionState);window.addEventListener(
 async function loadGomoGieData(){
  accounts=[];posts=[];localPendingPosts=[];
  const notice=document.querySelector(".preview-notice");
+ let liveAccounts=[],livePosts=[];
  try{
-  const liveItems=await fetchPublicApiFeed();
-  accounts=[...new Map(liveItems.map(item=>item.author).filter(author=>author&&author.id).map(author=>[author.id,{id:author.id,handle:author.username,displayName:author.displayName||author.username,avatarUrl:author.avatarUrl||"",coverUrl:author.coverUrl||"",bio:"",location:"",website:"",joined:"GomoGie",followers:0,following:0}])).values()];
-  posts=liveItems.map(item=>({id:item.id,authorId:item.author?.id,type:item.mediaType==="video"?"video":item.mediaType==="image"?"image":"text",text:item.content||"",hashtags:Array.isArray(item.hashtags)?item.hashtags:[],mediaUrl:item.mediaUrl||"",thumbnailUrl:item.thumbnailUrl||"",likes:Number(item.reactionCount||0),comments:Number(item.commentCount||0),shares:0,createdAt:item.createdAt}));
-  if(notice)notice.textContent="GomoGie · Live public community feed";
-  try{await localSet("last-live-feed",{accounts,posts,savedAt:Date.now()})}catch(cacheError){console.warn("Live feed cache unavailable:",cacheError)}
+  const items=await fetchPublicApiFeed();
+  liveAccounts=[...new Map(items.map(x=>x.author).filter(a=>a&&a.id).map(a=>[a.id,{id:a.id,handle:a.username,displayName:a.displayName||a.username,avatarUrl:a.avatarUrl||"",coverUrl:a.coverUrl||"",bio:"",location:"",website:"",joined:"GomoGie",followers:0,following:0,isSynthetic:false}])).values()];
+  livePosts=items.map(x=>({id:x.id,authorId:x.author?.id,type:x.mediaType==="video"?"video":x.mediaType==="image"?"image":"text",text:x.content||"",hashtags:Array.isArray(x.hashtags)?x.hashtags:[],mediaUrl:x.mediaUrl||"",thumbnailUrl:x.thumbnailUrl||"",likes:Number(x.reactionCount||0),comments:Number(x.commentCount||0),shares:0,createdAt:x.createdAt,isSynthetic:false}));
+  try{await localSet("last-live-feed",{accounts:liveAccounts,posts:livePosts,savedAt:Date.now()})}catch(e){console.warn("Live feed cache unavailable:",e)}
  }catch(error){
   console.error("Live GomoGie feed failed:",error);
-  let cached=null;try{cached=await localGet("last-live-feed")}catch(cacheError){console.warn("Live feed cache unavailable:",cacheError)}
-  if(cached&&Array.isArray(cached.accounts)&&Array.isArray(cached.posts)){accounts=cached.accounts;posts=cached.posts;if(notice)notice.textContent="GomoGie · Showing previously loaded live posts (offline)"}
-  else if(notice)notice.textContent="GomoGie · Live service temporarily unavailable";
+  let cached=null;try{cached=await localGet("last-live-feed")}catch(e){console.warn("Live feed cache unavailable:",e)}
+  if(cached&&Array.isArray(cached.accounts)&&Array.isArray(cached.posts)){liveAccounts=cached.accounts;livePosts=cached.posts}
  }
- await restoreSession();
- await refreshNotificationBadge();
- if(currentUser&&!accounts.some(a=>a.id===currentUser.id)){accounts.unshift({id:currentUser.id,handle:currentUser.username,displayName:currentUser.displayName||currentUser.username,avatarUrl:currentUser.avatarUrl||"",coverUrl:currentUser.coverUrl||"",bio:currentUser.bio||"",location:currentUser.location||"",website:currentUser.website||"",joined:"GomoGie",followers:0,following:0})}
- const me=currentUser&&accounts.find(a=>a.id===currentUser.id);if(me&&currentUser){Object.assign(me,{handle:currentUser.username,displayName:currentUser.displayName||currentUser.username,avatarUrl:currentUser.avatarUrl||me.avatarUrl,bio:currentUser.bio||"",location:currentUser.location||"",website:currentUser.website||"",coverUrl:currentUser.coverUrl||me.coverUrl})}
+ let demoAccounts=[],demoPosts=[];
+ try{const fixtures=await fetchSyntheticFixtures();demoAccounts=fixtures.accounts;demoPosts=fixtures.posts}catch(error){console.warn("Synthetic demo accounts unavailable:",error)}
+ accounts=[...liveAccounts,...demoAccounts];
+ posts=[...livePosts,...demoPosts].sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
+ if(notice)notice.textContent="GomoGie · Live community + "+demoAccounts.length.toLocaleString()+" labelled synthetic demo profiles";
+ await restoreSession();await refreshNotificationBadge();
+ if(currentUser&&!accounts.some(a=>a.id===currentUser.id))accounts.unshift({id:currentUser.id,handle:currentUser.username,displayName:currentUser.displayName||currentUser.username,avatarUrl:currentUser.avatarUrl||"",coverUrl:currentUser.coverUrl||"",bio:currentUser.bio||"",location:currentUser.location||"",website:currentUser.website||"",joined:"GomoGie",followers:0,following:0,isSynthetic:false});
+ const me=currentUser&&accounts.find(a=>a.id===currentUser.id);
+ if(me&&currentUser)Object.assign(me,{handle:currentUser.username,displayName:currentUser.displayName||currentUser.username,avatarUrl:currentUser.avatarUrl||me.avatarUrl,bio:currentUser.bio||"",location:currentUser.location||"",website:currentUser.website||"",coverUrl:currentUser.coverUrl||me.coverUrl});
  accounts=[...new Map(accounts.filter(a=>a&&a.id).map(a=>[a.id,a])).values()];
  extras();render();updateConnectionState();
 }

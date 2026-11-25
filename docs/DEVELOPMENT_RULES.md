@@ -62,3 +62,15 @@ After implementation:
 4. Report exactly what changed, what passed and what remains incomplete.
 
 Do not claim a feature, test, deployment or security property is complete without evidence.
+
+
+## Synthetic users and public media
+- Synthetic accounts must be clearly marked in UI and data; never present them as real users, customers, creators, followers or traction.
+- Do not generate realistic personal details that could be mistaken for actual contact information. Use reserved demo domains if email examples are needed.
+- Public stock media is not public domain by default. Check provider licence and each asset's third-party rights before use.
+- Do not scrape or bulk-download images/videos from public websites.
+- Do not use Unsplash bulk imagery as seed content for a competing social-media service; respect its competing-service restriction.
+- Record source/provider and asset page for media references; remove or replace assets when licence status is uncertain.
+- Do not imply identifiable people, brands or creators endorse GomoGie.
+- Before public production, replace placeholder avatars and prototype stock media with user-consented uploads or appropriately licensed media.
+

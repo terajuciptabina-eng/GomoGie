@@ -426,7 +426,39 @@ async function route(request, env) {
 
   if(path==="/v1/news/preferences"&&method==="GET"){const row=await env.DB.prepare("SELECT region_code,interests_json FROM gomogie_news_preferences WHERE user_id=?").bind(auth.sub).first();let interests=["national","politics","business","technology","sports","world","lifestyle"];try{if(row?.interests_json)interests=JSON.parse(row.interests_json)}catch{}return json({region:row?.region_code||"MY",interests})}
   if(path==="/v1/news/preferences"&&method==="PUT"){const input=await readJson(request),regions=["MY","MY-PRK","MY-KUL","MY-SEL","MY-JHR","MY-PNG","MY-KDH","MY-NSN","MY-MLK","MY-PAH","MY-TRG","MY-KTN","MY-PLS","MY-SBH","MY-SWK"],categories=["national","politics","business","technology","sports","world","lifestyle"],interests=Array.isArray(input?.interests)?[...new Set(input.interests.filter(x=>categories.includes(x)))]:null;if(!input||!regions.includes(input.region)||!interests||!interests.length)return json({error:"validation_error",message:"Pilih lokasi dan sekurang-kurangnya satu minat."},400);await env.DB.prepare("INSERT INTO gomogie_news_preferences (user_id,region_code,interests_json,updated_at) VALUES (?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET region_code=excluded.region_code,interests_json=excluded.interests_json,updated_at=excluded.updated_at").bind(auth.sub,input.region,JSON.stringify(interests),new Date().toISOString()).run();return json({saved:true,region:input.region,interests})}
-  if(path==="/v1/news"&&method==="GET"){const mode=url.searchParams.get("mode")==="global"?"global":"for-you",limit=Math.min(30,Math.max(1,Number(url.searchParams.get("limit")||12)));let region="MY",interests=["national","politics","business","technology","sports","world","lifestyle"];if(auth&&mode==="for-you"){const pref=await env.DB.prepare("SELECT region_code,interests_json FROM gomogie_news_preferences WHERE user_id=?").bind(auth.sub).first();region=pref?.region_code||"MY";try{if(pref?.interests_json)interests=JSON.parse(pref.interests_json)}catch{}}const base="SELECT n.id,n.title,n.summary,n.canonical_url,n.category,n.region_code,n.published_at,s.name AS source_name,(SELECT COUNT(*) FROM gomogie_news_items t WHERE t.category=n.category AND julianday(t.published_at)>=julianday('now','-12 hours')) AS trend_score FROM gomogie_news_items n JOIN gomogie_news_sources s ON s.id=n.source_id WHERE n.status='published' AND julianday(n.published_at)>=julianday('now','-14 days') ";let rows;if(mode==="for-you"&&auth){const regionClause=region==="MY"?"":" AND n.region_code IN ('MY',?)";const sql=base+"AND n.category IN (SELECT value FROM json_each(?))"+regionClause+" ORDER BY CASE WHEN n.region_code=? THEN 0 ELSE 1 END,n.published_at DESC LIMIT ?";const binds=region==="MY"?[JSON.stringify(interests),region,limit]:[JSON.stringify(interests),region,region,limit];rows=await env.DB.prepare(sql).bind(...binds).all()}else{rows=await env.DB.prepare(base+"ORDER BY n.published_at DESC LIMIT ?").bind(limit).all()}return json({mode,region,interests,items:(rows.results||[]).map(x=>({...x,trendScore:Number(x.trend_score||0)}))})}
+  if(path==="/v1/news"&&method==="GET"){
+    const mode=url.searchParams.get("mode")==="global"?"global":"for-you";
+    const limit=Math.min(30,Math.max(1,Number(url.searchParams.get("limit")||12)));
+    let region="MY",interests=["national","politics","business","technology","sports","world","lifestyle"];
+    if(auth&&mode==="for-you"){
+      const pref=await env.DB.prepare("SELECT region_code,interests_json FROM gomogie_news_preferences WHERE user_id=?").bind(auth.sub).first();
+      region=pref?.region_code||"MY";
+      try{if(pref?.interests_json)interests=JSON.parse(pref.interests_json)}catch{}
+    }
+    const base="SELECT n.id,n.title,n.summary,n.canonical_url,n.category,n.region_code,n.published_at,s.name AS source_name,(SELECT COUNT(*) FROM gomogie_news_items t WHERE t.category=n.category AND julianday(t.published_at)>=julianday('now','-12 hours')) AS trend_score FROM gomogie_news_items n JOIN gomogie_news_sources s ON s.id=n.source_id WHERE n.status='published' AND julianday(n.published_at)>=julianday('now','-14 days') ";
+    const readItems=async()=>{
+      if(mode==="for-you"&&auth){
+        const regionClause=region==="MY"?"":" AND n.region_code IN ('MY',?)";
+        const sql=base+"AND n.category IN (SELECT value FROM json_each(?))"+regionClause+" ORDER BY CASE WHEN n.region_code=? THEN 0 ELSE 1 END,n.published_at DESC LIMIT ?";
+        const binds=region==="MY"?[JSON.stringify(interests),region,limit]:[JSON.stringify(interests),region,region,limit];
+        return await env.DB.prepare(sql).bind(...binds).all();
+      }
+      return await env.DB.prepare(base+"ORDER BY n.published_at DESC LIMIT ?").bind(limit).all();
+    };
+    let rows=await readItems();
+    let refreshed=false;
+    if(!(rows.results||[]).length){
+      const last=await env.DB.prepare("SELECT last_checked_at FROM gomogie_news_sources WHERE id='bernama-en' AND active=1").first();
+      const lastAt=last?.last_checked_at?Date.parse(last.last_checked_at):0;
+      if(!lastAt||Date.now()-lastAt>120000){
+        refreshed=true;
+        await syncNewsFeeds(env);
+        rows=await readItems();
+      }
+    }
+    const source=await env.DB.prepare("SELECT name,last_checked_at,last_error FROM gomogie_news_sources WHERE id='bernama-en'").first();
+    return json({mode,region,interests,refreshed,sourceStatus:{name:source?.name||"BERNAMA",lastCheckedAt:source?.last_checked_at||null,lastError:source?.last_error||null},items:(rows.results||[]).map(x=>({...x,trendScore:Number(x.trend_score||0)}))});
+  }
   if (path === "/v1/feed" && method === "GET") {
     const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit") || 20)));
     const select = "SELECT p.id,p.user_id,p.content,p.visibility,p.created_at,p.comments_enabled,u.username,pr.display_name,pr.avatar_url,pr.cover_url," +

@@ -31,7 +31,7 @@ These items are not implemented and must be completed before public registration
 
 - `PUT /v1/auth/me` updates allowlisted profile text fields and HTTPS image URLs for the authenticated account. This is not a file-upload endpoint.\n\n## Important behavior
 
-- The public feed endpoint currently returns only posts marked `published` and `public`.
+- `GET /v1/feed` returns only posts marked `published` and `public`. `GET /v1/feed?scope=following` requires authentication and returns the current user's published posts plus posts from accepted follows with `public` or `followers` visibility. `GET /v1/users/me/following` returns accepted and pending relationships for restoring follow state.
 - The readiness endpoint proves only that the Worker can execute a simple query against the bound D1 database.
 - A successful Worker deployment and a successful readiness check do not mean the whole social network is production-ready.
 - Keep the existing D1 database. Do not apply the unused PostgreSQL migration to it.

@@ -169,6 +169,46 @@ async function route(request, env) {
     return json({ user: { id: row.id, email: row.email, username: row.username, createdAt: row.created_at }, profile: { displayName: row.display_name, bio: row.bio, avatarUrl: row.avatar_url, coverUrl: row.cover_url, website: row.website, location: row.location, isPrivate: Boolean(row.is_private) } });
   }
 
+  if (path === "/v1/auth/me" && method === "PUT") {
+    const input = await readJson(request);
+    if (!input || !text(input.displayName, 60) ||
+        (input.bio !== undefined && typeof input.bio !== "string") ||
+        (input.location !== undefined && typeof input.location !== "string") ||
+        (input.website !== undefined && typeof input.website !== "string") ||
+        (input.avatarUrl !== undefined && typeof input.avatarUrl !== "string") ||
+        (input.coverUrl !== undefined && typeof input.coverUrl !== "string")) {
+      return json({ error: "validation_error", message: "Maklumat profil tidak sah." }, 400);
+    }
+    const fields = {
+      bio: (input.bio || "").trim(),
+      location: (input.location || "").trim(),
+      website: (input.website || "").trim(),
+      avatarUrl: (input.avatarUrl || "").trim(),
+      coverUrl: (input.coverUrl || "").trim()
+    };
+    if (fields.bio.length > 160 || fields.location.length > 80 || fields.website.length > 120 ||
+        fields.avatarUrl.length > 2048 || fields.coverUrl.length > 2048) {
+      return json({ error: "validation_error", message: "Satu atau lebih medan melebihi had aksara." }, 400);
+    }
+    for (const value of [fields.website, fields.avatarUrl, fields.coverUrl]) {
+      if (value && !/^https:\/\//i.test(value)) {
+        return json({ error: "invalid_url", message: "Pautan profil mestilah bermula dengan https://." }, 400);
+      }
+    }
+    const now = new Date().toISOString();
+    await env.DB.prepare(
+      "UPDATE profiles SET display_name=?,bio=?,location=?,website=?,avatar_url=?,cover_url=?,updated_at=? WHERE user_id=?"
+    ).bind(input.displayName.trim(), fields.bio, fields.location, fields.website,
+      fields.avatarUrl || null, fields.coverUrl || null, now, auth.sub).run();
+    const row = await env.DB.prepare(
+      "SELECT u.id,u.email,u.username,u.created_at,p.display_name,p.bio,p.avatar_url,p.cover_url,p.website,p.location,p.is_private FROM users u JOIN profiles p ON p.user_id=u.id WHERE u.id=?"
+    ).bind(auth.sub).first();
+    if (!row) return json({ error: "profile_not_found" }, 404);
+    return json({ user: { id: row.id, email: row.email, username: row.username, createdAt: row.created_at },
+      profile: { displayName: row.display_name, bio: row.bio, avatarUrl: row.avatar_url,
+        coverUrl: row.cover_url, website: row.website, location: row.location, isPrivate: Boolean(row.is_private) } });
+  }
+
   if (path === "/v1/feed" && method === "GET") {
     const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit") || 20)));
     const rows = await env.DB.prepare(

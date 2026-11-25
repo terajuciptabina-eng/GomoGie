@@ -8,6 +8,8 @@ Source-reviewed: `workers/api/src/index.js`, `workers/api/wrangler.toml`, and `w
 
 ## Changes applied
 
+- Public account registration is disabled by default with `ALLOW_REGISTRATION = "false"`; it returns HTTP 403 until explicitly enabled after release safeguards are in place.
+
 - JWT verification now requires exactly three token segments and the expected `HS256` / `JWT` header.
 - JWT claims are checked for a string subject, integer issue/expiry timestamps, a non-expired token, a reasonable issue time, and a maximum 15-minute lifetime.
 - Protected API requests now check the current D1 account status. Disabled or missing accounts are rejected even if they still possess a previously issued token.
@@ -23,7 +25,7 @@ These items are not implemented and must be completed before public registration
 2. Email verification, password reset, and account recovery.
 3. Refresh-token or session management and revocation.
 4. Security review of every authorization path, including private profiles, follower-only posts, follow requests, comment parent ownership, and moderation.
-5. Frontend integration and end-to-end tests against the deployed Worker.
+5. Complete frontend authentication and publishing integration, followed by end-to-end tests against the deployed Worker. The current frontend integration is read-only public feed loading with a demo fallback.
 6. Media upload authorization, file validation, storage policy, and video processing before accepting user media.
 7. Monitoring, alerting, backups, and operational recovery procedures.
 

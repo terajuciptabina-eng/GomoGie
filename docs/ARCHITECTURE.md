@@ -2,7 +2,9 @@
 
 ## 1. Architecture strategy
 
-Use a staged architecture. Begin with a static, responsive frontend prototype hosted through GitHub Pages. Keep production service boundaries explicit so the prototype can later be connected to real APIs without pretending that browser-local state is a backend.
+Build GomoGie as an independent social network with native identity, social graph, content, media, communities and messaging. Begin with a static, responsive frontend prototype hosted through GitHub Pages. Keep production service boundaries explicit so the prototype can later connect to real backend APIs without pretending browser-local state is a backend.
+
+The core experience must not depend on external social-network APIs or external account aggregation.
 
 ## 2. Initial prototype
 
@@ -12,6 +14,7 @@ Use a staged architecture. Begin with a static, responsive frontend prototype ho
 - Local state only for demonstration interactions.
 - No secrets, credentials or personal user data in the repository.
 - GitHub Actions for validation and GitHub Pages deployment.
+- No external social-account OAuth flow in the MVP prototype.
 
 ## 3. Proposed production logical components
 
@@ -30,7 +33,19 @@ Use a staged architecture. Begin with a static, responsive frontend prototype ho
 
 These are logical boundaries, not a commitment to deploy separate microservices. Start with a well-structured backend and split components only when scale or team ownership justifies it.
 
-## 4. Data and infrastructure principles
+## 4. Free-first sustainability and cost controls
+
+The product should offer core participation without mandatory user subscriptions. Architecture and product limits must nevertheless account for real infrastructure costs.
+
+- Track storage, bandwidth, video transcoding, realtime connections, notifications and moderation costs.
+- Apply transparent fair-use quotas and upload limits where necessary.
+- Use image resizing, video transcoding profiles, caching and CDN delivery to control media costs.
+- Prevent spam, automated abuse and resource exhaustion with rate limits and risk controls.
+- Design optional monetisation separately from core access; advertising or sponsorship must be clearly labelled and privacy-conscious.
+- Never introduce a hidden charge or silently convert a free feature into a paid feature.
+- Do not claim unlimited free media storage or unlimited bandwidth.
+
+## 5. Data and infrastructure principles
 
 - Relational database as the authoritative store for core entities and relationships.
 - Object storage/CDN for uploaded media; never store large media blobs in relational rows.
@@ -38,8 +53,9 @@ These are logical boundaries, not a commitment to deploy separate microservices.
 - Search index derived from authoritative content records.
 - Explicit backup, restore, retention and deletion procedures.
 - Region, privacy and data-residency choices must be reviewed before launch.
+- Establish budget alerts and service-level cost monitoring before opening uploads to the public.
 
-## 5. Security boundaries
+## 6. Security boundaries
 
 - Enforce authorisation server-side for every private resource and mutation.
 - Use secure session/token lifecycle and protect against CSRF/XSS/IDOR.
@@ -49,7 +65,7 @@ These are logical boundaries, not a commitment to deploy separate microservices.
 - Log privileged actions without unnecessarily logging message bodies or sensitive data.
 - Define incident response, backup recovery and account deletion workflows.
 
-## 6. Deployment
+## 7. Deployment
 
 Prototype:
 - GitHub repository as source of truth.
@@ -61,6 +77,6 @@ Production:
 - GitHub Pages must not be treated as a dynamic application server or database.
 - Production deployment architecture is an open decision and must be reviewed before implementation.
 
-## 7. Architecture decision records
+## 8. Architecture decision records
 
 Record consequential decisions in `docs/decisions/` with context, options, decision, consequences and date. Do not silently change foundational architecture.

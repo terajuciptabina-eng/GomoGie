@@ -1,1 +1,2 @@
--- Add expanded RSS text for the in-app GomoGie news reader.\nALTER TABLE gomogie_news_items ADD COLUMN body_text TEXT NOT NULL DEFAULT '';\n
+-- Add expanded RSS text for the in-app GomoGie news reader.
+ALTER TABLE gomogie_news_items ADD COLUMN body_text TEXT NOT NULL DEFAULT '';

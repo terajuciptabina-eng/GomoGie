@@ -26,6 +26,64 @@
 body.pull-dragging .top,body.pull-dragging .layout{transform:translate3d(0,var(--pull-offset,0px),0);transition:none;will-change:transform}
 body.pull-releasing .top,body.pull-releasing .layout{transform:translate3d(0,0,0);transition:transform .62s cubic-bezier(.22,1.35,.36,1);will-change:transform}
 @media(prefers-reduced-motion:reduce){body.pull-releasing .top,body.pull-releasing .layout{transition:transform .18s ease}}
+
+/* Responsive hardening: phones, iPad/tablets, safe areas and touch targets */
+@media(max-width:900px) and (min-width:701px){
+ .layout{grid-template-columns:160px minmax(0,1fr);gap:14px;padding:0 14px}
+ .right{display:none}
+ .top{padding:0 16px;gap:12px}
+ .search{min-width:0;flex:1}
+}
+@media(max-width:700px){
+ html{scroll-padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+ body{padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+ .top{position:sticky;top:0;z-index:25;padding-top:env(safe-area-inset-top);height:calc(58px + env(safe-area-inset-top))}
+ .logo{width:clamp(82px,25vw,106px);max-width:30vw}
+ .search{flex:1 1 0;width:0;min-width:0;font-size:14px}
+ .topright{gap:4px}
+ .topright #authButton{max-width:none;padding:8px 10px;font-size:12px}
+ .layout{margin:10px auto 0;padding:0 10px calc(16px + env(safe-area-inset-bottom))}
+ .main{width:100%;min-width:0}
+ .mobile-nav{padding:7px 2px calc(7px + env(safe-area-inset-bottom));min-height:64px}
+ .mobile-nav button{flex:1;min-width:0;min-height:48px;font-size:10px;white-space:nowrap}
+ .mobile-nav span{font-size:19px}
+ button,.soft,.primary{touch-action:manipulation}
+ .stories{overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
+ .stories::-webkit-scrollbar{display:none}
+ .composer-row{min-width:0}
+ .composer-row input{min-width:0;width:100%}
+ .compose-actions{display:flex;flex-wrap:wrap;gap:8px}
+ .compose-actions button{min-height:42px}
+ .card,.composer,.panel,.empty{overflow-wrap:anywhere}
+ .post-actions{display:flex;flex-wrap:wrap;gap:8px 12px}
+ .post-actions button{min-height:40px}
+ .profile-actions{flex-wrap:wrap;justify-content:flex-end}
+ .profile-stats{display:flex;flex-wrap:wrap;gap:10px 16px}
+ .profile-meta{overflow-wrap:anywhere}
+ .profile-tabs button{min-height:46px;padding:11px 6px}
+ .profile-editor input,.profile-editor textarea,.auth-dialog input{font-size:16px}
+ .auth-layer{align-items:center;overflow-y:auto;padding:calc(12px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom))}
+ .auth-dialog{width:min(100%,420px);max-height:calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));overflow-y:auto;padding:22px 18px;border-radius:18px}
+ .watch-stream{height:calc(100dvh - 250px - env(safe-area-inset-top) - env(safe-area-inset-bottom));min-height:360px}
+ .watch-slide{min-height:360px}
+ .directory{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+ .profile-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:380px){
+ .top{gap:5px;padding-left:7px;padding-right:7px}
+ .logo{width:78px}
+ .topright #authButton{padding:7px 7px;font-size:11px}
+ .layout{padding-left:7px;padding-right:7px}
+ .directory{grid-template-columns:minmax(0,1fr)}
+ .profile-info{padding-left:12px;padding-right:12px}
+ .profile-stats{font-size:12px;gap:8px}
+ .watch-tabs{gap:5px}
+ .watch-tabs button{padding:8px 10px;font-size:13px}
+}
+@supports(height:100svh){
+ .watch-stream{height:calc(100svh - 250px - env(safe-area-inset-top) - env(safe-area-inset-bottom))}
+}
+
 .auth-layer{position:fixed;inset:0;z-index:50;background:#07131dcc;display:grid;place-items:center;padding:18px}.auth-layer[hidden]{display:none}.auth-dialog{position:relative;width:min(100%,420px);background:#fff;border-radius:22px;padding:28px;box-shadow:0 24px 80px #0004;display:grid;gap:14px}.auth-dialog h2{margin:0;font-size:24px}.auth-dialog p{margin:0;color:#71808c}.auth-dialog label{display:grid;gap:6px;font-size:13px;font-weight:650}.auth-dialog input{width:100%;border:1px solid #dce4e7;border-radius:10px;padding:12px}.auth-dialog .primary{border:0;border-radius:12px;background:#00ae9c;color:white;padding:12px;font-weight:700}.auth-dialog small{color:#71808c}.auth-close{position:absolute;right:14px;top:10px;border:0;background:none;font-size:26px;color:#71808c}.auth-error{color:#b42318!important;font-size:13px;min-height:18px}</style>
 </head>
 <body>

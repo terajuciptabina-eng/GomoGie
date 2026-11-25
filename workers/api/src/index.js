@@ -313,6 +313,23 @@ async function route(request, env) {
   if (path === "/health/live" && method === "GET") {
     return json({ status: "ok", service: "gomogie-api", runtime: "cloudflare-workers" });
   }
+  if (path === "/v1/news/status" && method === "GET") {
+    try {
+      const [sources, counts] = await Promise.all([
+        env.DB.prepare("SELECT id,name,active,last_checked_at,last_error FROM gomogie_news_sources ORDER BY name,id").all(),
+        env.DB.prepare("SELECT status,content_type,COUNT(*) AS total FROM gomogie_news_items GROUP BY status,content_type").all()
+      ]);
+      return json({
+        checkedAt: new Date().toISOString(),
+        schedule: "*/15 * * * *",
+        sources: (sources.results || []).map(row => ({ id: row.id, name: row.name, active: Boolean(row.active), lastCheckedAt: row.last_checked_at, lastError: row.last_error })),
+        counts: counts.results || []
+      });
+    } catch (error) {
+      return json({ error: "news_status_unavailable", message: String(error.message || error).slice(0, 240) }, 503);
+    }
+  }
+
   if (path === "/health/ready" && method === "GET") {
     try {
       await env.DB.prepare("SELECT 1 AS ready").first();
@@ -854,7 +871,7 @@ async function route(request, env) {
 }
 
 export default {
-  async scheduled(controller, env, ctx) { ctx.waitUntil((async()=>{await syncNewsFeeds(env);const images=await hydrateRecentNewsImages(env,12);console.log("GomoGie scheduled news image hydration",images)})().catch(error=>console.error("GomoGie scheduled news cycle failed",error))); },
+  async scheduled(controller, env, ctx) { ctx.waitUntil((async()=>{const sync=await syncNewsFeeds(env);console.log("GomoGie scheduled news sync",sync);const images=await hydrateRecentNewsImages(env,12);console.log("GomoGie scheduled news image hydration",images)})().catch(error=>console.error("GomoGie scheduled news cycle failed",error))); },
   async fetch(request, env) {
     const headers = corsHeaders(request, env);
     if (request.method === "OPTIONS") {

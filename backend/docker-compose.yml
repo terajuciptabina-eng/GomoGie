@@ -1,0 +1,51 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: gomogie
+      POSTGRES_USER: gomogie
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-only-change-me}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gomogie -d gomogie"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+
+  api:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://gomogie:${POSTGRES_PASSWORD:-local-only-change-me}@db:5432/gomogie
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks: [internal]
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  # Optional production ingress. Create a Cloudflare Tunnel and set
+  # CLOUDFLARE_TUNNEL_TOKEN in the host environment before enabling this profile.
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:?Set CLOUDFLARE_TUNNEL_TOKEN}
+    profiles: ["production"]
+    depends_on: [api]
+    networks: [internal]
+
+volumes:
+  postgres_data:
+
+networks:
+  internal:
+    driver: bridge

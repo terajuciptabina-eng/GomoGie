@@ -59,30 +59,33 @@ async function signToken(user, env, lifetimeSeconds = 2592000) {
   return input + "." + b64url(new Uint8Array(signature));
 }
 
-async function authenticate(request, env) {
+async function authenticate(request, env, diagnostic = null) {
+  const reject = (reason) => { if (diagnostic) diagnostic.reason = reason; return null; };
   const value = request.headers.get("Authorization") || "";
-  const match = value.match(/^Bearer\s+(.+)$/i);
-  if (!match || !env.JWT_SECRET || env.JWT_SECRET.length < 32) return null;
+  const match = value.match(/^Bearer\\s+(.+)$/i);
+  if (!match) return reject("missing_bearer");
+  if (!env.JWT_SECRET || env.JWT_SECRET.length < 32) return reject("jwt_secret_unavailable");
   try {
     const parts = match[1].split(".");
-    if (parts.length !== 3 || parts.some(part => !part)) return null;
+    if (parts.length !== 3 || parts.some(part => !part)) return reject("malformed_token");
     const [head, body, signature] = parts;
     const header = JSON.parse(decoder.decode(fromB64url(head)));
-    if (header.alg !== "HS256" || header.typ !== "JWT") return null;
+    if (header.alg !== "HS256" || header.typ !== "JWT") return reject("unsupported_token_header");
     const key = await crypto.subtle.importKey("raw", encoder.encode(env.JWT_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["verify"]);
     const valid = await crypto.subtle.verify("HMAC", key, fromB64url(signature), encoder.encode(head + "." + body));
-    if (!valid) return null;
+    if (!valid) return reject("signature_invalid");
     const payload = JSON.parse(decoder.decode(fromB64url(body)));
     const now = Math.floor(Date.now() / 1000);
     if (typeof payload.sub !== "string" || !payload.sub || !Number.isInteger(payload.exp) ||
-        !Number.isInteger(payload.iat) || payload.exp <= now || payload.iat > now + 60 ||
-        payload.exp - payload.iat > 2592000) return null;
+        !Number.isInteger(payload.iat) || payload.iat > now + 60 ||
+        payload.exp - payload.iat > 2592000) return reject("invalid_claims");
+    if (payload.exp <= now) return reject("token_expired");
     const account = await env.DB.prepare("SELECT status FROM users WHERE id = ?").bind(payload.sub).first();
-    if (!account || account.status !== "active") return null;
+    if (!account) return reject("account_not_found");
+    if (account.status !== "active") return reject("account_inactive");
     return payload;
-  } catch { return null; }
+  } catch { return reject("token_parse_or_verification_error"); }
 }
-
 async function readJson(request, maxBytes = 65536) {
   try {
     const declaredLength = Number(request.headers.get("content-length") || 0);
@@ -171,8 +174,9 @@ async function route(request, env) {
   const publicCommentsRead = method === "GET" && /^\/v1\/posts\/[0-9a-f-]+\/comments$/i.test(path);
   const publicMediaRead = method === "GET" && /^\/v1\/media\/[0-9a-f-]+$/i.test(path);
   const needsAuth = path === "/v1/auth/me" || (path === "/v1/auth/remember" && method === "POST") || (path.startsWith("/v1/posts") && !publicCommentsRead) || (path.startsWith("/v1/media") && !publicMediaRead) || path.startsWith("/v1/users/") || path.startsWith("/v1/notifications") || path.startsWith("/v1/conversations");
-  const auth = needsAuth ? await authenticate(request, env) : null;
-  if (needsAuth && !auth) return json({ error: "unauthorized", message: "Sila log masuk semula." }, 401);
+  const authDiagnostic = {};
+  const auth = needsAuth ? await authenticate(request, env, authDiagnostic) : null;
+  if (needsAuth && !auth) return json({ error: "unauthorized", code: authDiagnostic.reason || "authentication_failed", message: "Sesi tidak dapat disahkan." }, 401);
 
   if (path === "/v1/auth/me" && method === "GET") {
     const user = await env.DB.prepare("SELECT id,email,username FROM users WHERE id=? AND status='active'").bind(auth.sub).first();

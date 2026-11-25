@@ -89,7 +89,32 @@ function watch(){
  document.querySelectorAll("[data-watch-save]").forEach(b=>b.onclick=()=>{const id=b.dataset.watchSave;savedPosts.has(id)?savedPosts.delete(id):savedPosts.add(id);render()});
 }
 function communities(){const groups=[["Architecture & Design","42.1K members"],["Coffee Lovers","18.7K members"],["Travel Malaysia","36.4K members"],["Home Renovation","12.9K members"],["Photography Club","24.3K members"],["Tech & Startups","9.8K members"]];view.innerHTML='<h2 class="section-title">Communities</h2><div class="directory">'+groups.map((g,i)=>'<div class="person-card"><div style="font-size:32px;color:var(--teal)">'+["⌂","☕","⌖","▦","◎","⌘"][i]+'</div><strong>'+g[0]+'</strong><small>'+g[1]+'</small><p><button class="follow">Join community</button></p></div>').join("")+'</div>'}
-function connect(){view.innerHTML='<h2 class="section-title">Connect</h2><section class="panel"><h3>Messages</h3>'+accounts.slice(20,34).map(a=>'<div class="people"><img class="avatar" src="'+a.avatarUrl+'"><div class="meta"><strong>'+esc(a.displayName)+'</strong><div class="handle">Conversation preview · Not connected</div></div><button class="follow">Open</button></div>').join("")+'</section>'}
+async function loadConversations(){
+ const list=document.getElementById("conversationList");if(!list)return;
+ try{
+  const data=await apiRequest("/v1/conversations");
+  const items=data.items||[];
+  list.innerHTML=items.length?items.map(c=>'<button class="people" data-open-conversation="'+esc(c.id)+'" style="width:100%;text-align:left;border:0;background:transparent;cursor:pointer"><img class="avatar" src="'+esc(c.participant.avatarUrl||"")+'" alt=""><div class="meta"><strong>'+esc(c.participant.displayName||c.participant.username)+'</strong><div class="handle">'+esc(c.lastMessage||"No messages yet")+'</div></div>'+(c.unreadCount?'<strong>'+c.unreadCount+'</strong>':"")+'</button>').join(""):'<div class="empty">No conversations yet. Start one using a username.</div>';
+  list.querySelectorAll("[data-open-conversation]").forEach(b=>b.onclick=()=>openConversation(b.dataset.openConversation,b.querySelector("strong")?.textContent||"Conversation"));
+ }catch(error){list.innerHTML='<div class="empty">'+esc(error.message)+'</div>'}
+}
+async function openConversation(id,title){
+ const panel=document.getElementById("messageThread");if(!panel)return;
+ panel.innerHTML='<h3>'+esc(title)+'</h3><div class="empty">Loading messages…</div>';
+ try{
+  const data=await apiRequest("/v1/conversations/"+encodeURIComponent(id)+"/messages");
+  const items=data.items||[];
+  panel.innerHTML='<h3>'+esc(title)+'</h3><div id="messageHistory" style="display:grid;gap:10px;max-height:420px;overflow:auto;padding:8px 0">'+(items.length?items.map(m=>'<div style="justify-self:'+(m.senderId===currentUser.id?'end':'start')+';max-width:85%;padding:10px 14px;border-radius:14px;background:'+(m.senderId===currentUser.id?'#d9f6f0':'#f0f3f4')+'"><div>'+esc(m.content)+'</div><small style="color:#71808c">'+esc(m.sender.displayName)+' · '+new Date(m.createdAt).toLocaleString()+'</small></div>').join(""):'<div class="empty">No messages yet. Say hello.</div>')+'</div><form id="messageSendForm" style="display:flex;gap:8px;margin-top:12px"><input name="content" maxlength="4000" required placeholder="Write a message…" style="flex:1;min-width:0;border:1px solid #dce4e7;border-radius:12px;padding:12px"><button class="primary" type="submit">Send</button></form>';
+  const history=document.getElementById("messageHistory");if(history)history.scrollTop=history.scrollHeight;
+  document.getElementById("messageSendForm").onsubmit=async e=>{e.preventDefault();const form=e.currentTarget,input=form.elements.content,button=form.querySelector("button"),content=input.value.trim();if(!content)return;button.disabled=true;try{await apiRequest("/v1/conversations/"+encodeURIComponent(id)+"/messages",{method:"POST",body:JSON.stringify({content})});await openConversation(id,title);await loadConversations()}catch(error){alert(error.message)}finally{button.disabled=false}};
+ }catch(error){panel.innerHTML='<h3>'+esc(title)+'</h3><div class="empty">'+esc(error.message)+'</div>'}
+}
+function connect(){
+ view.innerHTML='<h2 class="section-title">Connect</h2><section class="panel"><h3>Direct messages</h3><form id="newConversationForm" style="display:flex;gap:8px;margin:12px 0"><input name="username" required maxlength="24" pattern="[A-Za-z0-9_]{3,24}" placeholder="Enter member username" style="flex:1;min-width:0;border:1px solid #dce4e7;border-radius:12px;padding:12px"><button class="primary" type="submit">New message</button></form><div id="conversationList"><div class="empty">Loading conversations…</div></div></section><section class="panel" id="messageThread"><div class="empty">Choose a conversation or start a new one.</div></section>';
+ if(!currentUser){document.getElementById("conversationList").innerHTML='<div class="empty">Log in to view and send private messages.</div>';return}
+ document.getElementById("newConversationForm").onsubmit=async e=>{e.preventDefault();const form=e.currentTarget,button=form.querySelector("button"),username=String(new FormData(form).get("username")||"").trim();button.disabled=true;try{const data=await apiRequest("/v1/conversations",{method:"POST",body:JSON.stringify({username})});await loadConversations();await openConversation(data.conversation.id,username)}catch(error){alert(error.message)}finally{button.disabled=false}};
+ loadConversations();
+}
 function studio(){view.innerHTML='<h2 class="section-title">Studio</h2><section class="panel"><h3>Creator Studio</h3><p>Publish, manage and review your content. Creator analytics are preview values.</p><div class="directory"><div class="person-card"><strong>12.8K</strong><small>Views</small></div><div class="person-card"><strong>1,240</strong><small>Followers</small></div><div class="person-card"><strong>8.4%</strong><small>Engagement</small></div></div><p></p></section>'}
 function profile(){
  if(!selectedProfileId){discoverProfiles();return}

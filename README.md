@@ -57,3 +57,19 @@ GomoGie is its own social network. It is not an aggregator for Facebook, YouTube
 ## Brand note
 
 The product name is **GomoGie** only. Do not append a product-category suffix to the official name. Trademark, company-name, domain and handle clearance remain separate tasks and have not been certified by this repository setup.
+
+
+## Combined product concept
+
+GomoGie brings together ideas from Facebook (social graph and communities), Twitter/X (public conversation), Instagram (visual sharing and stories), YouTube (long-form video and channels), and TikTok (vertical short-video discovery). The result is one independent platform with its own UX and brand.
+
+## Prototype dataset
+
+- 1,000 fictional, clearly labelled synthetic accounts.
+- 120 synthetic posts with public stock-media references.
+- Responsive prototype entry point: [index.html](index.html)
+- [Demo accounts JSON](data/demo-accounts.json)
+- [Demo posts JSON](data/demo-posts.json)
+- [Demo data and media rights notes](docs/DEMO_DATA_AND_MEDIA.md)
+
+All dataset content is illustrative. It does not represent real members, user activity or product traction.

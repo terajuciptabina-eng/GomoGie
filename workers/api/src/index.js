@@ -426,6 +426,14 @@ async function route(request, env) {
     return json({post:{id,userId:auth.sub,content:input.content.trim(),visibility,status:"published",mediaType:video?"video":media?"image":hasPoll?"poll":"text",mediaUrl:video?videoUrl(video.id):media?mediaUrl(media.id):"",pollId,createdAt:now}},201);
   }
 
+  const postDeleteMatch = path.match(/^\/v1\/posts\/([0-9a-f-]+)$/i);
+  if (postDeleteMatch && method === "DELETE") {
+    const owned = await env.DB.prepare("SELECT id FROM posts WHERE id=? AND user_id=? AND status='published'").bind(postDeleteMatch[1], auth.sub).first();
+    if (!owned) return json({ error: "post_not_found", message: "Post tidak ditemui atau bukan milik akaun anda." }, 404);
+    await env.DB.prepare("UPDATE posts SET status='deleted',updated_at=? WHERE id=? AND user_id=?").bind(new Date().toISOString(), postDeleteMatch[1], auth.sub).run();
+    return json({ deleted: true, postId: postDeleteMatch[1] });
+  }
+
   const reactionMatch = path.match(/^\/v1\/posts\/([0-9a-f-]+)\/reactions$/i);
   if (reactionMatch && method === "POST") {
     const input = await readJson(request) || {};

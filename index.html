@@ -624,7 +624,6 @@ async function loadGomoGieData(){
  try{const fixtures=await fetchSyntheticFixtures();demoAccounts=fixtures.accounts;demoPosts=fixtures.posts}catch(error){console.warn("Synthetic demo accounts unavailable:",error)}
  accounts=[...liveAccounts,...demoAccounts];
  posts=[...livePosts,...demoPosts].sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
- if(notice)notice.textContent="GomoGie · Live community + "+demoAccounts.length.toLocaleString()+" labelled synthetic demo profiles";
  await restoreSession();await refreshNotificationBadge();
  if(currentUser&&!accounts.some(a=>a.id===currentUser.id))accounts.unshift({id:currentUser.id,handle:currentUser.username,displayName:currentUser.displayName||currentUser.username,avatarUrl:currentUser.avatarUrl||"",coverUrl:currentUser.coverUrl||"",bio:currentUser.bio||"",location:currentUser.location||"",website:currentUser.website||"",joined:"GomoGie",followers:0,following:0,isSynthetic:false});
  const me=currentUser&&accounts.find(a=>a.id===currentUser.id);

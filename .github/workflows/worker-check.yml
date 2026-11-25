@@ -12,6 +12,7 @@ on:
   pull_request:
     paths:
       - "workers/api/**"
+      - "index.html"
       - ".github/workflows/worker-check.yml"
 
 permissions:
@@ -41,7 +42,7 @@ jobs:
           from pathlib import Path
           import re
           html = Path('../../index.html').read_text()
-          scripts = re.findall(r'<script(?:\\s[^>]*)?>(.*?)</script>', html, re.S)
+          scripts = re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>', html, re.S)
           inline = [script for script in scripts if script.strip()]
           assert inline, 'No inline frontend JavaScript found'
           Path('/tmp/gomogie-frontend-check.js').write_text('\\n'.join(inline))

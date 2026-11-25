@@ -103,7 +103,7 @@ function detectImageType(bytes) {
   if (bytes.length >= 6 && ["GIF87a","GIF89a"].includes(String.fromCharCode(...bytes.slice(0,6)))) return "image/gif";
   return null;
 }
-function mediaUrl(id) { return "/v1/media/" + encodeURIComponent(id); }
+function mediaUrl(id) { return "https://gomogie-api.terajucibina.workers.dev/v1/media/" + encodeURIComponent(id); }
 
 async function route(request, env) {
   const url = new URL(request.url);
@@ -185,6 +185,8 @@ async function route(request, env) {
   }
 
   if (path === "/v1/media" && method === "POST") {
+    const declaredLength = Number(request.headers.get("content-length") || 0);
+    if (declaredLength > IMAGE_LIMIT + 65536) return json({ error: "file_size_invalid", message: "Saiz gambar maksimum ialah 8 MB." }, 413);
     if (!env.MEDIA_BUCKET) return json({ error: "media_storage_unavailable", message: "Cloudflare R2 belum dihubungkan kepada Worker." }, 503);
     const form = await request.formData();
     const file = form.get("file"), purpose = form.get("purpose");

@@ -278,14 +278,14 @@ async function route(request, env) {
   if (path === "/v1/feed" && method === "GET") {
     const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit") || 20)));
     const rows = await env.DB.prepare(
-      "SELECT p.id,p.user_id,p.content,p.visibility,p.created_at,p.comments_enabled,u.username,pr.display_name,pr.avatar_url," +
+      "SELECT p.id,p.user_id,p.content,p.visibility,p.created_at,p.comments_enabled,u.username,pr.display_name,pr.avatar_url,pr.cover_url," +
       "(SELECT COUNT(*) FROM reactions r WHERE r.post_id=p.id) AS reaction_count," +
       "(SELECT COUNT(*) FROM comments c WHERE c.post_id=p.id AND c.status='published') AS comment_count,ma.id AS media_id " +
       "FROM posts p JOIN users u ON u.id=p.user_id LEFT JOIN profiles pr ON pr.user_id=p.user_id " +
       "LEFT JOIN gomogie_post_media pm ON pm.post_id=p.id LEFT JOIN gomogie_media_assets ma ON ma.id=pm.media_id AND ma.status='ready' " +
       "WHERE p.status='published' AND p.visibility='public' ORDER BY p.created_at DESC LIMIT ?"
     ).bind(limit).all();
-    return json({ items: (rows.results || []).map(row => ({ id: row.id, content: row.content, visibility: row.visibility, createdAt: row.created_at, commentsEnabled: Boolean(row.comments_enabled), author: { id: row.user_id, username: row.username, displayName: row.display_name, avatarUrl: row.avatar_url }, mediaType: row.media_id ? "image" : "text", mediaUrl: row.media_id ? mediaUrl(row.media_id) : "", reactionCount: row.reaction_count, commentCount: row.comment_count })) });
+    return json({ items: (rows.results || []).map(row => ({ id: row.id, content: row.content, visibility: row.visibility, createdAt: row.created_at, commentsEnabled: Boolean(row.comments_enabled), author: { id: row.user_id, username: row.username, displayName: row.display_name, avatarUrl: row.avatar_url, coverUrl: row.cover_url }, mediaType: row.media_id ? "image" : "text", mediaUrl: row.media_id ? mediaUrl(row.media_id) : "", reactionCount: row.reaction_count, commentCount: row.comment_count })) });
   }
 
   if (path === "/v1/posts" && method === "POST") {

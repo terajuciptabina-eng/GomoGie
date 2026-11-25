@@ -80,3 +80,24 @@ Production:
 ## 8. Architecture decision records
 
 Record consequential decisions in `docs/decisions/` with context, options, decision, consequences and date. Do not silently change foundational architecture.
+
+
+## 9. Prototype delivery and data loading
+
+The GitHub Pages prototype uses a static `index.html` shell and versioned JSON fixtures under `data/`. It fetches synthetic accounts and posts at runtime. This is suitable for demonstration only; it is not a secure user database and does not support authenticated writes.
+
+- `data/demo-accounts.json`: 1,000 synthetic account records.
+- `data/demo-posts.json`: 120 synthetic feed records.
+- Public stock-media URLs are presentation references, not GomoGie-owned media.
+- Do not scrape provider websites or bypass access controls. Use official provider APIs only when their terms, quotas and product fit are reviewed.
+- For production, use an upload pipeline and object storage/CDN with rights, moderation, scanning and deletion workflows.
+- For production recommendation feeds, define explicit ranking signals, user controls, safety constraints and privacy review. The prototype's For You/Following labels do not implement production recommendation algorithms.
+
+## 10. Media source and rights controls
+
+- Track provider, source page, asset identifier, licence review date and any attribution/consent conditions.
+- Do not use Unsplash as a bulk seed-media source for a competing social-photo service; its licence expressly excludes compiling images to replicate a similar or competing service.
+- Pexels allows use of photos and videos in websites/apps under its licence, subject to prohibited uses and third-party rights; do not redistribute assets as standalone stock files or imply depicted people/brands endorse GomoGie.
+- Hotlinking is not a substitute for licence review, stable hosting or production media rights.
+- Use no stock imagery as an actual synthetic user's claimed personal photo. Mark avatar placeholders as demo-only.
+

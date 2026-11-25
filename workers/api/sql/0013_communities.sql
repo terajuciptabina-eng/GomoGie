@@ -28,3 +28,37 @@ CREATE TABLE IF NOT EXISTS community_posts (
   PRIMARY KEY(community_id,post_id)
 );
 CREATE INDEX IF NOT EXISTS idx_community_posts_feed ON community_posts(community_id,created_at DESC);
+
+CREATE TABLE IF NOT EXISTS community_rules (
+  id TEXT PRIMARY KEY,
+  community_id TEXT NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+  title TEXT NOT NULL CHECK(length(title) BETWEEN 1 AND 100),
+  body TEXT NOT NULL CHECK(length(body) BETWEEN 1 AND 1000),
+  position INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_community_rules_order ON community_rules(community_id,position);
+CREATE TABLE IF NOT EXISTS community_events (
+  id TEXT PRIMARY KEY,
+  community_id TEXT NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+  creator_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL CHECK(length(title) BETWEEN 1 AND 100),
+  description TEXT NOT NULL DEFAULT '',
+  starts_at TEXT NOT NULL,
+  location TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_community_events_start ON community_events(community_id,starts_at);
+CREATE TABLE IF NOT EXISTS community_reports (
+  id TEXT PRIMARY KEY,
+  community_id TEXT NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+  reporter_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  target_type TEXT NOT NULL CHECK(target_type IN ('community','post','member')),
+  target_id TEXT NOT NULL,
+  reason TEXT NOT NULL CHECK(length(reason) BETWEEN 1 AND 500),
+  status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','reviewed','dismissed','actioned')),
+  created_at TEXT NOT NULL,
+  reviewed_by TEXT REFERENCES users(id),
+  reviewed_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_community_reports_queue ON community_reports(community_id,status,created_at DESC);

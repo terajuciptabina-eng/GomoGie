@@ -187,7 +187,7 @@ body.pull-releasing .top,body.pull-releasing .layout{transform:translate3d(0,0,0
 <nav class="mobile-nav" id="mobileNav"></nav><section class="settings-layer" id="settingsLayer" hidden><section class="settings-dialog" role="dialog" aria-modal="true" aria-label="Account settings"><header class="settings-header"><div><h2>Account settings</h2><p id="settingsIdentity">Manage your GomoGie account</p></div><button class="settings-close" id="closeSettings" type="button" aria-label="Close">×</button></header><button class="settings-item" id="settingsEditProfile" type="button"><span class="settings-item-icon">◉</span><span><strong>Edit profile</strong><small>Update your name, bio and photos</small></span><span class="settings-chevron">›</span></button><button class="settings-item" id="settingsNotifications" type="button"><span class="settings-item-icon">♧</span><span><strong>Notifications</strong><small>Likes, replies and new followers</small></span><span class="settings-chevron">›</span></button><div class="settings-divider"></div><button class="settings-logout" id="settingsLogout" type="button">Log out</button></section></section><section class="auth-layer" id="authLayer" hidden><form class="auth-dialog" id="loginForm"><button class="auth-close" type="button" id="closeAuth" aria-label="Close">×</button><h2 id="authTitle">Welcome back</h2><p id="authIntro">Log in to your GomoGie account.</p><div id="loginFields"><label>Email or username<input name="login" autocomplete="username" required maxlength="254"></label><label>Password<input name="password" type="password" autocomplete="current-password" required maxlength="128"></label><label class="remember-login"><input type="checkbox" id="rememberLogin" checked> Remember my username on this device</label></div><div id="registerFields" hidden><label>Display name<input name="displayName" autocomplete="name" maxlength="60"></label><label>Username<input name="username" autocomplete="username" minlength="3" maxlength="24" pattern="[A-Za-z0-9_]{3,24}"></label><label>Email<input name="email" type="email" autocomplete="email" maxlength="254"></label><label>Password (minimum 9 characters)<input name="registerPassword" type="password" autocomplete="new-password" minlength="9" maxlength="128"></label></div><p class="auth-error" id="authError" role="alert"></p><button class="primary" type="submit" id="loginSubmit">Log in</button><small id="authSwitchText">New to GomoGie? <button type="button" id="showRegister" class="auth-switch">Create account</button></small></form></section>
 <script>
 const labels={home:["⌂","Home"],pulse:["⌁","Pulse"],watch:["▷","Watch"],communities:["♧","Communities"],connect:["✉","Connect"],studio:["▤","Studio"],profile:["◉","Profile"]};
-let accounts=[],posts=[],followingFeedPosts=[],feedMode="for-you",active="home",watchMode="for-you",liked=new Set(),followed=new Set(),selectedProfileId=null,profileTab="posts",editingProfile=false,profileDraft={},savedPosts=new Set(),localPendingPosts=[],composerImageFile=null,composerImagePreview="",searchQuery="";
+let accounts=[],posts=[],followingFeedPosts=[],feedMode="for-you",active="home",watchMode="for-you",watchAudioUnlocked=false,liked=new Set(),followed=new Set(),selectedProfileId=null,profileTab="posts",editingProfile=false,profileDraft={},savedPosts=new Set(),localPendingPosts=[],composerImageFile=null,composerImagePreview="",searchQuery="";
 const view=document.getElementById("view");
 const API_BASE="https://gomogie-api.terajuciptabina.workers.dev";
 let currentUser=null;
@@ -283,31 +283,35 @@ function pulse(){
 function watch(){
  const vids=posts.filter(p=>p.type==="video"&&(watchMode==="for-you"||followed.has(p.authorId)));
  const safePoster="https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg?auto=compress&cs=tinysrgb&w=1200";
- view.innerHTML='<section class="watch-page"><div class="watch-top"><h2>Watch</h2><div class="watch-tabs"><button id="forYouTab" class="'+(watchMode==="for-you"?"selected":"")+'">For You</button><button id="followingTab" class="'+(watchMode==="following"?"selected":"")+'">Following</button></div></div>'+(vids.length?'<div class="watch-stream" id="watchStream">'+vids.map(p=>{const a=account(p.authorId)||{id:p.authorId,displayName:"GomoGie member"};return '<article class="watch-slide" data-video-id="'+esc(p.id)+'"><video class="watch-video" controls playsinline webkit-playsinline preload="metadata" poster="'+esc(p.thumbnailUrl||safePoster)+'" src="'+esc(p.mediaUrl||"")+'" aria-label="Video by '+esc(a.displayName)+'"></video><button class="watch-play" aria-label="Play video with sound">▶</button><div class="watch-shade"></div><div class="watch-caption"><strong>'+esc(a.displayName)+' </strong><p>'+esc(p.text)+'</p><small>Video with audio · Use the player volume control</small></div><div class="watch-actions"><button data-watch-like="'+esc(p.id)+'">♡<small>'+(Number(p.likes||0)+(liked.has(p.id)?1:0)).toLocaleString()+'</small></button><button data-watch-comment="'+esc(p.id)+'">◯<small>'+Number(p.comments||0)+'</small></button><button data-watch-share="'+esc(p.id)+'">↗<small>Share</small></button><button data-watch-save="'+esc(p.id)+'">⌑<small>Save</small></button><button data-watch-follow="'+esc(a.id)+'">'+(followed.has(a.id)?"✓":"＋")+'<small>'+(followed.has(a.id)?"Following":"Follow")+'</small></button></div></article>'}).join("")+'</div>':'<div class="empty">Your Following video feed is empty. Follow creators from Profile to see their videos here.</div>')+'</section>';
+ view.innerHTML='<section class="watch-page"><div class="watch-top"><h2>Watch</h2><div class="watch-tabs"><button id="forYouTab" class="'+(watchMode==="for-you"?"selected":"")+'">For You</button><button id="followingTab" class="'+(watchMode==="following"?"selected":"")+'">Following</button></div></div>'+(vids.length?'<div class="watch-stream" id="watchStream">'+vids.map(p=>{const a=account(p.authorId)||{id:p.authorId,displayName:"GomoGie member"};return '<article class="watch-slide" data-video-id="'+esc(p.id)+'"><video class="watch-video" autoplay muted playsinline webkit-playsinline controls loop preload="auto" poster="'+esc(p.thumbnailUrl||safePoster)+'" src="'+esc(p.mediaUrl||"")+'" aria-label="Video by '+esc(a.displayName)+'"></video><button class="watch-play" aria-label="Unmute or pause video">🔊</button><div class="watch-shade"></div><div class="watch-caption"><strong>'+esc(a.displayName)+' </strong><p>'+esc(p.text)+'</p><small>Autoplay · Tap speaker to enable sound</small></div><div class="watch-actions"><button data-watch-like="'+esc(p.id)+'">♡<small>'+(Number(p.likes||0)+(liked.has(p.id)?1:0)).toLocaleString()+'</small></button><button data-watch-comment="'+esc(p.id)+'">◯<small>'+Number(p.comments||0)+'</small></button><button data-watch-share="'+esc(p.id)+'">↗<small>Share</small></button><button data-watch-save="'+esc(p.id)+'">⌑<small>Save</small></button><button data-watch-follow="'+esc(a.id)+'">'+(followed.has(a.id)?"✓":"＋")+'<small>'+(followed.has(a.id)?"Following":"Follow")+'</small></button></div></article>'}).join("")+'</div>':'<div class="empty">Your Following video feed is empty. Follow creators from Profile to see their videos here.</div>')+'</section>';
  const fy=document.getElementById("forYouTab"),ft=document.getElementById("followingTab");
  if(fy)fy.onclick=()=>{watchMode="for-you";render()};
  if(ft)ft.onclick=()=>{watchMode="following";render()};
  document.querySelectorAll(".watch-slide").forEach(slide=>{
   const video=slide.querySelector("video"),play=slide.querySelector(".watch-play");
-  const showPlay=()=>{play.style.display="grid"};
+  const showPlay=()=>{play.style.display="grid";play.textContent=video.muted?"🔊":"▶"};
   const hidePlay=()=>{play.style.display="none"};
-  const startPlayback=()=>{
-   video.muted=false;
-   video.defaultMuted=false;
-   video.volume=1;
+  const startPlayback=(withSound=false)=>{
+   if(withSound){video.muted=false;video.defaultMuted=false;video.volume=1;watchAudioUnlocked=true}
+   else if(!watchAudioUnlocked){video.muted=true;video.defaultMuted=true}
    const result=video.play();
    if(result&&typeof result.then==="function")result.then(hidePlay).catch(()=>{showPlay();slide.classList.add("video-playback-error")});
   };
-  play.onclick=()=>{if(video.paused)startPlayback();else video.pause()};
+  play.onclick=()=>{if(video.paused){startPlayback(true)}else if(video.muted){startPlayback(true);play.style.display="none"}else video.pause()};
   video.addEventListener("play",hidePlay);
   video.addEventListener("pause",showPlay);
   video.addEventListener("ended",showPlay);
   video.addEventListener("error",()=>{showPlay();slide.classList.add("video-source-error")});
-  video.addEventListener("click",event=>{if(event.target===video&&video.paused)startPlayback()});
+  video.addEventListener("volumechange",()=>{if(!video.muted&&video.volume>0)watchAudioUnlocked=true;else if(video.muted)watchAudioUnlocked=false;showPlay()});
+  video.addEventListener("click",()=>{if(video.muted)startPlayback(true);else if(video.paused)startPlayback(false);else video.pause()});
+  startPlayback(false);
  });
  const observer=new IntersectionObserver(entries=>entries.forEach(entry=>{
   const video=entry.target.querySelector("video"),play=entry.target.querySelector(".watch-play");
-  if(!entry.isIntersecting||entry.intersectionRatio<0.35){if(!video.paused)video.pause();play.style.display="grid"}
+  if(entry.isIntersecting&&entry.intersectionRatio>=0.35){
+   if(watchAudioUnlocked){video.muted=false;video.defaultMuted=false}else{video.muted=true;video.defaultMuted=true}
+   const result=video.play();if(result&&typeof result.then==="function")result.then(()=>play.style.display="none").catch(()=>{play.style.display="grid"});
+  }else{if(!video.paused)video.pause();play.style.display="grid"}
  }),{threshold:[0,0.35,0.65,1]});
  document.querySelectorAll(".watch-slide").forEach(slide=>observer.observe(slide));
  document.querySelectorAll("[data-watch-like]").forEach(b=>b.onclick=async()=>{const id=b.dataset.watchLike,post=posts.find(p=>p.id===id);if(!currentUser){openAuth();return}if(!post)return;try{if(liked.has(id)){await apiRequest("/v1/posts/"+encodeURIComponent(id)+"/reactions",{method:"DELETE"});liked.delete(id)}else{await apiRequest("/v1/posts/"+encodeURIComponent(id)+"/reactions",{method:"POST",body:JSON.stringify({type:"like"})});liked.add(id)}render()}catch(error){alert(error.message)}});

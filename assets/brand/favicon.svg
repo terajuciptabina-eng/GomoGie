@@ -1,4 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#142030"/>
-  <text x="32" y="47" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="48" font-weight="700" fill="#00AE9C">G</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="245 210 300 300" role="img" aria-labelledby="title">
+  <title id="title">GomoGie</title>
+  <rect x="245" y="210" width="300" height="300" fill="#FFFFFF"/>
+  <path d="M 389,223 L 356,230 L 331,241 L 310,255 L 290,275 L 275,298 L 263,329 L 259,350 L 259,376 L 264,403 L 276,433 L 291,455 L 312,475 L 335,489 L 362,499 L 385,503 L 424,503 L 448,498 L 477,486 L 489,479 L 503,468 L 518,451 L 527,434 L 532,415 L 532,351 L 530,348 L 525,346 L 411,347 L 405,353 L 406,392 L 411,396 L 423,397 L 472,397 L 472,407 L 465,421 L 456,430 L 441,439 L 426,444 L 411,446 L 401,446 L 382,443 L 373,440 L 354,429 L 339,414 L 333,405 L 327,392 L 323,376 L 323,352 L 328,333 L 337,316 L 354,298 L 366,290 L 386,282 L 395,280 L 420,280 L 435,283 L 446,287 L 463,297 L 472,306 L 480,307 L 517,271 L 517,266 L 506,255 L 490,244 L 470,234 L 452,228 L 433,224 Z" fill="#10202D" fill-rule="evenodd"/>
 </svg>

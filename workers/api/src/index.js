@@ -115,7 +115,16 @@ const VIDEO_LIMIT = 50 * 1024 * 1024;
 
 
 
-const NEWS_FEEDS=[{id:"bernama-en",name:"BERNAMA",url:"https://www.bernama.com/en/rssfeed.php/",language:"en"},{id:"thesun-my",name:"The Sun Malaysia",url:"https://thesun.my/feed/",language:"en"},{id:"astroawani-ms",name:"Astro AWANI",url:"https://www.astroawani.com/rss/latest/public",language:"ms"}];
+const NEWS_FEEDS=[
+{id:"bernama-en",name:"BERNAMA",url:"https://www.bernama.com/en/rssfeed.php/",language:"en",contentType:"article"},
+{id:"thesun-my",name:"The Sun Malaysia",url:"https://thesun.my/feed/",language:"en",contentType:"article"},
+{id:"astroawani-ms",name:"Astro AWANI",url:"https://www.astroawani.com/rss/latest/public",language:"ms",contentType:"article"},
+{id:"mlstudios-articles",name:"ML Studios",url:"https://mlstudios.my/feed/",language:"ms",contentType:"article"},
+{id:"mlstudios-video",name:"ML Studios",url:"https://www.youtube.com/feeds/videos.xml?channel_id=UCSkOqbajcG6-jguycOHzhDg",language:"ms",contentType:"video"},
+{id:"aphd-video",name:"APHD Channel",url:"https://www.youtube.com/feeds/videos.xml?channel_id=UChpjlRq-Ikx8JRUiRauIAJg",language:"ms",contentType:"documentary"},
+{id:"siakapkeli-articles",name:"Siakap Keli",url:"https://siakapkeli.my/feed",language:"ms",contentType:"article"},
+{id:"siakapkeli-video",name:"Siakap Keli",url:"https://www.youtube.com/feeds/videos.xml?channel_id=UCo5TWROsmkTHVhzmFUW94oA",language:"ms",contentType:"video"}
+];
 function decodeNewsXml(v){let s=String(v||"").replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,"$1");const entities=()=>s.replace(/&amp;/gi,"&").replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").replace(/&lt;/gi,"<").replace(/&gt;/gi,">").replace(/&#(\d+);/g,(_,n)=>String.fromCodePoint(Number(n))).replace(/&#x([\da-f]+);/gi,(_,n)=>String.fromCodePoint(parseInt(n,16)));s=entities();s=s.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi," ").replace(/<br\s*\/?\s*>|<\/(p|div|li|h[1-6])\s*>/gi," ").replace(/<[^>]*>/g," ");s=entities().replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim();return s.replace(/Â/g,"").replace(/â€™/g,"'").replace(/â€œ|â€/g,'"').replace(/â€“|â€”/g,"-")}
 function newsTag(block,name){const m=block.match(new RegExp("<"+name+"(?:\\s[^>]*)?>([\\s\\S]*?)</"+name+">","i"));return m?decodeNewsXml(m[1]):""}
 function newsImageFromRss(block,articleUrl){
@@ -179,8 +188,41 @@ async function fetchNewsArticleContent(articleUrl){
   return{summary:(description||body).slice(0,700),body};
  }catch{return null}
 }
-async function syncNewsFeeds(env){const now=new Date().toISOString();let inserted=0,checked=0,errors=0;for(const feed of NEWS_FEEDS){try{const source=await env.DB.prepare("SELECT active FROM gomogie_news_sources WHERE id=?").bind(feed.id).first();if(!source||!source.active)continue;const res=await fetch(feed.url,{headers:{accept:"application/rss+xml, application/xml, text/xml;q=0.9"},signal:AbortSignal.timeout(10000)});if(!res.ok)throw new Error("RSS HTTP "+res.status);const xml=(await res.text()).slice(0,1500000);const blocks=[...xml.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)].map(x=>x[1]);for(const block of blocks.slice(0,40)){const title=newsTag(block,"title").slice(0,240),link=newsTag(block,"link"),guid=newsTag(block,"guid"),mediaUrl=newsImageFromRss(block,link),bodyText=(newsTag(block,"content:encoded")||newsTag(block,"description")).slice(0,6000),summary=bodyText.slice(0,700),dateRaw=newsTag(block,"pubDate")||newsTag(block,"dc:date");if(!title||!link||!/^https?:\/\//i.test(link))continue;const canonical=new URL(link);["utm_source","utm_medium","utm_campaign","utm_content","utm_term","fbclid","gclid"].forEach(k=>canonical.searchParams.delete(k));canonical.hash="";const parsed=Date.parse(dateRaw),published=Number.isFinite(parsed)?new Date(parsed).toISOString():now;if(Date.now()-Date.parse(published)>72*3600000)continue;const result=await env.DB.prepare("INSERT INTO gomogie_news_items (id,source_id,external_id,title,summary,body_text,image_url,canonical_url,category,region_code,published_at,fetched_at,status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?, 'published') ON CONFLICT(canonical_url) DO UPDATE SET summary=CASE WHEN length(excluded.summary)>length(gomogie_news_items.summary) THEN excluded.summary ELSE gomogie_news_items.summary END,body_text=CASE WHEN length(excluded.body_text)>length(COALESCE(gomogie_news_items.body_text,'')) THEN excluded.body_text ELSE gomogie_news_items.body_text END,image_url=COALESCE(NULLIF(excluded.image_url,''),gomogie_news_items.image_url),fetched_at=excluded.fetched_at").bind(uuid(),feed.id,guid||canonical.href,title,summary,bodyText,(mediaUrl?new URL(mediaUrl,canonical).href:''),canonical.href,newsCategory(title,summary),newsRegion(title,summary),published,now).run();inserted+=Number(result.meta?.changes||0);checked++}await env.DB.prepare("UPDATE gomogie_news_sources SET last_checked_at=?,last_error=NULL WHERE id=?").bind(now,feed.id).run()}catch(error){errors++;await env.DB.prepare("UPDATE gomogie_news_sources SET last_checked_at=?,last_error=? WHERE id=?").bind(now,String(error.message||error).slice(0,300),feed.id).run().catch(()=>{})}}await env.DB.prepare("UPDATE gomogie_news_items SET status='archived' WHERE status='published' AND julianday(published_at)<julianday('now','-72 hours')").run();await env.DB.prepare("DELETE FROM gomogie_news_items WHERE julianday(published_at)<julianday('now','-30 days')").run();return{inserted,checked,errors,at:now}}
-
+async function syncNewsFeeds(env){
+ const now=new Date().toISOString();let inserted=0,checked=0,errors=0;
+ for(const feed of NEWS_FEEDS){
+  try{
+   const source=await env.DB.prepare("SELECT active FROM gomogie_news_sources WHERE id=?").bind(feed.id).first();
+   if(!source||!source.active)continue;
+   const res=await fetch(feed.url,{headers:{accept:"application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9"},signal:AbortSignal.timeout(12000)});
+   if(!res.ok)throw new Error("Feed HTTP "+res.status);
+   const xml=(await res.text()).slice(0,1500000),atom=/<feed\b/i.test(xml);
+   const blocks=atom?[...xml.matchAll(/<entry\b[^>]*>([\s\S]*?)<\/entry>/gi)].map(x=>x[1]):[...xml.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)].map(x=>x[1]);
+   for(const block of blocks.slice(0,40)){
+    const title=newsTag(block,"title").slice(0,240),videoId=newsTag(block,"yt:videoId");
+    const atomHref=block.match(/<link\b[^>]*rel=["']alternate["'][^>]*href=["']([^"']+)["'][^>]*\/?\s*>/i)?.[1]||block.match(/<link\b[^>]*href=["']([^"']+)["'][^>]*\/?\s*>/i)?.[1]||"";
+    const link=(newsTag(block,"link")||atomHref).replace(/&amp;/gi,"&").trim();
+    const guid=newsTag(block,"guid")||newsTag(block,"id")||videoId,url=videoId?"https://www.youtube.com/watch?v="+encodeURIComponent(videoId):link;
+    if(!title||!url||!/^https?:\/\//i.test(url))continue;
+    const canonical=new URL(url);["utm_source","utm_medium","utm_campaign","utm_content","utm_term","fbclid","gclid"].forEach(k=>canonical.searchParams.delete(k));canonical.hash="";
+    const raw=newsTag(block,"content:encoded")||newsTag(block,"media:description")||newsTag(block,"description")||newsTag(block,"summary")||"";
+    const body=decodeNewsXml(raw).slice(0,6000),summary=body.slice(0,700);
+    const image=newsImageFromRss(block,canonical.href)||block.match(/<media:thumbnail\b[^>]*url=["']([^"']+)["']/i)?.[1]||"";
+    const dateRaw=newsTag(block,"pubDate")||newsTag(block,"published")||newsTag(block,"updated")||newsTag(block,"dc:date");
+    const parsed=Date.parse(dateRaw),published=Number.isFinite(parsed)?new Date(parsed).toISOString():now;
+    if(Date.now()-Date.parse(published)>72*3600000)continue;
+    const kind=feed.contentType||"article",embed=videoId?"https://www.youtube-nocookie.com/embed/"+encodeURIComponent(videoId):"";
+    const category=feed.id==="aphd-video"?"documentary":newsCategory(title,summary);
+    const result=await env.DB.prepare("INSERT INTO gomogie_news_items (id,source_id,external_id,title,summary,body_text,image_url,canonical_url,category,region_code,published_at,fetched_at,status,content_type,embed_url) VALUES (?,?,?,?,?,?,?,?,?,?,?,?, 'published',?,?) ON CONFLICT(canonical_url) DO UPDATE SET summary=CASE WHEN length(excluded.summary)>length(gomogie_news_items.summary) THEN excluded.summary ELSE gomogie_news_items.summary END,body_text=CASE WHEN length(excluded.body_text)>length(COALESCE(gomogie_news_items.body_text,'')) THEN excluded.body_text ELSE gomogie_news_items.body_text END,image_url=COALESCE(NULLIF(excluded.image_url,''),gomogie_news_items.image_url),content_type=excluded.content_type,embed_url=COALESCE(NULLIF(excluded.embed_url,''),gomogie_news_items.embed_url),fetched_at=excluded.fetched_at").bind(uuid(),feed.id,guid||canonical.href,title,summary,body,image?new URL(image,canonical).href:"",canonical.href,category,newsRegion(title,summary),published,now,kind,embed).run();
+    inserted+=Number(result.meta?.changes||0);checked++;
+   }
+   await env.DB.prepare("UPDATE gomogie_news_sources SET last_checked_at=?,last_error=NULL WHERE id=?").bind(now,feed.id).run();
+  }catch(error){errors++;await env.DB.prepare("UPDATE gomogie_news_sources SET last_checked_at=?,last_error=? WHERE id=?").bind(now,String(error.message||error).slice(0,300),feed.id).run().catch(()=>{})}
+ }
+ await env.DB.prepare("UPDATE gomogie_news_items SET status='archived' WHERE status='published' AND julianday(published_at)<julianday('now','-72 hours')").run();
+ await env.DB.prepare("DELETE FROM gomogie_news_items WHERE julianday(published_at)<julianday('now','-30 days')").run();
+ return{inserted,checked,errors,at:now};
+}
 
 async function hydrateRecentNewsImages(env,limit=12){
  const rows=await env.DB.prepare("SELECT id,canonical_url FROM gomogie_news_items WHERE status='published' AND (image_url IS NULL OR image_url='') AND julianday(published_at)>=julianday('now','-72 hours') ORDER BY published_at DESC LIMIT ?").bind(limit).all();
@@ -501,13 +543,13 @@ async function route(request, env) {
   if(path==="/v1/news"&&method==="GET"){
     const requestedMode=url.searchParams.get("mode");const mode=requestedMode==="global"||requestedMode==="archive"?requestedMode:"for-you";
     const limit=Math.min(30,Math.max(1,Number(url.searchParams.get("limit")||12)));
-    let region="MY",interests=["national","politics","business","technology","sports","world","lifestyle"];
+    let region="MY",interests=["national","politics","business","technology","sports","entertainment","world","lifestyle"];
     if(auth&&mode==="for-you"){
       const pref=await env.DB.prepare("SELECT region_code,interests_json FROM gomogie_news_preferences WHERE user_id=?").bind(auth.sub).first();
       region=pref?.region_code||"MY";
       try{if(pref?.interests_json)interests=JSON.parse(pref.interests_json)}catch{}
     }
-    const archiveMode=mode==="archive";if(!archiveMode)await env.DB.prepare("UPDATE gomogie_news_items SET status='archived' WHERE status='published' AND julianday(published_at)<julianday('now','-72 hours')").run();const base="SELECT n.id,n.title,n.summary,n.body_text,n.image_url,n.canonical_url,n.category,n.region_code,n.published_at,s.name AS source_name,s.language AS language,(SELECT COUNT(*) FROM gomogie_news_items t WHERE t.category=n.category AND julianday(t.published_at)>=julianday('now','-12 hours')) AS trend_score FROM gomogie_news_items n JOIN gomogie_news_sources s ON s.id=n.source_id WHERE n.status='"+(archiveMode?"archived":"published")+"' AND julianday(n.published_at)>=julianday('now','-"+(archiveMode?"30":"3")+" days') ";
+    const archiveMode=mode==="archive";if(!archiveMode)await env.DB.prepare("UPDATE gomogie_news_items SET status='archived' WHERE status='published' AND julianday(published_at)<julianday('now','-72 hours')").run();const base="SELECT n.id,n.title,n.summary,n.body_text,n.image_url,n.canonical_url,n.category,n.region_code,n.published_at,n.content_type,n.embed_url,s.name AS source_name,s.language AS language,(SELECT COUNT(*) FROM gomogie_news_items t WHERE t.category=n.category AND julianday(t.published_at)>=julianday('now','-12 hours')) AS trend_score FROM gomogie_news_items n JOIN gomogie_news_sources s ON s.id=n.source_id WHERE n.status='"+(archiveMode?"archived":"published")+"' AND julianday(n.published_at)>=julianday('now','-"+(archiveMode?"30":"3")+" days') ";
     const readItems=async()=>{
       if(mode==="for-you"&&auth){
         const regionClause=region==="MY"?"":" AND n.region_code IN ('MY',?)";

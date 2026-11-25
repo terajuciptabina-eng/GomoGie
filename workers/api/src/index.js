@@ -113,6 +113,9 @@ async function route(request, env) {
   }
 
   if (path === "/v1/auth/register" && method === "POST") {
+    if (env.ALLOW_REGISTRATION !== "true") {
+      return json({ error: "registration_closed", message: "Pendaftaran awam belum dibuka." }, 403);
+    }
     const input = await readJson(request);
     if (!input || !text(input.email, 254) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim()) ||
         !text(input.username, 24) || !/^[a-zA-Z0-9_]{3,24}$/.test(input.username.trim()) ||

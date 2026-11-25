@@ -119,7 +119,7 @@ async function route(request, env) {
     const input = await readJson(request);
     if (!input || !text(input.email, 254) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim()) ||
         !text(input.username, 24) || !/^[a-zA-Z0-9_]{3,24}$/.test(input.username.trim()) ||
-        typeof input.password !== "string" || input.password.length < 12 || input.password.length > 128 ||
+        typeof input.password !== "string" || input.password.length < 9 || input.password.length > 128 ||
         !text(input.displayName, 60)) {
       return json({ error: "validation_error", message: "Email, username, kata laluan (12–128 aksara) dan nama paparan diperlukan." }, 400);
     }

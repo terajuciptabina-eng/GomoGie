@@ -1,0 +1,58 @@
+name: Deploy GomoGie to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate demo JSON
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          accounts = json.loads(Path('data/demo-accounts.json').read_text())
+          posts = json.loads(Path('data/demo-posts.json').read_text())
+          assert accounts['synthetic'] is True
+          assert len(accounts['accounts']) == 1000
+          assert all(a['isSynthetic'] and a['demoLabel'] == 'SYNTHETIC DEMO ACCOUNT' for a in accounts['accounts'])
+          assert posts['synthetic'] is True
+          assert len(posts['posts']) == 120
+          assert all(p['isSynthetic'] and p['demoLabel'] == 'SYNTHETIC DEMO POST' for p in posts['posts'])
+          print('Validated 1,000 synthetic accounts and 120 synthetic posts.')
+          PY
+      - name: Validate prototype entry point
+        run: test -s index.html && test -s assets/brand/GomoGie-wordmark-transparent.svg
+
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

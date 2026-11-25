@@ -15,7 +15,7 @@ GomoGie is its own social network. It is not an aggregator for Facebook, YouTube
 - Repository: public, GitHub-first
 - Default branch: `main`
 - Current phase: product specification and foundation
-- Initial delivery: responsive interactive prototype using clearly labelled synthetic demo data
+- Initial delivery: responsive interactive prototype with a site-wide sample-content notice and internally tagged synthetic fixtures
 - Hosting target: GitHub Pages for the static frontend prototype
 
 > GitHub Pages is static hosting. It is not the backend for production authentication, persistent user data, messaging, uploads or video processing. Those capabilities require separately designed backend services.
@@ -72,4 +72,4 @@ GomoGie brings together ideas from Facebook (social graph and communities), Twit
 - [Demo posts JSON](data/demo-posts.json)
 - [Demo data and media rights notes](docs/DEMO_DATA_AND_MEDIA.md)
 
-All dataset content is illustrative. It does not represent real members, user activity or product traction.
+All dataset content is illustrative. The interface displays a site-wide preview notice; the underlying records retain synthetic provenance metadata. They do not represent real members, user activity or product traction.

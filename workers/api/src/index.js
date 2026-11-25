@@ -158,7 +158,8 @@ async function route(request, env) {
     return json({ user: { id: user.id, email: user.email, username: user.username }, accessToken: await signToken(user, env), tokenType: "Bearer", expiresIn: 900 });
   }
 
-  const needsAuth = path === "/v1/auth/me" || path.startsWith("/v1/posts") || path.startsWith("/v1/users/");
+  const publicCommentsRead = method === "GET" && /^\/v1\/posts\/[0-9a-f-]+\/comments$/i.test(path);
+  const needsAuth = path === "/v1/auth/me" || (path.startsWith("/v1/posts") && !publicCommentsRead) || path.startsWith("/v1/users/");
   const auth = needsAuth ? await authenticate(request, env) : null;
   if (needsAuth && !auth) return json({ error: "unauthorized", message: "Sila log masuk semula." }, 401);
 
@@ -244,6 +245,15 @@ async function route(request, env) {
   }
 
   const commentMatch = path.match(/^\/v1\/posts\/([0-9a-f-]+)\/comments$/i);
+  if (commentMatch && method === "GET") {
+    const post = await env.DB.prepare("SELECT id,visibility,status FROM posts WHERE id=?").bind(commentMatch[1]).first();
+    if (!post || post.status !== "published" || post.visibility !== "public") return json({ error: "post_not_found" }, 404);
+    const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit") || 50)));
+    const rows = await env.DB.prepare(
+      "SELECT c.id,c.post_id,c.user_id,c.parent_id,c.content,c.created_at,u.username,p.display_name,p.avatar_url FROM comments c JOIN users u ON u.id=c.user_id LEFT JOIN profiles p ON p.user_id=c.user_id WHERE c.post_id=? AND c.status='published' ORDER BY c.created_at ASC LIMIT ?"
+    ).bind(commentMatch[1], limit).all();
+    return json({ items: (rows.results || []).map(row => ({ id: row.id, postId: row.post_id, userId: row.user_id, parentId: row.parent_id, content: row.content, createdAt: row.created_at, author: { username: row.username, displayName: row.display_name, avatarUrl: row.avatar_url } })) });
+  }
   if (commentMatch && method === "POST") {
     const input = await readJson(request);
     if (!input || !text(input.content, 2000)) return json({ error: "validation_error" }, 400);

@@ -387,6 +387,18 @@ async function route(request, env) {
     return json({ comment: { id, postId: commentMatch[1], userId: auth.sub, content: input.content.trim(), createdAt: now } }, 201);
   }
 
+  if (path === "/v1/users/me/following" && method === "GET") {
+    const rows = await env.DB.prepare(
+      "SELECT f.following_id,u.username,f.status FROM follows f " +
+      "JOIN users u ON u.id=f.following_id " +
+      "WHERE f.follower_id=? AND f.status IN ('accepted','pending') " +
+      "ORDER BY f.created_at DESC LIMIT 500"
+    ).bind(auth.sub).all();
+    return json({ items: (rows.results || []).map(row => ({
+      id: row.following_id, username: row.username, status: row.status
+    })) });
+  }
+
   const followMatch = path.match(/^\/v1\/users\/([a-zA-Z0-9_]{3,24})\/follow$/);
   if (followMatch && method === "POST") {
     const target = await env.DB.prepare("SELECT u.id,p.is_private FROM users u LEFT JOIN profiles p ON p.user_id=u.id WHERE u.username=? COLLATE NOCASE AND u.status='active'")

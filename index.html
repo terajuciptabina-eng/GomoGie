@@ -302,7 +302,7 @@ function watch(){
   video.addEventListener("pause",showPlay);
   video.addEventListener("ended",showPlay);
   video.addEventListener("error",()=>{showPlay();slide.classList.add("video-source-error")});
-  video.addEventListener("volumechange",()=>{if(!video.muted&&video.volume>0)watchAudioUnlocked=true;else if(video.muted)watchAudioUnlocked=false;showPlay()});
+  video.addEventListener("volumechange",()=>{if(!video.muted&&video.volume>0)watchAudioUnlocked=true;else if(video.muted)watchAudioUnlocked=false;if(video.paused)showPlay();else hidePlay()});
   video.addEventListener("click",()=>{if(video.muted)startPlayback(true);else if(video.paused)startPlayback(false);else video.pause()});
   startPlayback(false);
  });

@@ -29,7 +29,7 @@ These items are not implemented and must be completed before public registration
 6. Media upload authorization, file validation, storage policy, and video processing before accepting user media.
 7. Monitoring, alerting, backups, and operational recovery procedures.
 
-## Important behavior
+- `PUT /v1/auth/me` updates allowlisted profile text fields and HTTPS image URLs for the authenticated account. This is not a file-upload endpoint.\n\n## Important behavior
 
 - The public feed endpoint currently returns only posts marked `published` and `public`.
 - The readiness endpoint proves only that the Worker can execute a simple query against the bound D1 database.

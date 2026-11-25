@@ -109,6 +109,10 @@ function detectImageType(bytes) {
   return null;
 }
 function mediaUrl(id) { return "https://gomogie-api.terajuciptabina.workers.dev/v1/media/" + encodeURIComponent(id); }
+function videoUrl(id) { return "https://gomogie-api.terajuciptabina.workers.dev/v1/videos/" + encodeURIComponent(id); }
+function isMp4(bytes) { return bytes.length >= 12 && String.fromCharCode(...bytes.slice(4,8)) === "ftyp"; }
+const VIDEO_LIMIT = 50 * 1024 * 1024;
+
 
 async function route(request, env) {
   const url = new URL(request.url);
@@ -175,8 +179,9 @@ async function route(request, env) {
 
   const publicCommentsRead = method === "GET" && /^\/v1\/posts\/[0-9a-f-]+\/comments$/i.test(path);
   const publicMediaRead = method === "GET" && /^\/v1\/media\/[0-9a-f-]+$/i.test(path);
+  const publicVideoRead = method === "GET" && /^\/v1\/videos\/[0-9a-f-]+$/i.test(path);
   const followingFeedRequest = path === "/v1/feed" && url.searchParams.get("scope") === "following";
-  const needsAuth = followingFeedRequest || path === "/v1/auth/me" || (path === "/v1/auth/remember" && method === "POST") || (path.startsWith("/v1/posts") && !publicCommentsRead) || (path.startsWith("/v1/media") && !publicMediaRead) || path.startsWith("/v1/users/") || path.startsWith("/v1/notifications") || path.startsWith("/v1/conversations");
+  const needsAuth = followingFeedRequest || path === "/v1/auth/me" || (path === "/v1/auth/remember" && method === "POST") || (path.startsWith("/v1/posts") && !publicCommentsRead) || (path.startsWith("/v1/media") && !publicMediaRead) || (path.startsWith("/v1/videos") && !publicVideoRead) || path.startsWith("/v1/users/") || path.startsWith("/v1/notifications") || path.startsWith("/v1/conversations");
   const authDiagnostic = {};
   const auth = needsAuth ? await authenticate(request, env, authDiagnostic) : null;
   if (needsAuth && !auth) return json({ error: "unauthorized", code: authDiagnostic.reason || "authentication_failed", message: "Sesi tidak dapat disahkan." }, 401);
@@ -211,6 +216,35 @@ async function route(request, env) {
     const object = await env.MEDIA_BUCKET.get(asset.object_key);
     if (!object) return json({ error: "media_not_found" }, 404);
     return new Response(object.body, { headers: { "content-type": asset.mime_type, "content-length": String(asset.size_bytes), "cache-control": "public, max-age=31536000, immutable", "x-content-type-options": "nosniff" } });
+  }
+
+  const videoReadMatch = path.match(/^\/v1\/videos\/([0-9a-f-]+)$/i);
+  if (videoReadMatch && method === "GET") {
+    if (!env.MEDIA_BUCKET) return json({ error: "media_storage_unavailable" }, 503);
+    const asset = await env.DB.prepare("SELECT object_key,size_bytes FROM gomogie_video_assets WHERE id=? AND status='ready'").bind(videoReadMatch[1]).first();
+    if (!asset) return json({ error: "video_not_found" }, 404);
+    const object = await env.MEDIA_BUCKET.get(asset.object_key);
+    if (!object) return json({ error: "video_not_found" }, 404);
+    return new Response(object.body, { headers: { "content-type": "video/mp4", "content-length": String(asset.size_bytes), "accept-ranges": "bytes", "cache-control": "public, max-age=31536000, immutable", "x-content-type-options": "nosniff" } });
+  }
+
+  if (path === "/v1/videos" && method === "POST") {
+    const declaredLength = Number(request.headers.get("content-length") || 0);
+    if (declaredLength > VIDEO_LIMIT + 65536) return json({ error: "file_size_invalid", message: "Saiz video maksimum ialah 50 MB." }, 413);
+    if (!env.MEDIA_BUCKET) return json({ error: "media_storage_unavailable", message: "Cloudflare R2 belum dihubungkan kepada Worker." }, 503);
+    const form = await request.formData();
+    const file = form.get("file");
+    if (!(file instanceof File)) return json({ error: "validation_error", message: "Fail video diperlukan." }, 400);
+    if (!file.size || file.size > VIDEO_LIMIT) return json({ error: "file_size_invalid", message: "Saiz video maksimum ialah 50 MB." }, 413);
+    if (file.type !== "video/mp4") return json({ error: "unsupported_video", message: "Format video yang disokong ialah MP4." }, 415);
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    if (!isMp4(bytes)) return json({ error: "unsupported_video", message: "Fail bukan MP4 yang sah." }, 415);
+    const id = uuid(), now = new Date().toISOString(), key = "users/" + auth.sub + "/videos/" + id + ".mp4";
+    await env.MEDIA_BUCKET.put(key, bytes, { httpMetadata: { contentType: "video/mp4", cacheControl: "public, max-age=31536000, immutable" }, customMetadata: { ownerId: auth.sub, purpose: "video" } });
+    try {
+      await env.DB.prepare("INSERT INTO gomogie_video_assets (id,owner_id,object_key,mime_type,size_bytes,status,created_at) VALUES (?,?,?,?,?,?,?)").bind(id, auth.sub, key, "video/mp4", file.size, "ready", now).run();
+    } catch (error) { await env.MEDIA_BUCKET.delete(key); throw error; }
+    return json({ video: { id, url: videoUrl(id), mimeType: "video/mp4", size: file.size, createdAt: now } }, 201);
   }
 
   if (path === "/v1/media" && method === "POST") {
@@ -308,9 +342,11 @@ async function route(request, env) {
     const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit") || 20)));
     const select = "SELECT p.id,p.user_id,p.content,p.visibility,p.created_at,p.comments_enabled,u.username,pr.display_name,pr.avatar_url,pr.cover_url," +
       "(SELECT COUNT(*) FROM reactions r WHERE r.post_id=p.id) AS reaction_count," +
-      "(SELECT COUNT(*) FROM comments c WHERE c.post_id=p.id AND c.status='published') AS comment_count,ma.id AS media_id " +
+      "(SELECT COUNT(*) FROM comments c WHERE c.post_id=p.id AND c.status='published') AS comment_count,ma.id AS media_id,va.id AS video_id,gp.id AS poll_id,gp.closes_at AS poll_closes_at " +
       "FROM posts p JOIN users u ON u.id=p.user_id LEFT JOIN profiles pr ON pr.user_id=p.user_id " +
-      "LEFT JOIN gomogie_post_media pm ON pm.post_id=p.id LEFT JOIN gomogie_media_assets ma ON ma.id=pm.media_id AND ma.status='ready' ";
+      "LEFT JOIN gomogie_post_media pm ON pm.post_id=p.id LEFT JOIN gomogie_media_assets ma ON ma.id=pm.media_id AND ma.status='ready' " +
+      "LEFT JOIN gomogie_post_videos pv ON pv.post_id=p.id LEFT JOIN gomogie_video_assets va ON va.id=pv.video_id AND va.status='ready' " +
+      "LEFT JOIN gomogie_polls gp ON gp.post_id=p.id ";
     const rows = followingFeedRequest
       ? await env.DB.prepare(select +
           "WHERE p.status='published' AND (p.user_id=? OR EXISTS (" +
@@ -320,23 +356,57 @@ async function route(request, env) {
       : await env.DB.prepare(select +
           "WHERE p.status='published' AND p.visibility='public' ORDER BY p.created_at DESC LIMIT ?"
         ).bind(limit).all();
-    return json({ scope: followingFeedRequest ? "following" : "public", items: (rows.results || []).map(row => ({ id: row.id, content: row.content, visibility: row.visibility, createdAt: row.created_at, commentsEnabled: Boolean(row.comments_enabled), author: { id: row.user_id, username: row.username, displayName: row.display_name, avatarUrl: row.avatar_url, coverUrl: row.cover_url }, mediaType: row.media_id ? "image" : "text", mediaUrl: row.media_id ? mediaUrl(row.media_id) : "", reactionCount: row.reaction_count, commentCount: row.comment_count })) });
+    const items = await Promise.all((rows.results || []).map(async row => {
+      let poll = null;
+      if (row.poll_id) {
+        const [options,vote] = await Promise.all([
+          env.DB.prepare("SELECT o.id,o.label,o.position,COUNT(v.user_id) AS votes FROM gomogie_poll_options o LEFT JOIN gomogie_poll_votes v ON v.option_id=o.id AND v.poll_id=o.poll_id WHERE o.poll_id=? GROUP BY o.id,o.label,o.position ORDER BY o.position").bind(row.poll_id).all(),
+          followingFeedRequest ? env.DB.prepare("SELECT option_id FROM gomogie_poll_votes WHERE poll_id=? AND user_id=?").bind(row.poll_id,auth.sub).first() : Promise.resolve(null)
+        ]);
+        const total=(options.results||[]).reduce((sum,item)=>sum+Number(item.votes||0),0);
+        poll={id:row.poll_id,closesAt:row.poll_closes_at,closed:!!row.poll_closes_at&&Date.parse(row.poll_closes_at)<=Date.now(),totalVotes:total,selectedOptionId:vote?.option_id||null,options:(options.results||[]).map(item=>({id:item.id,label:item.label,votes:Number(item.votes||0),percentage:total?Math.round(Number(item.votes||0)*100/total):0}))};
+      }
+      return { id:row.id,content:row.content,visibility:row.visibility,createdAt:row.created_at,commentsEnabled:Boolean(row.comments_enabled),author:{id:row.user_id,username:row.username,displayName:row.display_name,avatarUrl:row.avatar_url,coverUrl:row.cover_url},mediaType:row.video_id?"video":row.media_id?"image":poll?"poll":"text",mediaUrl:row.video_id?videoUrl(row.video_id):row.media_id?mediaUrl(row.media_id):"",reactionCount:row.reaction_count,commentCount:row.comment_count,poll };
+    }));
+    return json({ scope:followingFeedRequest?"following":"public",items });
+  }
+
+  const pollVoteMatch = path.match(/^\/v1\/posts\/([0-9a-f-]+)\/poll\/vote$/i);
+  if (pollVoteMatch && method === "POST") {
+    const input=await readJson(request),optionId=input?.optionId;
+    if(!text(optionId,64))return json({error:"validation_error",message:"Pilih satu jawapan."},400);
+    const poll=await env.DB.prepare("SELECT id,closes_at FROM gomogie_polls WHERE post_id=?").bind(pollVoteMatch[1]).first();
+    if(!poll)return json({error:"poll_not_found"},404);
+    if(poll.closes_at&&Date.parse(poll.closes_at)<=Date.now())return json({error:"poll_closed",message:"Poll ini telah ditutup."},409);
+    const option=await env.DB.prepare("SELECT id FROM gomogie_poll_options WHERE id=? AND poll_id=?").bind(optionId,poll.id).first();
+    if(!option)return json({error:"invalid_poll_option"},400);
+    await env.DB.prepare("INSERT INTO gomogie_poll_votes (poll_id,option_id,user_id,created_at) VALUES (?,?,?,?) ON CONFLICT(poll_id,user_id) DO UPDATE SET option_id=excluded.option_id,created_at=excluded.created_at").bind(poll.id,optionId,auth.sub,new Date().toISOString()).run();
+    return json({voted:true,pollId:poll.id,optionId});
   }
 
   if (path === "/v1/posts" && method === "POST") {
     const input = await readJson(request);
+    const pollInput=input?.poll;
+    const pollOptions=Array.isArray(pollInput?.options)?pollInput.options.map(x=>String(x||"").trim()).filter(Boolean):[];
+    const hasPoll=!!pollInput;
     if (!input || typeof input.content !== "string" || input.content.length > 5000 ||
-        (!input.content.trim() && !text(input.mediaId, 64))) return json({ error: "validation_error", message: "Tulis kandungan atau lampirkan gambar." }, 400);
-    const visibility = ["public", "followers", "private"].includes(input.visibility) ? input.visibility : "public";
-    const id = uuid(), now = new Date().toISOString();
-    let media = null;
-    if (input.mediaId) {
-      media = await env.DB.prepare("SELECT id FROM gomogie_media_assets WHERE id=? AND owner_id=? AND purpose='post' AND status='ready'").bind(input.mediaId, auth.sub).first();
-      if (!media) return json({ error: "media_not_found", message: "Gambar post tidak ditemui atau bukan milik akaun ini." }, 404);
-    }
-    await env.DB.prepare("INSERT INTO posts (id,user_id,content,visibility,status,comments_enabled,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)").bind(id, auth.sub, input.content.trim(), visibility, "published", input.commentsEnabled === false ? 0 : 1, now, now).run();
-    if (media) await env.DB.prepare("INSERT INTO gomogie_post_media (post_id,media_id,position,created_at) VALUES (?,?,?,?)").bind(id, media.id, 0, now).run();
-    return json({ post: { id, userId: auth.sub, content: input.content.trim(), visibility, status: "published", mediaType: media ? "image" : "text", mediaUrl: media ? mediaUrl(media.id) : "", createdAt: now } }, 201);
+        (!input.content.trim() && !text(input.mediaId,64) && !text(input.videoId,64) && !hasPoll)) return json({error:"validation_error",message:"Tulis kandungan atau lampirkan media atau poll."},400);
+    if(hasPoll&&(pollOptions.length<2||pollOptions.length>6||pollOptions.some(x=>x.length>80)||new Set(pollOptions.map(x=>x.toLowerCase())).size!==pollOptions.length))return json({error:"invalid_poll",message:"Poll perlu 2 hingga 6 pilihan unik (maksimum 80 aksara setiap satu)."},400);
+    let closesAt=null;
+    if(hasPoll&&pollInput.durationHours!==undefined){const hours=Number(pollInput.durationHours);if(![1,6,12,24,72,168,720].includes(hours))return json({error:"invalid_poll_duration"},400);closesAt=new Date(Date.now()+hours*3600000).toISOString()}
+    const visibility=["public","followers","private"].includes(input.visibility)?input.visibility:"public";
+    const id=uuid(),now=new Date().toISOString();
+    let media=null,video=null;
+    if(input.mediaId){media=await env.DB.prepare("SELECT id FROM gomogie_media_assets WHERE id=? AND owner_id=? AND purpose='post' AND status='ready'").bind(input.mediaId,auth.sub).first();if(!media)return json({error:"media_not_found",message:"Gambar post tidak ditemui atau bukan milik akaun ini."},404)}
+    if(input.videoId){video=await env.DB.prepare("SELECT id FROM gomogie_video_assets WHERE id=? AND owner_id=? AND status='ready'").bind(input.videoId,auth.sub).first();if(!video)return json({error:"video_not_found",message:"Video tidak ditemui atau bukan milik akaun ini."},404)}
+    if(media&&video||hasPoll&&(media||video))return json({error:"invalid_post_media",message:"Satu post hanya boleh mengandungi satu jenis media atau poll."},400);
+    const statements=[env.DB.prepare("INSERT INTO posts (id,user_id,content,visibility,status,comments_enabled,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)").bind(id,auth.sub,input.content.trim(),visibility,"published",input.commentsEnabled===false?0:1,now,now)];
+    if(media)statements.push(env.DB.prepare("INSERT INTO gomogie_post_media (post_id,media_id,position,created_at) VALUES (?,?,?,?)").bind(id,media.id,0,now));
+    if(video)statements.push(env.DB.prepare("INSERT INTO gomogie_post_videos (post_id,video_id,created_at) VALUES (?,?,?)").bind(id,video.id,now));
+    let pollId=null;
+    if(hasPoll){pollId=uuid();statements.push(env.DB.prepare("INSERT INTO gomogie_polls (id,post_id,closes_at,created_at) VALUES (?,?,?,?)").bind(pollId,id,closesAt,now));pollOptions.forEach((label,index)=>statements.push(env.DB.prepare("INSERT INTO gomogie_poll_options (id,poll_id,label,position) VALUES (?,?,?,?)").bind(uuid(),pollId,label,index)))}
+    await env.DB.batch(statements);
+    return json({post:{id,userId:auth.sub,content:input.content.trim(),visibility,status:"published",mediaType:video?"video":media?"image":hasPoll?"poll":"text",mediaUrl:video?videoUrl(video.id):media?mediaUrl(media.id):"",pollId,createdAt:now}},201);
   }
 
   const reactionMatch = path.match(/^\/v1\/posts\/([0-9a-f-]+)\/reactions$/i);

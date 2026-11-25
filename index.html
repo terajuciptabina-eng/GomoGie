@@ -98,9 +98,23 @@ const view=document.getElementById("view");
 const API_BASE="https://gomogie-api.terajuciptabina.workers.dev";
 let currentUser=null;
 const TOKEN_KEY="gomogie-access-token";
-async function getToken(){try{const saved=await localGet(TOKEN_KEY);if(typeof saved==="string"&&saved)return saved}catch{}try{return sessionStorage.getItem(TOKEN_KEY)||""}catch{return ""}}
-async function saveToken(token){try{await localSet(TOKEN_KEY,token);try{sessionStorage.removeItem(TOKEN_KEY)}catch{};return true}catch(error){console.warn("Persistent sign-in storage unavailable:",error);try{sessionStorage.setItem(TOKEN_KEY,token);return false}catch{return false}}}
-async function clearToken(){try{await localSet(TOKEN_KEY,null)}catch{}try{sessionStorage.removeItem(TOKEN_KEY)}catch{}}
+async function getToken(){
+ try{const saved=localStorage.getItem(TOKEN_KEY);if(saved)return saved}catch(error){console.warn("Local storage unavailable:",error)}
+ try{const saved=await localGet(TOKEN_KEY);if(typeof saved==="string"&&saved){try{localStorage.setItem(TOKEN_KEY,saved)}catch{}return saved}}catch(error){console.warn("IndexedDB token lookup unavailable:",error)}
+ try{return sessionStorage.getItem(TOKEN_KEY)||""}catch{return ""}
+}
+async function saveToken(token){
+ let persisted=false;
+ try{localStorage.setItem(TOKEN_KEY,token);persisted=true}catch(error){console.warn("Local storage persistence unavailable:",error)}
+ try{await localSet(TOKEN_KEY,token);persisted=true}catch(error){console.warn("IndexedDB token persistence unavailable:",error)}
+ try{sessionStorage.removeItem(TOKEN_KEY)}catch{}
+ return persisted;
+}
+async function clearToken(){
+ try{localStorage.removeItem(TOKEN_KEY)}catch{}
+ try{await localSet(TOKEN_KEY,null)}catch{}
+ try{sessionStorage.removeItem(TOKEN_KEY)}catch{}
+}
 async function apiRequest(path,options={}){const headers={accept:"application/json",...(options.headers||{})};const token=await getToken();if(token)headers.authorization="Bearer "+token;if(options.body&&!(options.body instanceof FormData))headers["content-type"]="application/json";const response=await fetch(API_BASE+path,{...options,headers,cache:"no-store"});if(response.status===401){signOut(false);throw new Error("Your session has expired. Please log in again.")}const payload=response.status===204?null:await response.json().catch(()=>({}));if(!response.ok)throw new Error(payload?.message||payload?.error||"Request failed ("+response.status+")");return payload}
 async function uploadImage(file,purpose){if(!file)throw new Error("Pilih gambar dahulu.");const body=new FormData();body.append("file",file,file.name);body.append("purpose",purpose);const result=await apiRequest("/v1/media",{method:"POST",body});return result.media}
 function setAuthError(message){const node=document.getElementById("authError");if(node)node.textContent=message||""}

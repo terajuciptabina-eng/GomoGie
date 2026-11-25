@@ -29,16 +29,16 @@ function corsHeaders(request, env) {
 async function passwordHash(password) {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const key = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations: 310000 }, key, 256);
-  return "pbkdf2-sha256$310000$" + b64url(salt) + "$" + b64url(new Uint8Array(bits));
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations: 100000 }, key, 256);
+  return "pbkdf2-sha256$100000$" + b64url(salt) + "$" + b64url(new Uint8Array(bits));
 }
 
 async function passwordVerify(password, stored) {
   try {
     const [scheme, rounds, saltText, hashText] = stored.split("$");
-    if (scheme !== "pbkdf2-sha256" || Number(rounds) !== 310000) return false;
+    if (scheme !== "pbkdf2-sha256" || Number(rounds) !== 100000) return false;
     const key = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveBits"]);
-    const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: fromB64url(saltText), iterations: 310000 }, key, 256);
+    const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: fromB64url(saltText), iterations: Number(rounds) }, key, 256);
     const actual = new Uint8Array(bits);
     const expected = fromB64url(hashText);
     if (actual.length !== expected.length) return false;
@@ -121,7 +121,7 @@ async function route(request, env) {
         !text(input.username, 24) || !/^[a-zA-Z0-9_]{3,24}$/.test(input.username.trim()) ||
         typeof input.password !== "string" || input.password.length < 9 || input.password.length > 128 ||
         !text(input.displayName, 60)) {
-      return json({ error: "validation_error", message: "Email, username, kata laluan (12–128 aksara) dan nama paparan diperlukan." }, 400);
+      return json({ error: "validation_error", message: "Email, username, kata laluan (9–128 aksara) dan nama paparan diperlukan." }, 400);
     }
     const email = input.email.trim().toLowerCase();
     const username = input.username.trim().toLowerCase();

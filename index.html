@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#10202d"><meta name="description" content="GomoGie — Connect. Share. Discover.">
+<meta name="theme-color" content="#10202d"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="description" content="GomoGie — Connect. Share. Discover.">
 <link rel="icon" type="image/svg+xml" href="assets/brand/favicon.svg">
 <link rel="manifest" href="manifest.webmanifest">
 <title>GomoGie — Connect. Share. Discover.</title>
@@ -167,6 +167,27 @@ document.addEventListener("touchend",()=>{
  else springBack();
 },{passive:true});
 document.addEventListener("touchcancel",()=>{if(!pullArmed)return;pullArmed=false;pullDistance=0;springBack()},{passive:true});
+// PWA update lifecycle: check for a new deployment whenever the installed app opens or returns to the foreground.
+if("serviceWorker" in navigator){
+ const hadController=!!navigator.serviceWorker.controller;
+ let reloadingForUpdate=false;
+ navigator.serviceWorker.addEventListener("controllerchange",()=>{
+  if(hadController&&!reloadingForUpdate){
+   reloadingForUpdate=true;
+   window.location.reload();
+  }
+ });
+ window.addEventListener("load",async()=>{
+  try{
+   const registration=await navigator.serviceWorker.register("./sw.js",{scope:"./",updateViaCache:"none"});
+   await registration.update();
+   document.addEventListener("visibilitychange",()=>{
+    if(document.visibilityState==="visible")registration.update().catch(()=>{});
+   });
+   window.addEventListener("focus",()=>registration.update().catch(()=>{}));
+  }catch(error){console.warn("GomoGie update check unavailable:",error)}
+ });
+}
 loadGomoGieData().catch(()=>{view.innerHTML='<div class="empty">Unable to load GomoGie content. Please check your connection and refresh.</div>'});
 </script>
 </body></html>

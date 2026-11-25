@@ -14,7 +14,7 @@ This is a domain-level starting point, not a final database schema. Fields, inde
 - blocks: blocker_id, blocked_id, created_at
 - mutes: muter_id, muted_id, created_at
 
-## Unified content
+## Unified native content
 - posts: author_id, content_type, body, audience, status, parent_post_id, created_at, updated_at
 - post_media: post_id, media_id, position, alt_text
 - comments: post_id, author_id, parent_comment_id, body, status, created_at
@@ -28,6 +28,7 @@ This is a domain-level starting point, not a final database schema. Fields, inde
 
 ## Media and video
 - media_assets: owner_id, storage_key, media_type, processing_status, dimensions, duration, created_at
+- media_usage_records: media_asset_id, storage_bytes, delivery_bytes, processing_units, measured_at (operational cost accounting; do not expose private infrastructure details to ordinary users)
 - channels: owner_id, title, description, visibility
 - playlists: channel_id, title, visibility
 - playlist_items: playlist_id, media_asset_id, position
@@ -51,10 +52,17 @@ This is a domain-level starting point, not a final database schema. Fields, inde
 - appeals: moderation_action_id, appellant_id, statement, status, created_at
 - audit_logs: actor_id, action, resource_type, resource_id, created_at, metadata
 
+## Platform sustainability and optional commerce
+- usage_quotas: plan_or_policy_key, resource_type, limit_value, period, effective_at (must represent transparent fair-use policy; do not imply unlimited usage)
+- usage_events: user_id, resource_type, quantity, measured_at
+- monetisation_placements: placement_type, status, disclosure_label, targeting_policy (future optional advertising/sponsorship; subject to privacy and legal review)
+- optional_services: service_key, description, price, eligibility, status (future optional services only; never required for core participation)
+
 ## Design constraints
 - Define uniqueness for handles, membership pairs, follows and reaction targets.
 - Model audience visibility and deletion/retention explicitly.
 - Avoid trusting client-supplied author IDs or role claims.
 - Apply block/mute and community access rules consistently across feeds, search and notifications.
-- Define deletion and export behaviour before production.
+- Apply fair-use quotas consistently and explain user-facing limits clearly.
 - Do not expose private messages or sensitive account data to analytics.
+- Define deletion and export behaviour before production.

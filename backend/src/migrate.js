@@ -13,6 +13,7 @@ const migrationDir = join(here, '..', 'migrations');
 try {
   const client = await pool.connect();
   try {
+    await client.query('SELECT pg_advisory_lock($1)', [812734611]);
     await client.query(`CREATE TABLE IF NOT EXISTS schema_migrations (
       name TEXT PRIMARY KEY,
       applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -34,6 +35,7 @@ try {
       }
     }
   } finally {
+    await client.query('SELECT pg_advisory_unlock($1)', [812734611]);
     client.release();
   }
 } finally {

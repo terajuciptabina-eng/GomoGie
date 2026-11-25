@@ -6,7 +6,7 @@ This Worker targets the existing `gomogie-db` D1 schema. It does not create, dro
 
 - `GET /health/live` — Worker liveness.
 - `GET /health/ready` — D1 connectivity.
-- `POST /v1/auth/register` — account and profile creation.
+- `POST /v1/auth/register` — account and profile creation; closed by default until release safeguards are approved.
 - `POST /v1/auth/login` — login by email or username.
 - `GET /v1/auth/me` — authenticated account/profile.
 - `GET /v1/feed` — published public posts.
@@ -53,6 +53,8 @@ Do not paste credentials, API tokens, database IDs containing secrets, or the JW
 The current Worker source validates JWT structure and claims, checks that the account is still active in D1 on protected requests, bounds JSON request bodies to 64 KiB, and adds baseline response security headers. See [API security audit](../../docs/API_SECURITY_AUDIT.md) for the exact scope and remaining release blockers.
 
 ## Current limits
+
+- Public registration is disabled by default using `ALLOW_REGISTRATION = "false"`. Do not enable it until rate limiting, email verification, account recovery and security testing are complete.
 
 - Email verification and password reset are not implemented.
 - Access tokens last 15 minutes; refresh tokens and server-side session revocation are not implemented.

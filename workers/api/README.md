@@ -48,6 +48,10 @@ npx wrangler deploy
 
 Do not paste credentials, API tokens, database IDs containing secrets, or the JWT secret into chat or Git.
 
+## Security hardening applied
+
+The current Worker source validates JWT structure and claims, checks that the account is still active in D1 on protected requests, bounds JSON request bodies to 64 KiB, and adds baseline response security headers. See [API security audit](../../docs/API_SECURITY_AUDIT.md) for the exact scope and remaining release blockers.
+
 ## Current limits
 
 - Email verification and password reset are not implemented.

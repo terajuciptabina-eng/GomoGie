@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS media_assets (
   media_type TEXT NOT NULL CHECK (media_type IN ('image','video')),
   content_type TEXT NOT NULL,
   size_bytes BIGINT NOT NULL CHECK (size_bytes > 0),
-  status TEXT NOT NULL DEFAULT 'ready' CHECK (status IN ('ready','quarantined','deleted')),
+  status TEXT NOT NULL DEFAULT 'quarantined' CHECK (status IN ('ready','quarantined','deleted')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_avatar_media_fk;

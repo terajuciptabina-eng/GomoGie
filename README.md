@@ -33,6 +33,8 @@ GomoGie is its own social network. It is not an aggregator for Facebook, YouTube
 
 - [Master specification](docs/MASTER_SPECIFICATION.md)
 - [Architecture](docs/ARCHITECTURE.md)
+- [Cloudflare D1 cutover and Worker API](docs/CLOUDFLARE_D1_CUTOVER.md)
+- [Cloudflare Worker API setup](workers/api/README.md)
 - [Data model](docs/DATA_MODEL.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Development rules](docs/DEVELOPMENT_RULES.md)

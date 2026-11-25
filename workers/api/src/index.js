@@ -543,7 +543,7 @@ async function route(request, env) {
     }
     if(action==="members"&&method==="GET"){
       if(community.visibility!=="public"&&!isMember&&community.owner_id!==auth.sub)return json({error:"forbidden"},403);
-      const rows=await env.DB.prepare("SELECT cm.user_id,cm.membership_role,cm.status,cm.joined_at,u.username,p.display_name,p.avatar_url FROM community_members cm JOIN users u ON u.id=cm.user_id LEFT JOIN profiles p ON p.user_id=u.id WHERE cm.community_id=? ORDER BY CASE cm.membership_role WHEN 'owner' THEN 0 WHEN 'moderator' THEN 1 ELSE 2 END,cm.joined_at LIMIT 200").bind(community.id).all();
+      const rows=await env.DB.prepare("SELECT cm.user_id,cm.membership_role,cm.status,cm.joined_at,u.username,p.display_name,p.avatar_url FROM community_members cm JOIN users u ON u.id=cm.user_id LEFT JOIN profiles p ON p.user_id=u.id WHERE cm.community_id=? AND (cm.status='active' OR ?=1) ORDER BY CASE cm.membership_role WHEN 'owner' THEN 0 WHEN 'moderator' THEN 1 ELSE 2 END,cm.joined_at LIMIT 200").bind(community.id,isManager?1:0).all();
       return json({items:(rows.results||[]).map(m=>({userId:m.user_id,username:m.username,displayName:m.display_name||m.username,avatarUrl:m.avatar_url||"",role:m.membership_role,status:m.status,joinedAt:m.joined_at}))});
     }
     if(action==="posts"&&method==="GET"){

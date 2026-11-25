@@ -132,7 +132,10 @@ The API currently enforces 10 MB image and 100 MB video upload-intent limits by 
 - PostgreSQL is the source of truth.
 - Use migrations; do not edit production schema manually.
 - Keep database volume private and persistent.
-- Create daily encrypted logical backups, retain a short rolling window and store at least one copy off the VM.
+- Use `backend/scripts/backup-postgres.sh` to create an age-encrypted custom-format PostgreSQL dump; the script supports optional off-host R2 upload and verifies the uploaded object.
+- Use `backend/scripts/restore-postgres.sh` only against an empty target database, then run integrity and application smoke tests.
+- Configure R2 lifecycle retention for the dedicated backup bucket and retain at least one copy off the VM.
+- Generate an age key pair with `age-keygen`; store the public recipient on the server and keep the private identity offline, never in the repository.
 - Test restore to a separate database before beta.
 - Backups must not be stored only on the same VM.
 - Do not claim backup readiness until restore has been demonstrated.

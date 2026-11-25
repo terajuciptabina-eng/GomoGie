@@ -56,6 +56,11 @@ jobs:
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
         run: npx wrangler d1 execute gomogie-db --remote --file=sql/0008_bernama_photo_backfill.sql
 
+
+      - name: Add Bahasa Melayu news source and verified BERNAMA image
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
+        run: npx wrangler d1 execute gomogie-db --remote --file=sql/0009_malay_news_and_bernama_image.sql
+
       - name: Deploy Worker to Cloudflare
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
         uses: cloudflare/wrangler-action@v3

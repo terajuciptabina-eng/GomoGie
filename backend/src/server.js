@@ -9,7 +9,7 @@ import pg from 'pg';
 import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
 import { getMediaPolicy } from './media-policy.js';
-import { S3Client, PutObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, HeadObjectCommand, CopyObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 const { Pool } = pg;
@@ -336,16 +336,25 @@ app.post('/v1/media/uploads/:uploadId/complete', { preHandler: authenticate }, a
   const intent = intentResult.rows[0];
   const head = await s3.send(new HeadObjectCommand({ Bucket: env.R2_BUCKET, Key: intent.object_key }));
   if (!head.ContentLength || head.ContentLength !== Number(intent.max_bytes) || head.ContentType !== intent.content_type || head.Metadata?.owner !== request.user.sub || head.Metadata?.intent !== uploadId) {
+    try { await s3.send(new DeleteObjectCommand({ Bucket: env.R2_BUCKET, Key: intent.object_key })); }
+    catch (error) { request.log.warn({ err: error }, 'could not remove rejected staging object'); }
     await pool.query('UPDATE media_upload_intents SET status=$1 WHERE id=$2', ['rejected', uploadId]);
     return reply.code(400).send({ error: 'uploaded_file_failed_validation' });
   }
+  const fileName = intent.object_key.split('/').pop();
+  const quarantineKey = `quarantine/${request.user.sub}/${fileName}`;
+  const copySource = `${env.R2_BUCKET}/${intent.object_key.split('/').map(encodeURIComponent).join('/')}`;
+  await s3.send(new CopyObjectCommand({
+    Bucket: env.R2_BUCKET, Key: quarantineKey, CopySource: copySource, MetadataDirective: 'COPY'
+  }));
+  await s3.send(new DeleteObjectCommand({ Bucket: env.R2_BUCKET, Key: intent.object_key }));
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     const asset = await client.query(
       `INSERT INTO media_assets(owner_id,object_key,media_type,content_type,size_bytes)
        VALUES($1,$2,$3,$4,$5) RETURNING id,media_type,content_type,size_bytes,created_at`,
-      [request.user.sub, intent.object_key, intent.media_type, intent.content_type, head.ContentLength]
+      [request.user.sub, quarantineKey, intent.media_type, intent.content_type, head.ContentLength]
     );
     await client.query('UPDATE media_upload_intents SET status=$1 WHERE id=$2', ['completed', uploadId]);
     await client.query('COMMIT');

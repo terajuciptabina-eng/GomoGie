@@ -159,7 +159,7 @@ async function route(request, env) {
   }
 
   const publicCommentsRead = method === "GET" && /^\/v1\/posts\/[0-9a-f-]+\/comments$/i.test(path);
-  const needsAuth = path === "/v1/auth/me" || (path.startsWith("/v1/posts") && !publicCommentsRead) || path.startsWith("/v1/users/");
+  const needsAuth = path === "/v1/auth/me" || (path.startsWith("/v1/posts") && !publicCommentsRead) || path.startsWith("/v1/users/") || path.startsWith("/v1/notifications");
   const auth = needsAuth ? await authenticate(request, env) : null;
   if (needsAuth && !auth) return json({ error: "unauthorized", message: "Sila log masuk semula." }, 401);
 
@@ -210,6 +210,24 @@ async function route(request, env) {
         coverUrl: row.cover_url, website: row.website, location: row.location, isPrivate: Boolean(row.is_private) } });
   }
 
+  if (path === "/v1/notifications" && method === "GET") {
+    const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit") || 30)));
+    const rows = await env.DB.prepare(
+      "SELECT n.id,n.type,n.entity_id,n.is_read,n.created_at,n.actor_id,u.username,p.display_name,p.avatar_url FROM notifications n LEFT JOIN users u ON u.id=n.actor_id LEFT JOIN profiles p ON p.user_id=n.actor_id WHERE n.recipient_id=? ORDER BY n.created_at DESC LIMIT ?"
+    ).bind(auth.sub, limit).all();
+    const unread = await env.DB.prepare("SELECT COUNT(*) AS count FROM notifications WHERE recipient_id=? AND is_read=0").bind(auth.sub).first();
+    return json({ items: (rows.results || []).map(row => ({ id: row.id, type: row.type, entityId: row.entity_id, isRead: Boolean(row.is_read), createdAt: row.created_at, actor: row.actor_id ? { id: row.actor_id, username: row.username, displayName: row.display_name, avatarUrl: row.avatar_url } : null })), unreadCount: Number(unread?.count || 0) });
+  }
+  const notificationReadMatch = path.match(/^\/v1\/notifications\/([0-9a-f-]+)\/read$/i);
+  if (notificationReadMatch && method === "PATCH") {
+    const result = await env.DB.prepare("UPDATE notifications SET is_read=1 WHERE id=? AND recipient_id=?").bind(notificationReadMatch[1], auth.sub).run();
+    if (!result.meta?.changes) return json({ error: "notification_not_found" }, 404);
+    return json({ updated: true });
+  }
+  if (path === "/v1/notifications/read-all" && method === "PATCH") {
+    const result = await env.DB.prepare("UPDATE notifications SET is_read=1 WHERE recipient_id=? AND is_read=0").bind(auth.sub).run();
+    return json({ updated: Number(result.meta?.changes || 0) });
+  }
   if (path === "/v1/feed" && method === "GET") {
     const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit") || 20)));
     const rows = await env.DB.prepare(
@@ -233,10 +251,15 @@ async function route(request, env) {
     const input = await readJson(request) || {};
     const type = input.type || "like";
     if (!["like", "love", "haha", "wow", "sad", "angry"].includes(type)) return json({ error: "invalid_reaction" }, 400);
-    const post = await env.DB.prepare("SELECT id FROM posts WHERE id=? AND status='published'").bind(reactionMatch[1]).first();
+    const post = await env.DB.prepare("SELECT id,user_id FROM posts WHERE id=? AND status='published'").bind(reactionMatch[1]).first();
     if (!post) return json({ error: "post_not_found" }, 404);
+    const previous = await env.DB.prepare("SELECT reaction_type FROM reactions WHERE user_id=? AND post_id=?").bind(auth.sub, reactionMatch[1]).first();
     await env.DB.prepare("INSERT INTO reactions (user_id,post_id,reaction_type) VALUES (?,?,?) ON CONFLICT(user_id,post_id) DO UPDATE SET reaction_type=excluded.reaction_type")
       .bind(auth.sub, reactionMatch[1], type).run();
+    if (!previous && post.user_id !== auth.sub) {
+      await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)")
+        .bind(uuid(), post.user_id, auth.sub, "reaction", reactionMatch[1], new Date().toISOString()).run();
+    }
     return json({ reaction: { postId: reactionMatch[1], type } });
   }
   if (reactionMatch && method === "DELETE") {
@@ -263,6 +286,11 @@ async function route(request, env) {
     const id = uuid(), now = new Date().toISOString();
     await env.DB.prepare("INSERT INTO comments (id,post_id,user_id,parent_id,content,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)")
       .bind(id, commentMatch[1], auth.sub, input.parentId || null, input.content.trim(), "published", now, now).run();
+    const owner = await env.DB.prepare("SELECT user_id FROM posts WHERE id=?").bind(commentMatch[1]).first();
+    if (owner && owner.user_id !== auth.sub) {
+      await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)")
+        .bind(uuid(), owner.user_id, auth.sub, "comment", commentMatch[1], now).run();
+    }
     return json({ comment: { id, postId: commentMatch[1], userId: auth.sub, content: input.content.trim(), createdAt: now } }, 201);
   }
 
@@ -273,8 +301,13 @@ async function route(request, env) {
     if (!target) return json({ error: "user_not_found" }, 404);
     if (target.id === auth.sub) return json({ error: "cannot_follow_self" }, 400);
     const status = target.is_private ? "pending" : "accepted";
+    const existingFollow = await env.DB.prepare("SELECT status FROM follows WHERE follower_id=? AND following_id=?").bind(auth.sub, target.id).first();
     await env.DB.prepare("INSERT INTO follows (follower_id,following_id,status) VALUES (?,?,?) ON CONFLICT(follower_id,following_id) DO UPDATE SET status=excluded.status")
       .bind(auth.sub, target.id, status).run();
+    if (!existingFollow && status === "accepted") {
+      await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)")
+        .bind(uuid(), target.id, auth.sub, "follow", auth.sub, new Date().toISOString()).run();
+    }
     return json({ following: true, status });
   }
   if (followMatch && method === "DELETE") {

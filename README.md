@@ -36,6 +36,7 @@ GomoGie is its own social network. It is not an aggregator for Facebook, YouTube
 - [Data model](docs/DATA_MODEL.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Development rules](docs/DEVELOPMENT_RULES.md)
+- [Brand identity](docs/BRAND_IDENTITY.md)
 
 ## Guiding principles
 

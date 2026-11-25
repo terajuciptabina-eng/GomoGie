@@ -57,7 +57,7 @@ jobs:
           }
           for icon, size in expected.items():
               data = Path(icon).read_bytes()
-              assert data[:8] == b'\\x89PNG\\r\\n\\x1a\\n'
+              assert data[:8].hex() == '89504e470d0a1a0a'
               width, height = struct.unpack('>II', data[16:24])
               assert (width, height) == (size, size)
           assert any(i['src'] == 'assets/brand/icon-192.png' for i in manifest['icons'])

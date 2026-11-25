@@ -2,6 +2,10 @@ name = "gomogie-api"
 main = "src/index.js"
 compatibility_date = "2026-11-25"
 
+[[r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "gomogie-media"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "gomogie-db"

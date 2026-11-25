@@ -139,6 +139,8 @@ async function fetchNewsOgImage(articleUrl){
     }
     const imageTags=source.match(/<img\b[^>]*>/gi)||[];
     for(const tag of imageTags){const attrs=parseAttrs(tag),raw=attrs.src||attrs["data-src"]||attrs["data-original"]||attrs["data-lazy-src"]||"";if(!raw)continue;const candidate=new URL(raw.replace(/&amp;/gi,"&"),target);if(!["http:","https:"].includes(candidate.protocol))continue;const hint=(attrs.alt||"")+" "+(attrs.class||"")+" "+candidate.pathname;if(/logo|icon|avatar|banner|sprite/i.test(hint))continue;if(/storage\/photos|\/uploads\/|\/images\/|\.jpe?g(?:$|\?)|\.png(?:$|\?)|\.webp(?:$|\?)/i.test(hint))return candidate.href}
+    const anchorTags=source.match(/<a\b[^>]*>/gi)||[];
+    for(const tag of anchorTags){const attrs=parseAttrs(tag),raw=attrs.href||"";if(!raw)continue;const candidate=new URL(raw.replace(/&amp;/gi,"&"),target);if(!["http:","https:"].includes(candidate.protocol))continue;if(/\/storage\/photos\/.*(?:large|medium|small)?(?:\?|$)/i.test(candidate.pathname))return candidate.href}
   }catch{}
   return "";
 }
@@ -478,7 +480,7 @@ async function route(request, env) {
         rows=await readItems();
       }
     }
-    const missingImages=(rows.results||[]).filter(item=>!item.image_url&&item.canonical_url).slice(0,8);
+    const missingImages=(rows.results||[]).filter(item=>!item.image_url&&item.canonical_url).slice(0,20);
     await Promise.all(missingImages.map(async item=>{const image=await fetchNewsOgImage(item.canonical_url);if(image){item.image_url=image;await env.DB.prepare("UPDATE gomogie_news_items SET image_url=? WHERE id=? AND (image_url IS NULL OR image_url='')").bind(image,item.id).run()}}));
     const source=await env.DB.prepare("SELECT name,last_checked_at,last_error FROM gomogie_news_sources WHERE id='bernama-en'").first();
     return json({mode,region,interests,refreshed,sourceStatus:{name:source?.name||"BERNAMA",lastCheckedAt:source?.last_checked_at||null,lastError:source?.last_error||null},items:(rows.results||[]).map(x=>({...x,title:decodeNewsXml(x.title).replace(/Â/g,""),summary:decodeNewsXml(x.summary).replace(/Â/g,""),body_text:decodeNewsXml(x.body_text).replace(/Â/g,""),trendScore:Number(x.trend_score||0)}))});

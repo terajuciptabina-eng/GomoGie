@@ -68,5 +68,8 @@ jobs:
           assert 'if (path === "/v1/users/me/following" && method === "GET")' in worker, 'Following relationship restore route missing'
           assert 'async function fetchFollowingApiFeed()' in frontend, 'Frontend Following feed API client missing'
           assert 'apiRequest("/v1/users/me/following")' in frontend, 'Frontend does not restore followed accounts after login'
+          assert 'parent_comment_not_found' in worker, 'Nested reply parent ownership check missing'
+          assert 'WHERE id=? AND post_id=? AND status=\'published\'' in worker, 'Nested reply must be scoped to the same post'
+          assert 'const recipients = new Set([owner?.user_id, parent?.user_id]' in worker, 'Nested reply notifications missing'
           print('Verified Worker origin, authenticated Following feed, visibility filter and follow-state restoration.')
           PY

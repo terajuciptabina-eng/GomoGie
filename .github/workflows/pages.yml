@@ -64,7 +64,7 @@ jobs:
           assert any(i['src'] == 'assets/brand/icon-512.png' for i in manifest['icons'])
           assert './data/demo-accounts.json' in worker
           assert './data/demo-posts.json' in worker
-          assert 'cache.put(cacheKey' in worker
+          assert 'cache.put(request' in worker
           print('Validated PWA registration, manifest, iOS/Android icons and offline demo fixtures.')
           PY
 

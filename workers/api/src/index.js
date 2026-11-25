@@ -205,7 +205,7 @@ async function syncNewsFeeds(env){
   try{
    const source=await env.DB.prepare("SELECT active FROM gomogie_news_sources WHERE id=?").bind(feed.id).first();
    if(!source||!source.active)continue;
-   const res=await fetch(feed.url,{headers:{accept:"application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9"},signal:AbortSignal.timeout(12000)});
+   const res=await fetch(feed.url,{headers:{accept:"application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9","user-agent":"GomoGieContentDiscovery/1.0 (+https://terajuciptabina-eng.github.io/GomoGie/)"},signal:AbortSignal.timeout(12000)});
    if(!res.ok)throw new Error("Feed HTTP "+res.status);
    const xml=(await res.text()).slice(0,1500000),atom=/<feed\b/i.test(xml);
    const blocks=atom?[...xml.matchAll(/<entry\b[^>]*>([\s\S]*?)<\/entry>/gi)].map(x=>x[1]):[...xml.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)].map(x=>x[1]);

@@ -48,11 +48,11 @@ async function passwordVerify(password, stored) {
   } catch { return false; }
 }
 
-async function signToken(user, env) {
+async function signToken(user, env, lifetimeSeconds = 2592000) {
   if (!env.JWT_SECRET || env.JWT_SECRET.length < 32) throw new Error("JWT_SECRET must be configured with at least 32 characters");
   const header = b64url(encoder.encode(JSON.stringify({ alg: "HS256", typ: "JWT" })));
   const now = Math.floor(Date.now() / 1000);
-  const payload = b64url(encoder.encode(JSON.stringify({ sub: user.id, username: user.username, iat: now, exp: now + 900 })));
+  const payload = b64url(encoder.encode(JSON.stringify({ sub: user.id, username: user.username, iat: now, exp: now + lifetimeSeconds })));
   const input = header + "." + payload;
   const key = await crypto.subtle.importKey("raw", encoder.encode(env.JWT_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(input));
@@ -76,7 +76,7 @@ async function authenticate(request, env) {
     const now = Math.floor(Date.now() / 1000);
     if (typeof payload.sub !== "string" || !payload.sub || !Number.isInteger(payload.exp) ||
         !Number.isInteger(payload.iat) || payload.exp <= now || payload.iat > now + 60 ||
-        payload.exp - payload.iat > 900) return null;
+        payload.exp - payload.iat > 2592000) return null;
     const account = await env.DB.prepare("SELECT status FROM users WHERE id = ?").bind(payload.sub).first();
     if (!account || account.status !== "active") return null;
     return payload;
@@ -152,7 +152,7 @@ async function route(request, env) {
       return json({ error: "registration_failed", message: "Pendaftaran gagal. Semak email dan username." }, 409);
     }
     const user = { id, email, username };
-    return json({ user, profile: { user_id: id, display_name: input.displayName.trim(), bio: "" }, accessToken: await signToken(user, env), tokenType: "Bearer", expiresIn: 900 }, 201);
+    return json({ user, profile: { user_id: id, display_name: input.displayName.trim(), bio: "" }, accessToken: await signToken(user, env, 2592000), tokenType: "Bearer", expiresIn: 2592000 }, 201);
   }
 
   if (path === "/v1/auth/login" && method === "POST") {
@@ -165,14 +165,18 @@ async function route(request, env) {
     if (!user || user.status !== "active" || !(await passwordVerify(input.password, user.password_hash))) {
       return json({ error: "invalid_credentials", message: "Maklumat log masuk tidak tepat." }, 401);
     }
-    return json({ user: { id: user.id, email: user.email, username: user.username }, accessToken: await signToken(user, env), tokenType: "Bearer", expiresIn: 900 });
+    return json({ user: { id: user.id, email: user.email, username: user.username }, accessToken: await signToken(user, env, 2592000), tokenType: "Bearer", expiresIn: 2592000 });
   }
 
   const publicCommentsRead = method === "GET" && /^\/v1\/posts\/[0-9a-f-]+\/comments$/i.test(path);
   const publicMediaRead = method === "GET" && /^\/v1\/media\/[0-9a-f-]+$/i.test(path);
-  const needsAuth = path === "/v1/auth/me" || (path.startsWith("/v1/posts") && !publicCommentsRead) || (path.startsWith("/v1/media") && !publicMediaRead) || path.startsWith("/v1/users/") || path.startsWith("/v1/notifications") || path.startsWith("/v1/conversations");
+  const needsAuth = path === "/v1/auth/me" || (path === "/v1/auth/remember" && method === "POST") || (path.startsWith("/v1/posts") && !publicCommentsRead) || (path.startsWith("/v1/media") && !publicMediaRead) || path.startsWith("/v1/users/") || path.startsWith("/v1/notifications") || path.startsWith("/v1/conversations");
   const auth = needsAuth ? await authenticate(request, env) : null;
   if (needsAuth && !auth) return json({ error: "unauthorized", message: "Sila log masuk semula." }, 401);
+
+  if (path === "/v1/auth/remember" && method === "POST") {
+    return json({ accessToken: await signToken(auth, env, 2592000), tokenType: "Bearer", expiresIn: 2592000 });
+  }
 
   const mediaReadMatch = path.match(/^\/v1\/media\/([0-9a-f-]+)$/i);
   if (mediaReadMatch && method === "GET") {

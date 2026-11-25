@@ -158,7 +158,7 @@ app.get('/v1/auth/me', { preHandler: authenticate }, async (request, reply) => {
   };
 });
 
-app.get('/v1/feed', async (request) => {
+app.get('/v1/feed', async (request, reply) => {
   const limit = Math.min(Math.max(Number(request.query.limit || 20), 1), 50);
   let cursor = null;
   if (request.query.before) {
@@ -167,7 +167,7 @@ app.get('/v1/feed', async (request) => {
       const [createdAt, id] = decoded.split('|');
       if (!createdAt || !z.string().uuid().safeParse(id).success || Number.isNaN(Date.parse(createdAt))) throw new Error('invalid cursor');
       cursor = { createdAt: new Date(createdAt).toISOString(), id };
-    } catch { return { error: 'invalid_cursor' }; }
+    } catch { return reply.code(400).send({ error: 'invalid_cursor' }); }
   }
   const result = await pool.query(
     `SELECT p.id,p.body,p.created_at,p.author_id,pr.handle,pr.display_name,

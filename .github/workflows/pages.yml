@@ -52,6 +52,11 @@ jobs:
           Path('/tmp/gomogie-inline.js').write_text(scripts[0])
           assert 'https://gomogie-api.terajuciptabina.workers.dev' in html
           assert '/v1/feed?limit=30' in html
+          assert 'avatarUrl,coverUrl})' in html, 'Profile save must send both persisted media URLs'
+          assert 'const media=await uploadImage(profileDraft.coverFile,"cover")' in html, 'Cover upload response must be consumed'
+          assert 'const media=await uploadImage(profileDraft.avatarFile,"avatar")' in html, 'Avatar upload response must be consumed'
+          assert 'profileDraft.avatarUrl=URL.createObjectURL(file);const preview=document.querySelector(".profile-avatar")' in html, 'Avatar preview must update without rebuilding the form'
+          assert 'profileDraft.coverUrl=URL.createObjectURL(file);const preview=document.querySelector(".profile-cover")' in html, 'Cover preview must update without rebuilding the form'
           print('Extracted application script and verified Cloudflare feed integration.')
           PY
           node -e 'const fs = require("node:fs"); const vm = require("node:vm"); new vm.Script(fs.readFileSync("/tmp/gomogie-inline.js", "utf8"), { filename: "gomogie-inline.js" }); console.log("Validated browser classic-script syntax.");'

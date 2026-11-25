@@ -62,7 +62,7 @@ async function signToken(user, env, lifetimeSeconds = 2592000) {
 async function authenticate(request, env, diagnostic = null) {
   const reject = (reason) => { if (diagnostic) diagnostic.reason = reason; return null; };
   const value = request.headers.get("Authorization") || "";
-  const match = value.match(/^Bearer\\s+(.+)$/i);
+  const match = value.match(/^Bearer\s+(.+)$/i);
   if (!match) return reject("missing_bearer");
   if (!env.JWT_SECRET || env.JWT_SECRET.length < 32) return reject("jwt_secret_unavailable");
   try {

@@ -90,10 +90,10 @@
       "authorId": "demo_0186",
       "type": "video",
       "text": "A place that makes you pause and appreciate the view.",
-      "mediaUrl": "https://archive.org/download/BigBuckBunny_124/Content/big_buck_bunny_720p_surround.mp4",
-      "thumbnailUrl": "https://peach.blender.org/wp-content/uploads/title_anouncement.jpg",
-      "mediaSource": "Blender Foundation Big Buck Bunny (Archive.org MP4 with surround audio)",
-      "mediaSourcePage": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/video",
+      "mediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+      "thumbnailUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg",
+      "mediaSource": "Google hosted sample video: BigBuckBunny",
+      "mediaSourcePage": "https://gist.github.com/jsturgis/3b19447b304616f18657",
       "likes": 715,
       "comments": 87,
       "shares": 66,
@@ -105,8 +105,7 @@
       "isSynthetic": true,
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
-      "audioAvailable": true,
-      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+      "audioAvailable": true
     },
     {
       "id": "post_0006",
@@ -193,10 +192,10 @@
       "authorId": "demo_0371",
       "type": "video",
       "text": "Small details make a big difference. What do you think?",
-      "mediaUrl": "https://archive.org/download/BigBuckBunny_124/Content/big_buck_bunny_720p_surround.mp4",
-      "thumbnailUrl": "https://peach.blender.org/wp-content/uploads/title_anouncement.jpg",
-      "mediaSource": "Blender Foundation Big Buck Bunny (Archive.org MP4 with surround audio)",
-      "mediaSourcePage": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/video",
+      "mediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
+      "thumbnailUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/images/ElephantsDream.jpg",
+      "mediaSource": "Google hosted sample video: ElephantsDream",
+      "mediaSourcePage": "https://gist.github.com/jsturgis/3b19447b304616f18657",
       "likes": 1400,
       "comments": 172,
       "shares": 131,
@@ -208,8 +207,7 @@
       "isSynthetic": true,
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
-      "audioAvailable": true,
-      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+      "audioAvailable": true
     },
     {
       "id": "post_0011",
@@ -296,10 +294,10 @@
       "authorId": "demo_0556",
       "type": "video",
       "text": "A place that makes you pause and appreciate the view.",
-      "mediaUrl": "https://archive.org/download/BigBuckBunny_124/Content/big_buck_bunny_720p_surround.mp4",
-      "thumbnailUrl": "https://peach.blender.org/wp-content/uploads/title_anouncement.jpg",
-      "mediaSource": "Blender Foundation Big Buck Bunny (Archive.org MP4 with surround audio)",
-      "mediaSourcePage": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/video",
+      "mediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+      "thumbnailUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/images/ForBiggerBlazes.jpg",
+      "mediaSource": "Google hosted sample video: ForBiggerBlazes",
+      "mediaSourcePage": "https://gist.github.com/jsturgis/3b19447b304616f18657",
       "likes": 2085,
       "comments": 257,
       "shares": 196,
@@ -311,8 +309,7 @@
       "isSynthetic": true,
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
-      "audioAvailable": true,
-      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+      "audioAvailable": true
     },
     {
       "id": "post_0016",
@@ -399,10 +396,10 @@
       "authorId": "demo_0741",
       "type": "video",
       "text": "Small details make a big difference. What do you think?",
-      "mediaUrl": "https://archive.org/download/BigBuckBunny_124/Content/big_buck_bunny_720p_surround.mp4",
-      "thumbnailUrl": "https://peach.blender.org/wp-content/uploads/title_anouncement.jpg",
-      "mediaSource": "Blender Foundation Big Buck Bunny (Archive.org MP4 with surround audio)",
-      "mediaSourcePage": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/video",
+      "mediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+      "thumbnailUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/images/ForBiggerEscapes.jpg",
+      "mediaSource": "Google hosted sample video: ForBiggerEscapes",
+      "mediaSourcePage": "https://gist.github.com/jsturgis/3b19447b304616f18657",
       "likes": 2770,
       "comments": 342,
       "shares": 261,
@@ -414,8 +411,7 @@
       "isSynthetic": true,
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
-      "audioAvailable": true,
-      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+      "audioAvailable": true
     },
     {
       "id": "post_0021",
@@ -502,10 +498,10 @@
       "authorId": "demo_0926",
       "type": "video",
       "text": "A place that makes you pause and appreciate the view.",
-      "mediaUrl": "https://archive.org/download/BigBuckBunny_124/Content/big_buck_bunny_720p_surround.mp4",
-      "thumbnailUrl": "https://peach.blender.org/wp-content/uploads/title_anouncement.jpg",
-      "mediaSource": "Blender Foundation Big Buck Bunny (Archive.org MP4 with surround audio)",
-      "mediaSourcePage": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/video",
+      "mediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
+      "thumbnailUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/images/ForBiggerFun.jpg",
+      "mediaSource": "Google hosted sample video: ForBiggerFun",
+      "mediaSourcePage": "https://gist.github.com/jsturgis/3b19447b304616f18657",
       "likes": 3455,
       "comments": 427,
       "shares": 26,
@@ -517,8 +513,7 @@
       "isSynthetic": true,
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
-      "audioAvailable": true,
-      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+      "audioAvailable": true
     },
     {
       "id": "post_0026",
@@ -605,10 +600,10 @@
       "authorId": "demo_0111",
       "type": "video",
       "text": "Small details make a big difference. What do you think?",
-      "mediaUrl": "https://archive.org/download/BigBuckBunny_124/Content/big_buck_bunny_720p_surround.mp4",
-      "thumbnailUrl": "https://peach.blender.org/wp-content/uploads/title_anouncement.jpg",
-      "mediaSource": "Blender Foundation Big Buck Bunny (Archive.org MP4 with surround audio)",
-      "mediaSourcePage": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/video",
+      "mediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
+      "thumbnailUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/images/ForBiggerJoyrides.jpg",
+      "mediaSource": "Google hosted sample video: ForBiggerJoyrides",
+      "mediaSourcePage": "https://gist.github.com/jsturgis/3b19447b304616f18657",
       "likes": 4140,
       "comments": 52,
       "shares": 91,
@@ -620,8 +615,7 @@
       "isSynthetic": true,
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
-      "audioAvailable": true,
-      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+      "audioAvailable": true
     },
     {
       "id": "post_0031",
@@ -708,10 +702,10 @@
       "authorId": "demo_0296",
       "type": "video",
       "text": "A place that makes you pause and appreciate the view.",
-      "mediaUrl": "https://archive.org/download/BigBuckBunny_124/Content/big_buck_bunny_720p_surround.mp4",
-      "thumbnailUrl": "https://peach.blender.org/wp-content/uploads/title_anouncement.jpg",
-      "mediaSource": "Blender Foundation Big Buck Bunny (Archive.org MP4 with surround audio)",
-      "mediaSourcePage": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/video",
+      "mediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4",
+      "thumbnailUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/images/ForBiggerMeltdowns.jpg",
+      "mediaSource": "Google hosted sample video: ForBiggerMeltdowns",
+      "mediaSourcePage": "https://gist.github.com/jsturgis/3b19447b304616f18657",
       "likes": 4825,
       "comments": 137,
       "shares": 156,
@@ -723,8 +717,7 @@
       "isSynthetic": true,
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
-      "audioAvailable": true,
-      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+      "audioAvailable": true
     },
     {
       "id": "post_0036",
@@ -811,10 +804,10 @@
       "authorId": "demo_0481",
       "type": "video",
       "text": "Small details make a big difference. What do you think?",
-      "mediaUrl": "https://archive.org/download/BigBuckBunny_124/Content/big_buck_bunny_720p_surround.mp4",
-      "thumbnailUrl": "https://peach.blender.org/wp-content/uploads/title_anouncement.jpg",
-      "mediaSource": "Blender Foundation Big Buck Bunny (Archive.org MP4 with surround audio)",
-      "mediaSourcePage": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/video",
+      "mediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4",
+      "thumbnailUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/images/Sintel.jpg",
+      "mediaSource": "Google hosted sample video: Sintel",
+      "mediaSourcePage": "https://gist.github.com/jsturgis/3b19447b304616f18657",
       "likes": 5510,
       "comments": 222,
       "shares": 221,
@@ -826,8 +819,7 @@
       "isSynthetic": true,
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
-      "audioAvailable": true,
-      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+      "audioAvailable": true
     },
     {
       "id": "post_0041",
@@ -914,10 +906,10 @@
       "authorId": "demo_0666",
       "type": "video",
       "text": "A place that makes you pause and appreciate the view.",
-      "mediaUrl": "https://archive.org/download/BigBuckBunny_124/Content/big_buck_bunny_720p_surround.mp4",
-      "thumbnailUrl": "https://peach.blender.org/wp-content/uploads/title_anouncement.jpg",
-      "mediaSource": "Blender Foundation Big Buck Bunny (Archive.org MP4 with surround audio)",
-      "mediaSourcePage": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/video",
+      "mediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4",
+      "thumbnailUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/images/SubaruOutbackOnStreetAndDirt.jpg",
+      "mediaSource": "Google hosted sample video: SubaruOutbackOnStreetAndDirt",
+      "mediaSourcePage": "https://gist.github.com/jsturgis/3b19447b304616f18657",
       "likes": 6195,
       "comments": 307,
       "shares": 286,
@@ -929,8 +921,7 @@
       "isSynthetic": true,
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
-      "audioAvailable": true,
-      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+      "audioAvailable": true
     },
     {
       "id": "post_0046",
@@ -1017,10 +1008,10 @@
       "authorId": "demo_0851",
       "type": "video",
       "text": "Small details make a big difference. What do you think?",
-      "mediaUrl": "https://archive.org/download/BigBuckBunny_124/Content/big_buck_bunny_720p_surround.mp4",
-      "thumbnailUrl": "https://peach.blender.org/wp-content/uploads/title_anouncement.jpg",
-      "mediaSource": "Blender Foundation Big Buck Bunny (Archive.org MP4 with surround audio)",
-      "mediaSourcePage": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/video",
+      "mediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
+      "thumbnailUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/images/TearsOfSteel.jpg",
+      "mediaSource": "Google hosted sample video: TearsOfSteel",
+      "mediaSourcePage": "https://gist.github.com/jsturgis/3b19447b304616f18657",
       "likes": 6880,
       "comments": 392,
       "shares": 51,
@@ -1032,8 +1023,7 @@
       "isSynthetic": true,
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
-      "audioAvailable": true,
-      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+      "audioAvailable": true
     },
     {
       "id": "post_0051",
@@ -1136,7 +1126,8 @@
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
       "audioAvailable": true,
-      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+      "isWatchDuplicate": true
     },
     {
       "id": "post_0056",
@@ -1239,7 +1230,8 @@
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
       "audioAvailable": true,
-      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+      "isWatchDuplicate": true
     },
     {
       "id": "post_0061",
@@ -1342,7 +1334,8 @@
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
       "audioAvailable": true,
-      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+      "isWatchDuplicate": true
     },
     {
       "id": "post_0066",
@@ -1445,7 +1438,8 @@
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
       "audioAvailable": true,
-      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+      "isWatchDuplicate": true
     },
     {
       "id": "post_0071",
@@ -1548,7 +1542,8 @@
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
       "audioAvailable": true,
-      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+      "isWatchDuplicate": true
     },
     {
       "id": "post_0076",
@@ -1651,7 +1646,8 @@
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
       "audioAvailable": true,
-      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+      "isWatchDuplicate": true
     },
     {
       "id": "post_0081",
@@ -1754,7 +1750,8 @@
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
       "audioAvailable": true,
-      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+      "isWatchDuplicate": true
     },
     {
       "id": "post_0086",
@@ -1857,7 +1854,8 @@
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
       "audioAvailable": true,
-      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+      "isWatchDuplicate": true
     },
     {
       "id": "post_0091",
@@ -1960,7 +1958,8 @@
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
       "audioAvailable": true,
-      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+      "isWatchDuplicate": true
     },
     {
       "id": "post_0096",
@@ -2063,7 +2062,8 @@
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
       "audioAvailable": true,
-      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+      "isWatchDuplicate": true
     },
     {
       "id": "post_0101",
@@ -2166,7 +2166,8 @@
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
       "audioAvailable": true,
-      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+      "isWatchDuplicate": true
     },
     {
       "id": "post_0106",
@@ -2269,7 +2270,8 @@
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
       "audioAvailable": true,
-      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+      "isWatchDuplicate": true
     },
     {
       "id": "post_0111",
@@ -2372,7 +2374,8 @@
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
       "audioAvailable": true,
-      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+      "isWatchDuplicate": true
     },
     {
       "id": "post_0116",
@@ -2475,7 +2478,8 @@
       "demoLabel": "SYNTHETIC DEMO POST",
       "videoAspectRatio": "9:16 display crop",
       "audioAvailable": true,
-      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+      "fallbackMediaUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+      "isWatchDuplicate": true
     }
   ]
 }

@@ -37,7 +37,7 @@ body.pull-releasing .top,body.pull-releasing .layout{transform:translate3d(0,0,0
 const labels={home:["⌂","Home"],pulse:["⌁","Pulse"],watch:["▷","Watch"],communities:["♧","Communities"],connect:["✉","Connect"],studio:["▤","Studio"],profile:["◉","Profile"]};
 let accounts=[],posts=[],active="home",watchMode="for-you",liked=new Set(),followed=new Set(),selectedProfileId=null,profileTab="posts",editingProfile=false,profileDraft={},savedPosts=new Set(),localPendingPosts=[];
 const view=document.getElementById("view");
-const API_BASE="https://gomogie-api.terajucitabina.workers.dev";
+const API_BASE="https://gomogie-api.terajucibina.workers.dev";
 async function fetchPublicApiFeed(){
  const response=await fetch(API_BASE+"/v1/feed?limit=30",{headers:{accept:"application/json"},cache:"no-store"});
  if(!response.ok)throw new Error("Public API feed unavailable ("+response.status+")");

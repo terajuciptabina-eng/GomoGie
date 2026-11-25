@@ -166,14 +166,14 @@ async function fetchNewsArticleContent(articleUrl){
   while(total<500000){const part=await reader.read();if(part.done)break;const chunk=part.value.slice(0,500000-total);chunks.push(chunk);total+=chunk.length;if(chunk.length<part.value.length)break}
   try{await reader.cancel()}catch{}
   const bytes=new Uint8Array(total);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length}
-  const html=new TextDecoder().decode(bytes);
-  const meta=(key)=>{const tags=html.match(/<meta\\b[^>]*>/gi)||[];for(const tag of tags){const name=tag.match(/(?:name|property)\\s*=\\s*["']([^"']+)["']/i)?.[1]?.toLowerCase(),content=tag.match(/content\\s*=\\s*["']([^"']*)["']/i)?.[1]||"";if(name===key.toLowerCase()&&content)return decodeNewsXml(content)}return""};
+  const source=new TextDecoder().decode(bytes);
+  const meta=(key)=>{const tags=source.match(/<meta\b[^>]*>/gi)||[];for(const tag of tags){const name=tag.match(/(?:name|property)\s*=\s*["']([^"']+)["']/i)?.[1]?.toLowerCase(),content=tag.match(/content\s*=\s*["']([^"']*)["']/i)?.[1]||"";if(name===key.toLowerCase()&&content)return decodeNewsXml(content)}return""};
   const description=meta("og:description")||meta("description")||meta("twitter:description");
-  const article=html.match(/<article\\b[^>]*>([\\s\\S]*?)<\\/article>/i)?.[1]||html.match(/<main\\b[^>]*>([\\s\\S]*?)<\\/main>/i)?.[1]||html;
-  const clean=article.replace(/<(script|style|nav|footer|header|aside|form|noscript|svg)\\b[^>]*>[\\s\\S]*?<\\/\\1>/gi," ").replace(/<(?:div|section|ul|ol|figure|figcaption|h[1-6])\\b[^>]*>/gi," ").replace(/<\\/(?:div|section|ul|ol|figure|figcaption|h[1-6])\\s*>/gi," ");
-  const paragraphs=[...clean.matchAll(/<p\\b[^>]*>([\\s\\S]*?)<\\/p>/gi)].map(m=>decodeNewsXml(m[1])).filter(p=>p.length>45&&!/^(share|read more|related|subscribe|advertisement|iklan|berita berkaitan|baca juga)\\b/i.test(p));
+  const article=source.match(/<article\b[^>]*>([\s\S]*?)<\/article>/i)?.[1]||source.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1]||source;
+  const clean=article.replace(/<(script|style|nav|footer|header|aside|form|noscript|svg)\b[^>]*>[\s\S]*?<\/\1>/gi," ").replace(/<(?:div|section|ul|ol|figure|figcaption|h[1-6])\b[^>]*>/gi," ").replace(/<\/(?:div|section|ul|ol|figure|figcaption|h[1-6])\s*>/gi," ");
+  const paragraphs=[...clean.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)].map(m=>decodeNewsXml(m[1])).filter(p=>p.length>45&&!/^(share|read more|related|subscribe|advertisement|iklan|berita berkaitan|baca juga)\b/i.test(p));
   const unique=[...new Set(paragraphs)];
-  let body=unique.join("\\n\\n").slice(0,6000);
+  let body=unique.join("\n\n").slice(0,6000);
   if(body.length<180){const text=decodeNewsXml(clean);if(text.length>body.length)body=text.slice(0,6000)}
   if(body.length<160)return description?{summary:description.slice(0,700),body:""}:null;
   return{summary:(description||body).slice(0,700),body};

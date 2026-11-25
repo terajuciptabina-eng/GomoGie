@@ -282,22 +282,33 @@ function pulse(){
 }
 function watch(){
  const vids=posts.filter(p=>p.type==="video"&&(watchMode==="for-you"||followed.has(p.authorId)));
- view.innerHTML='<section class="watch-page"><div class="watch-top"><h2>Watch</h2><div class="watch-tabs"><button id="forYouTab" class="'+(watchMode==="for-you"?"selected":"")+'">For You</button><button id="followingTab" class="'+(watchMode==="following"?"selected":"")+'">Following</button></div></div>'+(vids.length?'<div class="watch-stream" id="watchStream">'+vids.map((p,i)=>{const a=account(p.authorId);return '<article class="watch-slide" data-video-id="'+p.id+'"><video class="watch-video" playsinline webkit-playsinline muted loop preload="metadata" poster="'+p.thumbnailUrl+'" src="'+p.mediaUrl+'"></video><button class="watch-play" aria-label="Play or pause video">▶</button><div class="watch-shade"></div><div class="watch-caption"><strong>'+esc(a.displayName)+' </strong><p>'+esc(p.text)+'</p><small>Media: '+esc(p.mediaSource||"GomoGie")+'</small></div><div class="watch-actions"><button data-watch-like="'+p.id+'">♡<small>'+(p.likes+(liked.has(p.id)?1:0)).toLocaleString()+'</small></button><button data-watch-comment="'+p.id+'">◯<small>'+p.comments+'</small></button><button data-watch-share="'+p.id+'">↗<small>Share</small></button><button data-watch-save="'+p.id+'">⌑<small>Save</small></button><button data-watch-follow="'+a.id+'">'+(followed.has(a.id)?"✓":"＋")+'<small>'+(followed.has(a.id)?"Following":"Follow")+'</small></button></div></article>'}).join("")+'</div>':'<div class="empty">Your Following video feed is empty. Follow creators from Profile to see their videos here.</div>')+'</section>';
+ const safePoster="https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg?auto=compress&cs=tinysrgb&w=1200";
+ view.innerHTML='<section class="watch-page"><div class="watch-top"><h2>Watch</h2><div class="watch-tabs"><button id="forYouTab" class="'+(watchMode==="for-you"?"selected":"")+'">For You</button><button id="followingTab" class="'+(watchMode==="following"?"selected":"")+'">Following</button></div></div>'+(vids.length?'<div class="watch-stream" id="watchStream">'+vids.map(p=>{const a=account(p.authorId)||{id:p.authorId,displayName:"GomoGie member"};return '<article class="watch-slide" data-video-id="'+esc(p.id)+'"><video class="watch-video" controls playsinline webkit-playsinline preload="metadata" poster="'+esc(p.thumbnailUrl||safePoster)+'" src="'+esc(p.mediaUrl||"")+'" aria-label="Video by '+esc(a.displayName)+'"></video><button class="watch-play" aria-label="Play video with sound">▶</button><div class="watch-shade"></div><div class="watch-caption"><strong>'+esc(a.displayName)+' </strong><p>'+esc(p.text)+'</p><small>Video with audio · Use the player volume control</small></div><div class="watch-actions"><button data-watch-like="'+esc(p.id)+'">♡<small>'+(Number(p.likes||0)+(liked.has(p.id)?1:0)).toLocaleString()+'</small></button><button data-watch-comment="'+esc(p.id)+'">◯<small>'+Number(p.comments||0)+'</small></button><button data-watch-share="'+esc(p.id)+'">↗<small>Share</small></button><button data-watch-save="'+esc(p.id)+'">⌑<small>Save</small></button><button data-watch-follow="'+esc(a.id)+'">'+(followed.has(a.id)?"✓":"＋")+'<small>'+(followed.has(a.id)?"Following":"Follow")+'</small></button></div></article>'}).join("")+'</div>':'<div class="empty">Your Following video feed is empty. Follow creators from Profile to see their videos here.</div>')+'</section>';
  const fy=document.getElementById("forYouTab"),ft=document.getElementById("followingTab");
  if(fy)fy.onclick=()=>{watchMode="for-you";render()};
  if(ft)ft.onclick=()=>{watchMode="following";render()};
  document.querySelectorAll(".watch-slide").forEach(slide=>{
   const video=slide.querySelector("video"),play=slide.querySelector(".watch-play");
-  const toggle=()=>{if(video.paused){video.play().then(()=>play.style.display="none").catch(()=>play.style.display="grid")}else{video.pause();play.style.display="grid"}};
-  play.onclick=toggle;video.onclick=toggle;
-  video.addEventListener("play",()=>play.style.display="none");
-  video.addEventListener("pause",()=>play.style.display="grid");
+  const showPlay=()=>{play.style.display="grid"};
+  const hidePlay=()=>{play.style.display="none"};
+  const startPlayback=()=>{
+   video.muted=false;
+   video.defaultMuted=false;
+   video.volume=1;
+   const result=video.play();
+   if(result&&typeof result.then==="function")result.then(hidePlay).catch(()=>{showPlay();slide.classList.add("video-playback-error")});
+  };
+  play.onclick=()=>{if(video.paused)startPlayback();else video.pause()};
+  video.addEventListener("play",hidePlay);
+  video.addEventListener("pause",showPlay);
+  video.addEventListener("ended",showPlay);
+  video.addEventListener("error",()=>{showPlay();slide.classList.add("video-source-error")});
+  video.addEventListener("click",event=>{if(event.target===video&&video.paused)startPlayback()});
  });
  const observer=new IntersectionObserver(entries=>entries.forEach(entry=>{
   const video=entry.target.querySelector("video"),play=entry.target.querySelector(".watch-play");
-  if(entry.isIntersecting&&entry.intersectionRatio>=0.65){video.play().then(()=>play.style.display="none").catch(()=>play.style.display="grid")}
-  else{video.pause();play.style.display="grid"}
- }),{threshold:[0,0.65,1]});
+  if(!entry.isIntersecting||entry.intersectionRatio<0.35){if(!video.paused)video.pause();play.style.display="grid"}
+ }),{threshold:[0,0.35,0.65,1]});
  document.querySelectorAll(".watch-slide").forEach(slide=>observer.observe(slide));
  document.querySelectorAll("[data-watch-like]").forEach(b=>b.onclick=async()=>{const id=b.dataset.watchLike,post=posts.find(p=>p.id===id);if(!currentUser){openAuth();return}if(!post)return;try{if(liked.has(id)){await apiRequest("/v1/posts/"+encodeURIComponent(id)+"/reactions",{method:"DELETE"});liked.delete(id)}else{await apiRequest("/v1/posts/"+encodeURIComponent(id)+"/reactions",{method:"POST",body:JSON.stringify({type:"like"})});liked.add(id)}render()}catch(error){alert(error.message)}});
  document.querySelectorAll("[data-watch-follow]").forEach(b=>b.onclick=async()=>{const id=b.dataset.watchFollow,target=account(id);if(!currentUser){openAuth();return}if(!target)return;try{if(followed.has(id)){await apiRequest("/v1/users/"+encodeURIComponent(target.handle)+"/follow",{method:"DELETE"});followed.delete(id)}else{await apiRequest("/v1/users/"+encodeURIComponent(target.handle)+"/follow",{method:"POST"});followed.add(id)}render()}catch(error){alert(error.message)}});

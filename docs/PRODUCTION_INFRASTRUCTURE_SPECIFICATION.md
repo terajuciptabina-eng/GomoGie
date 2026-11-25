@@ -91,7 +91,7 @@ Base path: `/v1`
 | `POST /v1/posts/:postId/comments` | Bearer | Create comment |
 | `POST /v1/users/:handle/follow` | Bearer | Follow account |
 | `DELETE /v1/users/:handle/follow` | Bearer | Unfollow account |
-| `POST /v1/media/uploads` | Bearer | Create short-lived R2 upload URL |
+| `POST /v1/media/uploads` | Bearer | Create short-lived R2 upload URL (requires mediaType, contentType and exact sizeBytes) |
 | `POST /v1/media/uploads/:uploadId/complete` | Bearer | Verify object metadata and register media |
 
 This is an API foundation, not a complete social network. Messaging, communities, notification delivery, search, feed ranking, moderation operations, account recovery, email verification, privacy exports/deletion and admin console remain outstanding.
@@ -99,7 +99,7 @@ This is an API foundation, not a complete social network. Messaging, communities
 ## 6. Security requirements before public beta
 
 1. Replace all example secrets with randomly generated values held only in server-side environment configuration.
-2. Configure exact production CORS origins; never use wildcard origins with credentials.
+2. Configure exact production CORS origins; never use wildcard origins with credentials. Set `TRUST_PROXY=true` only when the API is reachable exclusively through the Cloudflare Tunnel, so IP-based rate limits can use the trusted proxy address.
 3. Keep PostgreSQL private; do not publish port 5432.
 4. Expose the API only through the Cloudflare Tunnel; do not publish port 3000 publicly.
 5. Require email verification and implement safe password reset before public registration.
@@ -176,6 +176,6 @@ Never run provisioning or paid cloud actions without the account owner's explici
 - New media rows enter `quarantined`; the API does not return a public playback URL at upload completion.
 - Upload completion checks the signed intent metadata, expected owner, content type and byte ceiling.
 - The R2 bucket should remain private until an authenticated media delivery design and moderation/scanning pipeline are implemented.
-- Configure R2 bucket CORS for the exact GomoGie frontend origin, `PUT` only for browser upload, and the signed `Content-Type`, `x-amz-meta-owner` and `x-amz-meta-intent` headers.
+- Configure R2 bucket CORS for the exact GomoGie frontend origin, `PUT` only for browser upload, and the signed `Content-Type`, `Content-Length`, `x-amz-meta-owner` and `x-amz-meta-intent` headers. The upload-intent request must include the exact `sizeBytes`; the presigned request signs that size and quota accounting reserves the same number of bytes. Keep public bucket access disabled. Add an R2 lifecycle rule to delete abandoned objects under the `uploads/` prefix after 1 day. Completed uploads are moved to the private `quarantine/` prefix and are not served publicly until a scanning/moderation pipeline promotes them.
 - Public feed pagination uses a compound timestamp/UUID cursor to avoid skipping records with identical timestamps.
 - Follower-only post visibility is not exposed by this API until server-side privacy filtering is implemented; the initial API accepts public posts only.

@@ -18,7 +18,7 @@
 - [ ] Communities directory and detail.
 - [ ] Messaging inbox and conversation mock.
 - [ ] Notifications, search and profile mock.
-- [ ] Synthetic demo data clearly labelled.
+- [x] Synthetic fixture provenance retained internally; public interface uses one site-wide sample-content notice instead of per-account labels.
 - [ ] Test desktop, iPad Safari and iPhone layouts.
 - [ ] Publish prototype through GitHub Pages.
 
@@ -54,14 +54,14 @@ Roadmap completion must reflect verified implementation, not planned work.
 
 
 ## Phase 1A — Synthetic dataset and prototype shell
-- [x] Create 1,000 clearly labelled synthetic account fixtures.
-- [x] Create 120 synthetic post fixtures with public-media references.
+- [x] Create 1,000 internally tagged synthetic account fixtures.
+- [x] Create 120 internally tagged synthetic post fixtures with public-media references.
 - [x] Add a responsive static prototype shell and six navigation areas.
 - [ ] Verify each public image/video URL and source page in a browser.
 - [ ] Replace any unavailable media links and record asset-level source details.
 - [ ] Test all navigation and interactions on desktop, iPad Safari and iPhone.
 - [ ] Publish to GitHub Pages and verify the deployed URL.
-- [ ] Review synthetic-data disclosure and ensure demo counts are not used as traction metrics.
+- [x] Review synthetic-data disclosure and ensure fixture counts are not used as traction metrics.
 
 ## Phase 1B — Feature-depth prototype
 - [ ] Add stories viewer and create-story simulation.

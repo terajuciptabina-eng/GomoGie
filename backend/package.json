@@ -8,7 +8,7 @@
   },
   "scripts": {
     "start": "node src/migrate.js && node src/server.js",
-    "check": "node --check src/server.js",
+    "check": "node --check src/server.js && node --check src/migrate.js && node --check src/media-policy.js",
     "test": "node --test",
     "migrate": "node src/migrate.js"
   },

@@ -66,3 +66,11 @@ This is a domain-level starting point, not a final database schema. Fields, inde
 - Apply fair-use quotas consistently and explain user-facing limits clearly.
 - Do not expose private messages or sensitive account data to analytics.
 - Define deletion and export behaviour before production.
+
+
+## Synthetic prototype fixtures
+- demo_accounts: fixture records only; stable synthetic ID, fictional display name/handle, bio, public placeholder avatar URL, interests, synthetic flag and demo label.
+- demo_posts: fixture records only; synthetic author reference, type, caption, media URL/thumbnail, source provider/page, illustrative engagement counts, timestamps and synthetic flag.
+- Do not merge fixture data into production user tables.
+- Add an explicit environment/configuration boundary before any production API is connected.
+

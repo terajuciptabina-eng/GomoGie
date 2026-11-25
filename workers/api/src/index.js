@@ -498,6 +498,40 @@ async function route(request, env) {
       }else return json({error:"validation_error"},400);
       return json({updated:true});
     }
+    if(action==="rules"&&method==="GET"){
+      const rows=await env.DB.prepare("SELECT id,title,body,position FROM community_rules WHERE community_id=? ORDER BY position,id").bind(community.id).all();
+      return json({items:rows.results||[]});
+    }
+    if(action==="rules"&&method==="POST"){
+      if(!isManager)return json({error:"forbidden"},403);
+      const input=await readJson(request);if(!text(input?.title,100)||!text(input?.body,1000))return json({error:"validation_error"},400);
+      const id=uuid();await env.DB.prepare("INSERT INTO community_rules (id,community_id,title,body,position,created_at) VALUES (?,?,?,?,?,?)").bind(id,community.id,input.title.trim(),input.body.trim(),Number(input.position)||0,new Date().toISOString()).run();
+      return json({rule:{id,title:input.title.trim(),body:input.body.trim()}},201);
+    }
+    if(action==="events"&&method==="GET"){
+      const rows=await env.DB.prepare("SELECT id,title,description,starts_at,location,creator_id FROM community_events WHERE community_id=? AND starts_at>=? ORDER BY starts_at LIMIT 50").bind(community.id,new Date().toISOString()).all();
+      return json({items:rows.results||[]});
+    }
+    if(action==="events"&&method==="POST"){
+      if(!isMember)return json({error:"membership_required"},403);
+      const input=await readJson(request),start=Date.parse(input?.startsAt);
+      if(!text(input?.title,100)||!Number.isFinite(start)||start<Date.now()||String(input?.description||"").length>1000||String(input?.location||"").length>160)return json({error:"validation_error",message:"Tajuk, tarikh masa hadapan dan butiran acara yang sah diperlukan."},400);
+      const id=uuid();await env.DB.prepare("INSERT INTO community_events (id,community_id,creator_id,title,description,starts_at,location,created_at) VALUES (?,?,?,?,?,?,?,?)").bind(id,community.id,auth.sub,input.title.trim(),String(input.description||"").trim(),new Date(start).toISOString(),String(input.location||"").trim(),new Date().toISOString()).run();
+      return json({event:{id,title:input.title.trim(),starts_at:new Date(start).toISOString()}},201);
+    }
+    if(action==="reports"&&method==="POST"){
+      const input=await readJson(request);
+      if(!["community","post","member"].includes(input?.targetType)||!text(input?.targetId,80)||!text(input?.reason,500))return json({error:"validation_error"},400);
+      const duplicate=await env.DB.prepare("SELECT id FROM community_reports WHERE community_id=? AND reporter_id=? AND target_type=? AND target_id=? AND status='open'").bind(community.id,auth.sub,input.targetType,input.targetId).first();
+      if(duplicate)return json({reported:true,duplicate:true});
+      const id=uuid();await env.DB.prepare("INSERT INTO community_reports (id,community_id,reporter_id,target_type,target_id,reason,status,created_at) VALUES (?,?,?,?,?,?,'open',?)").bind(id,community.id,auth.sub,input.targetType,input.targetId,input.reason.trim(),new Date().toISOString()).run();
+      return json({reported:true},201);
+    }
+    if(action==="reports"&&method==="GET"){
+      if(!isManager)return json({error:"forbidden"},403);
+      const rows=await env.DB.prepare("SELECT id,reporter_id,target_type,target_id,reason,status,created_at FROM community_reports WHERE community_id=? ORDER BY CASE status WHEN 'open' THEN 0 ELSE 1 END,created_at DESC LIMIT 100").bind(community.id).all();
+      return json({items:rows.results||[]});
+    }
     if(action==="members"&&method==="GET"){
       if(community.visibility!=="public"&&!isMember&&community.owner_id!==auth.sub)return json({error:"forbidden"},403);
       const rows=await env.DB.prepare("SELECT cm.user_id,cm.membership_role,cm.status,cm.joined_at,u.username,p.display_name,p.avatar_url FROM community_members cm JOIN users u ON u.id=cm.user_id LEFT JOIN profiles p ON p.user_id=u.id WHERE cm.community_id=? ORDER BY CASE cm.membership_role WHEN 'owner' THEN 0 WHEN 'moderator' THEN 1 ELSE 2 END,cm.joined_at LIMIT 200").bind(community.id).all();

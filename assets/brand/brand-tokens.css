@@ -1,16 +1,28 @@
 :root {
-  --gomogie-navy: #142030;
+  /* Approved GomoGie brand palette */
+  --gomogie-navy: #10202D;
   --gomogie-teal: #00AE9C;
   --gomogie-white: #FFFFFF;
-  --gomogie-text: #142030;
-  --gomogie-muted: #667085;
-  --gomogie-border: #E5E7EB;
+
+  /* Shared semantic tokens */
+  --gomogie-text: #17232D;
+  --gomogie-muted: #71808C;
+  --gomogie-border: #E5EBEE;
   --gomogie-surface: #FFFFFF;
-  --gomogie-surface-subtle: #F7F9FA;
-  --gomogie-focus: #00AE9C;
+  --gomogie-surface-subtle: #F5F7F8;
+  --gomogie-focus: #087F73;
+
+  /* Backwards-compatible aliases used by the existing app shell */
+  --navy: var(--gomogie-navy);
+  --teal: var(--gomogie-teal);
+  --ink: var(--gomogie-text);
+  --muted: var(--gomogie-muted);
+  --line: var(--gomogie-border);
+  --bg: var(--gomogie-surface-subtle);
+  --white: var(--gomogie-white);
 }
 
-/* Brand wordmark usage */
+/* Master wordmark: use the approved SVG artwork, never recreated text. */
 .gomogie-wordmark {
   display: inline-block;
   width: min(100%, 13rem);
@@ -18,8 +30,17 @@
   vertical-align: middle;
 }
 
-/* Accessible focus treatment for interactive controls */
+/* Keyboard focus remains visible throughout every app section. */
 :where(a, button, input, textarea, select, [tabindex]):focus-visible {
   outline: 3px solid var(--gomogie-focus);
   outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

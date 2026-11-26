@@ -1,0 +1,35 @@
+name: GomoGie account login smoke test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/account-login-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  login-query:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify login query reaches credential validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(curl --silent --show-error --connect-timeout 8 --max-time 20 \
+            -o /tmp/login-smoke.json -w '%{http_code}' \
+            -H 'content-type: application/json' \
+            -X POST \
+            --data '{"login":"gomogie-schema-smoke-user-not-real","password":"invalid-smoke-password"}' \
+            https://gomogie-api.terajuciptabina.workers.dev/v1/auth/login)"
+          body="$(cat /tmp/login-smoke.json)"
+          echo "Login endpoint HTTP status: $status"
+          echo "$body"
+          if [ "$status" != "401" ]; then
+            echo "::error::Expected 401 invalid_credentials after database lookup; received HTTP $status."
+            exit 1
+          fi
+          printf '%s' "$body" | grep -q '"error":"invalid_credentials"'
+          echo "Login SQL query and credential validation are responding correctly."

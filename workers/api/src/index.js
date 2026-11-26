@@ -1197,24 +1197,21 @@ async function route(request, env) {
 
 
   if(path==="/v1/message-requests"&&method==="GET"){
-    const rows=await env.DB.prepare("SELECT c.id,c.status,c.initiated_by,c.created_at,other.user_id AS other_id,u.username,p.display_name,p.avatar_url,(SELECT m.content FROM messages m WHERE m.conversation_id=c.id ORDER BY m.created_at ASC LIMIT 1) AS first_message FROM conversations c JOIN conversation_members mine ON mine.conversation_id=c.id AND mine.user_id=? JOIN conversation_members other ON other.conversation_id=c.id AND other.user_id<>? LEFT JOIN users u ON u.id=other.user_id LEFT JOIN profiles p ON p.user_id=other.user_id WHERE c.type='direct' AND c.status='pending' ORDER BY c.created_at DESC LIMIT 100").bind(auth.sub,auth.sub).all();
-    return json({items:(rows.results||[]).map(x=>({id:x.id,direction:x.initiated_by===auth.sub?"outgoing":"incoming",createdAt:x.created_at,firstMessage:x.first_message||"",participant:{id:x.other_id,username:x.username,displayName:x.display_name||x.username,avatarUrl:x.avatar_url||""}}))});
+    const rows=await env.DB.prepare("SELECT c.id,mr.requester_id,mr.recipient_id,mr.created_at,other.user_id AS other_id,u.username,p.display_name,p.avatar_url,(SELECT m.content FROM messages m WHERE m.conversation_id=c.id ORDER BY m.created_at ASC LIMIT 1) AS first_message FROM gomogie_message_requests mr JOIN conversations c ON c.id=mr.conversation_id JOIN conversation_members mine ON mine.conversation_id=c.id AND mine.user_id=? JOIN conversation_members other ON other.conversation_id=c.id AND other.user_id<>? LEFT JOIN users u ON u.id=other.user_id LEFT JOIN profiles p ON p.user_id=other.user_id WHERE mr.status='pending' ORDER BY mr.created_at DESC LIMIT 100").bind(auth.sub,auth.sub).all();
+    return json({items:(rows.results||[]).map(x=>({id:x.id,direction:x.requester_id===auth.sub?"outgoing":"incoming",createdAt:x.created_at,firstMessage:x.first_message||"",participant:{id:x.other_id,username:x.username,displayName:x.display_name||x.username,avatarUrl:x.avatar_url||""}}))});
   }
   const messageRequestAction=path.match(/^\/v1\/conversations\/([0-9a-f-]+)\/(accept|decline)$/i);
   if(messageRequestAction&&method==="POST"){
     const id=messageRequestAction[1],action=messageRequestAction[2].toLowerCase();
-    const row=await env.DB.prepare("SELECT status,initiated_by FROM conversations WHERE id=?").bind(id).first();
+    const row=await env.DB.prepare("SELECT status,requester_id,recipient_id FROM gomogie_message_requests WHERE conversation_id=?").bind(id).first();
     if(!row||row.status!=="pending")return json({error:"request_not_found"},404);
     if(action==="accept"){
-      if(row.initiated_by===auth.sub)return json({error:"cannot_accept_own_request"},403);
-      const recipientMember=await env.DB.prepare("SELECT 1 AS ok FROM conversation_members WHERE conversation_id=? AND user_id=?").bind(id,auth.sub).first();
-      if(!recipientMember)return json({error:"request_not_found"},404);
-      await env.DB.prepare("UPDATE conversations SET status='accepted',request_decided_at=? WHERE id=? AND status='pending'").bind(new Date().toISOString(),id).run();
+      if(row.recipient_id!==auth.sub)return json({error:"request_not_found"},404);
+      await env.DB.prepare("UPDATE gomogie_message_requests SET status='accepted',decided_at=? WHERE conversation_id=? AND status='pending'").bind(new Date().toISOString(),id).run();
       return json({accepted:true});
     }
-    const member=await env.DB.prepare("SELECT 1 AS ok FROM conversation_members WHERE conversation_id=? AND user_id=?").bind(id,auth.sub).first();
-    if(!member)return json({error:"request_not_found"},404);
-    await env.DB.batch([env.DB.prepare("DELETE FROM messages WHERE conversation_id=?").bind(id),env.DB.prepare("DELETE FROM conversation_members WHERE conversation_id=?").bind(id),env.DB.prepare("DELETE FROM conversations WHERE id=?").bind(id)]);
+    if(row.recipient_id!==auth.sub&&row.requester_id!==auth.sub)return json({error:"request_not_found"},404);
+    await env.DB.batch([env.DB.prepare("DELETE FROM gomogie_message_requests WHERE conversation_id=?").bind(id),env.DB.prepare("DELETE FROM messages WHERE conversation_id=?").bind(id),env.DB.prepare("DELETE FROM conversation_members WHERE conversation_id=?").bind(id),env.DB.prepare("DELETE FROM conversations WHERE id=?").bind(id)]);
     return json({declined:true});
   }
   if (path === "/v1/conversations" && method === "GET") {
@@ -1226,7 +1223,7 @@ async function route(request, env) {
       "FROM conversations c JOIN conversation_members mine ON mine.conversation_id=c.id AND mine.user_id=? " +
       "JOIN conversation_members other ON other.conversation_id=c.id AND other.user_id<>? " +
       "LEFT JOIN users u ON u.id=other.user_id LEFT JOIN profiles p ON p.user_id=other.user_id " +
-      "WHERE c.type='direct' AND c.status='accepted' ORDER BY COALESCE(last_message_at,c.created_at) DESC LIMIT 100"
+      "WHERE c.type='direct' AND NOT EXISTS (SELECT 1 FROM gomogie_message_requests mr WHERE mr.conversation_id=c.id AND mr.status='pending') ORDER BY COALESCE(last_message_at,c.created_at) DESC LIMIT 100"
     ).bind(auth.sub, auth.sub, auth.sub).all();
     return json({ items: (rows.results || []).map(row => ({
       id: row.id, type: row.type, title: row.title,
@@ -1248,7 +1245,7 @@ async function route(request, env) {
     if (!recipient) return json({ error: "user_not_found", message: "Pengguna tidak ditemui." }, 404);
     if (recipient.id === auth.sub) return json({ error: "cannot_message_self", message: "Anda tidak boleh memulakan perbualan dengan akaun sendiri." }, 400);
     let existing = await env.DB.prepare(
-      "SELECT c.id,c.status FROM conversations c " +
+      "SELECT c.id,(SELECT mr.status FROM gomogie_message_requests mr WHERE mr.conversation_id=c.id) AS status FROM conversations c " +
       "JOIN conversation_members mine ON mine.conversation_id=c.id AND mine.user_id=? " +
       "JOIN conversation_members other ON other.conversation_id=c.id AND other.user_id=? " +
       "WHERE c.type='direct' AND (SELECT COUNT(*) FROM conversation_members all_members WHERE all_members.conversation_id=c.id)=2 LIMIT 1"
@@ -1258,9 +1255,10 @@ async function route(request, env) {
     const status=friendship?"accepted":"pending";
     const id = uuid(), now = new Date().toISOString();
     await env.DB.batch([
-      env.DB.prepare("INSERT INTO conversations (id,type,title,created_by,created_at,status,initiated_by) VALUES (?,'direct',NULL,?,?,?,?)").bind(id, auth.sub, now,status,auth.sub),
+      env.DB.prepare("INSERT INTO conversations (id,type,title,created_by,created_at) VALUES (?,'direct',NULL,?,?)").bind(id, auth.sub, now),
       env.DB.prepare("INSERT INTO conversation_members (conversation_id,user_id,joined_at,last_read_at) VALUES (?,?,?,?)").bind(id, auth.sub, now, now),
-      env.DB.prepare("INSERT INTO conversation_members (conversation_id,user_id,joined_at,last_read_at) VALUES (?,?,?,NULL)").bind(id, recipient.id, now)
+      env.DB.prepare("INSERT INTO conversation_members (conversation_id,user_id,joined_at,last_read_at) VALUES (?,?,?,NULL)").bind(id, recipient.id, now),
+      ...(friendship?[]:[env.DB.prepare("INSERT INTO gomogie_message_requests (id,conversation_id,requester_id,recipient_id,status,created_at) VALUES (?,?,?,?,'pending',?)").bind(uuid(),id,auth.sub,recipient.id,now)])
     ]);
     return json({ conversation: { id }, created: true, status }, 201);
   }
@@ -1289,10 +1287,10 @@ async function route(request, env) {
       })) });
     }
     if (method === "POST") {
-      const conversation=await env.DB.prepare("SELECT status,initiated_by FROM conversations WHERE id=?").bind(conversationId).first();
-      if(conversation?.status==="pending"){
+      const requestRow=await env.DB.prepare("SELECT requester_id,status FROM gomogie_message_requests WHERE conversation_id=?").bind(conversationId).first();
+      if(requestRow?.status==="pending"){
         const count=await env.DB.prepare("SELECT COUNT(*) AS count FROM messages WHERE conversation_id=?").bind(conversationId).first();
-        if(conversation.initiated_by!==auth.sub||Number(count?.count||0)>0)return json({error:"message_request_pending",message:"Mesej seterusnya hanya boleh dihantar selepas penerima menerima permintaan ini."},403);
+        if(requestRow.requester_id!==auth.sub||Number(count?.count||0)>0)return json({error:"message_request_pending",message:"Mesej seterusnya hanya boleh dihantar selepas penerima menerima permintaan ini."},403);
       }
       const input = await readJson(request);
       if (!input || !text(input.content, 4000)) return json({ error: "validation_error", message: "Mesej diperlukan (maksimum 4,000 aksara)." }, 400);

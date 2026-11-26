@@ -507,6 +507,9 @@ body.pull-releasing .top,body.pull-releasing .layout{transform:translate3d(0,0,0
 .pulse-page-header+.news-mode-tabs{margin-top:0}
 @media(min-width:601px){.pulse-page-title{font-size:22px}.pulse-page-description{font-size:14px}}
 @media(max-width:600px){.pulse-page-header{margin:6px 0 16px}.pulse-page-title{font-size:20px}.pulse-page-description{font-size:13px;line-height:1.5}}
+
+/* Live in-app notification toast */
+.gomogie-live-toast{position:fixed;z-index:1500;top:calc(14px + env(safe-area-inset-top));right:16px;width:min(390px,calc(100vw - 32px));display:flex;align-items:flex-start;gap:11px;padding:14px 15px;background:#fff;border:1px solid #dfe9e7;border-radius:16px;box-shadow:0 14px 44px rgba(15,35,40,.2);color:#17282e;animation:gomogieToastIn .22s ease-out;cursor:pointer}.gomogie-live-toast .toast-icon{width:38px;height:38px;display:grid;place-items:center;flex:0 0 38px;border-radius:50%;background:#e4f6f2;color:#008f7d;font-size:18px}.gomogie-live-toast .toast-copy{min-width:0;flex:1}.gomogie-live-toast strong{display:block;font-size:13px;margin-bottom:3px}.gomogie-live-toast span{display:block;font-size:12px;line-height:1.4;color:#687980}.gomogie-live-toast button{border:0;background:transparent;color:#829096;font-size:20px;padding:0 2px}@keyframes gomogieToastIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
 </style>
 </head>
 <body>
@@ -1184,6 +1187,30 @@ function paintNotificationBadge(){
  button.setAttribute("aria-label",currentUser?(notificationUnreadCount>0?"Notifications, "+notificationUnreadCount+" unread":"Notifications"):"Log in to view notifications");
  button.title=currentUser&&notificationUnreadCount>0?notificationUnreadCount+" unread notification"+(notificationUnreadCount===1?"":"s"):"Notifications";
 }
+let notificationPollTimer=null,knownNotificationIds=new Set(),notificationPrimedForUser="";
+function showLiveNotificationToast(item){
+ const actor=item.actor||{},name=actor.displayName||actor.username||"Someone",action=notificationAction(item.type);
+ const toast=document.createElement("div");toast.className="gomogie-live-toast";toast.setAttribute("role","status");
+ toast.innerHTML='<span class="toast-icon">'+esc(action.icon)+'</span><span class="toast-copy"><strong>'+esc(name)+'</strong><span>'+esc(action.verb)+'</span></span><button type="button" aria-label="Dismiss">×</button>';
+ const dismiss=()=>toast.remove();toast.querySelector("button").onclick=e=>{e.stopPropagation();dismiss()};toast.onclick=()=>{dismiss();openNotificationCenter()};
+ document.body.appendChild(toast);window.setTimeout(dismiss,6500);
+}
+async function pollLiveNotifications(){
+ if(!currentUser||document.visibilityState!=="visible")return;
+ try{
+  const data=await apiRequest("/v1/notifications?limit=20"),items=data.items||[];
+  if(notificationPrimedForUser!==currentUser.id){knownNotificationIds=new Set(items.map(n=>n.id));notificationPrimedForUser=currentUser.id;notificationUnreadCount=Number(data.unreadCount||0);paintNotificationBadge();return}
+  const fresh=items.filter(n=>!knownNotificationIds.has(n.id));
+  items.forEach(n=>knownNotificationIds.add(n.id));
+  notificationUnreadCount=Number(data.unreadCount||0);paintNotificationBadge();
+  fresh.slice(0,3).reverse().forEach(showLiveNotificationToast);
+ }catch(error){console.warn("Live notification check deferred:",error)}
+}
+function startLiveNotificationPolling(){
+ if(notificationPollTimer)clearInterval(notificationPollTimer);
+ notificationPrimedForUser="";knownNotificationIds.clear();
+ if(currentUser){pollLiveNotifications();notificationPollTimer=window.setInterval(pollLiveNotifications,12000)}
+}
 async function refreshNotificationBadge(){
  if(!currentUser){notificationUnreadCount=0;paintNotificationBadge();return}
  if(notificationBadgeRequest)return notificationBadgeRequest;
@@ -1191,7 +1218,7 @@ async function refreshNotificationBadge(){
  try{await notificationBadgeRequest}finally{notificationBadgeRequest=null}
 }
 async function hydratePostLinkPreviews(root=document){const cards=[...root.querySelectorAll("[data-link-preview]")];const seen=new Set();for(const card of cards){const href=card.dataset.linkPreview;if(!href||seen.has(href))continue;seen.add(href);try{const response=await fetch(API_BASE+"/v1/link-preview?url="+encodeURIComponent(href),{headers:{accept:"application/json"},cache:"force-cache"});if(!response.ok)continue;const data=await response.json();if(!data||!data.title)continue;document.querySelectorAll("[data-link-preview]").forEach(node=>{if(node.dataset.linkPreview!==href)return;const copy=node.querySelector(".post-link-preview-copy");if(!copy)return;copy.innerHTML='<strong>'+esc(data.title)+'</strong>'+(data.description?'<em>'+esc(data.description)+'</em>': '')+'<small>'+esc(data.hostname||new URL(href).hostname)+'</small>';if(data.image&&!node.querySelector("img")){const image=document.createElement("img");image.loading="lazy";image.referrerPolicy="no-referrer";image.src=data.image;image.alt="";node.insertBefore(image,node.firstChild)}node.classList.remove("loading")})}catch(error){console.warn("Link preview unavailable:",error)}}}
-function render(){nav();({home:feed,pulse,watch,communities,connect,studio,profile}[active]||feed)();bind();hydratePostLinkPreviews(view);const postLayer=document.querySelector(".profile-post-layer");if(postLayer){const activePost=posts.find(p=>p.id===postLayer.dataset.postId);if(activePost){const dialog=postLayer.querySelector(".profile-post-dialog");if(dialog){dialog.innerHTML='<button type="button" class="profile-post-close" aria-label="Close">×</button>'+postCard(activePost);dialog.querySelector(".profile-post-close").onclick=()=>postLayer.remove();bind()}}else postLayer.remove()}document.getElementById("topAvatar").src=(currentUser&&accounts.find(a=>a.id===currentUser.id)?.avatarUrl)||"";document.getElementById("accountMenuButton").setAttribute("aria-label",currentUser?"Account settings for @"+(currentUser.username||"member"):"Log in or account settings")}
+function render(){startLiveNotificationPolling();nav();({home:feed,pulse,watch,communities,connect,studio,profile}[active]||feed)();bind();hydratePostLinkPreviews(view);const postLayer=document.querySelector(".profile-post-layer");if(postLayer){const activePost=posts.find(p=>p.id===postLayer.dataset.postId);if(activePost){const dialog=postLayer.querySelector(".profile-post-dialog");if(dialog){dialog.innerHTML='<button type="button" class="profile-post-close" aria-label="Close">×</button>'+postCard(activePost);dialog.querySelector(".profile-post-close").onclick=()=>postLayer.remove();bind()}}else postLayer.remove()}document.getElementById("topAvatar").src=(currentUser&&accounts.find(a=>a.id===currentUser.id)?.avatarUrl)||"";document.getElementById("accountMenuButton").setAttribute("aria-label",currentUser?"Account settings for @"+(currentUser.username||"member"):"Log in or account settings")}
 function formatCompactCount(value){return new Intl.NumberFormat("en",{notation:"compact",maximumFractionDigits:1}).format(value)}
 function extras(){
  const trends=document.getElementById("trends"),suggestions=document.getElementById("suggestions");
@@ -1241,8 +1268,8 @@ async function openNotificationCenter(){
 }
 document.getElementById("search").addEventListener("keydown",e=>{if(e.key==="Enter"){searchQuery=e.target.value.trim();active="pulse";render()}});document.getElementById("search").addEventListener("input",e=>{if(!e.target.value.trim()){searchQuery="";if(active==="pulse")render()}});
 document.getElementById("notify").onclick=()=>openNotificationCenter();
-window.addEventListener("focus",()=>refreshNotificationBadge());
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")refreshNotificationBadge()});
+window.addEventListener("focus",()=>{refreshNotificationBadge();pollLiveNotifications()});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){refreshNotificationBadge();pollLiveNotifications()}});
 setInterval(()=>{if(document.visibilityState==="visible")refreshNotificationBadge()},60000);
 const legacyAuthButton=document.getElementById("authButton");if(legacyAuthButton)legacyAuthButton.onclick=()=>currentUser?signOut():openAuth();document.getElementById("closeAuth").onclick=closeAuth;document.getElementById("authLayer").addEventListener("click",e=>{if(e.target.id==="authLayer")closeAuth()});document.getElementById("showRegister").onclick=()=>setAuthMode("register");document.getElementById("loginForm").onsubmit=async e=>{e.preventDefault();const form=e.currentTarget,button=document.getElementById("loginSubmit"),data=new FormData(form);button.disabled=true;setAuthError("");try{const registering=authMode==="register";const payload=registering?{displayName:String(data.get("displayName")||"").trim(),username:String(data.get("username")||"").trim(),email:String(data.get("email")||"").trim(),password:String(data.get("registerPassword")||"")}:{login:String(data.get("login")||"").trim(),password:String(data.get("password")||"")};const response=await fetch(API_BASE+(registering?"/v1/auth/register":"/v1/auth/login"),{method:"POST",headers:{"content-type":"application/json",accept:"application/json"},body:JSON.stringify(payload),cache:"no-store"});const result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.message||result.error||(registering?"Registration failed.":"Login failed. Check your details."));if(!validAccessToken(result.accessToken))throw new Error("Server tidak memulangkan token sesi yang sah.");await saveToken(result.accessToken);currentUser={...result.user};saveAuthDiagnostic({stage:"login_saved",tokenCookiePresent:!!readTokenCookie(),tokenLocalStoragePresent:(()=>{try{return !!localStorage.getItem(TOKEN_KEY)}catch{return false}})(),rememberedUserPresent:true});try{localStorage.setItem(USER_KEY,JSON.stringify(currentUser))}catch(storageError){console.warn("Remembered user profile unavailable:",storageError)}try{if(!registering&&document.getElementById("rememberLogin")?.checked)localStorage.setItem("gomogie-remembered-login",payload.login);else if(!registering)localStorage.removeItem("gomogie-remembered-login")}catch(storageError){console.warn("Remembered username unavailable:",storageError)}await restoreSession();closeAuth();render();if(result.accountRestored)alert("Your GomoGie account has been reactivated. Welcome back.")}catch(error){setAuthError(error.message)}finally{button.disabled=false}};
 try{const rememberedLogin=localStorage.getItem("gomogie-remembered-login");const loginInput=document.querySelector("#loginFields input[name=login]");if(rememberedLogin&&loginInput)loginInput.value=rememberedLogin}catch(storageError){console.warn("Remembered username unavailable:",storageError)}

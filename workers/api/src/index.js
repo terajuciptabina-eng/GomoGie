@@ -925,7 +925,7 @@ async function route(request, env) {
     return json({ scope:followingFeedRequest?"following":"public",items });
   }
 
-  const savedPostMatch = path.match(/^\\/v1\\/saved\\/([0-9a-f-]+)$/i);
+  const savedPostMatch = path.match(/^\/v1\/saved\/([0-9a-f-]+)$/i);
   if(path==="/v1/saved"&&method==="GET"){
     const rows=await env.DB.prepare(
       "SELECT p.id,p.user_id,p.content,p.visibility,p.created_at,p.comments_enabled,u.username,pr.display_name,pr.avatar_url,pr.cover_url,"+

@@ -1498,8 +1498,11 @@ async function searchPublicMusic(term="",genre="all",append=false){
     const subjects=Array.isArray(md.subject)?md.subject.join(" ").toLowerCase():String(md.subject||"").toLowerCase();
     const collections=Array.isArray(md.collection)?md.collection.join(" ").toLowerCase():String(md.collection||"").toLowerCase();
     const title=String(md.title||d.title||"").trim(),titleLower=title.toLowerCase();
-    const musicSignals=/\\b(music|song|songs|musical|album|band|pop|rock|jazz|folk|classical|electronic|techno|house|hip.?hop|rap|instrumental|ambient|soundtrack|devotional|bhajan|kirtan|dangdut|koplo)\\b/.test(subjects+" "+collections+" "+titleLower);
-    const nonMusic=/\\b(audiobook|audio book|sermon|lecture|speech|interview|quran|koran|recitation|spoken word|radio drama|story reading|sound effect|field recording)\\b/.test(subjects+" "+titleLower);
+    const searchable=subjects+" "+collections+" "+titleLower;
+    const musicWords=["music","song","songs","musical","album","band","pop","rock","jazz","folk","classical","electronic","techno","house","hip-hop","hip hop","rap","instrumental","ambient","soundtrack","devotional","bhajan","kirtan","dangdut","koplo"];
+    const nonMusicWords=["audiobook","audio book","sermon","lecture","speech","interview","quran","koran","recitation","spoken word","radio drama","story reading","sound effect","field recording"];
+    const musicSignals=musicWords.some(word=>searchable.includes(word));
+    const nonMusic=nonMusicWords.some(word=>searchable.includes(word));
     if(title.length<4||!musicSignals||nonMusic)return null;
     if(genre!=="all"&&!(genreTerms[genre]||[genre]).some(x=>(subjects+" "+titleLower).includes(x)))return null;
     const creator=md.creator||d.creator||"Independent artist";

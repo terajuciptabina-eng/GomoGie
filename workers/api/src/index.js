@@ -1197,7 +1197,7 @@ async function route(request, env) {
 
 
   if(path==="/v1/message-requests"&&method==="GET"){
-    const rows=await env.DB.prepare("SELECT c.id,c.status,c.initiated_by,c.created_at,other.user_id AS other_id,u.username,p.display_name,p.avatar_url,(SELECT m.content FROM messages m WHERE m.conversation_id=c.id ORDER BY m.created_at ASC LIMIT 1) AS first_message FROM conversations c JOIN conversation_members mine ON mine.conversation_id=c.id AND mine.user_id=? JOIN conversation_members other ON other.conversation_id=c.id AND other.user_id<>? LEFT JOIN users u ON u.id=other.user_id LEFT JOIN profiles p ON p.user_id=other.user_id WHERE c.type='direct' AND c.status='pending' AND (c.initiated_by=? OR other.user_id=?) ORDER BY c.created_at DESC LIMIT 100").bind(auth.sub,auth.sub,auth.sub,auth.sub).all();
+    const rows=await env.DB.prepare("SELECT c.id,c.status,c.initiated_by,c.created_at,other.user_id AS other_id,u.username,p.display_name,p.avatar_url,(SELECT m.content FROM messages m WHERE m.conversation_id=c.id ORDER BY m.created_at ASC LIMIT 1) AS first_message FROM conversations c JOIN conversation_members mine ON mine.conversation_id=c.id AND mine.user_id=? JOIN conversation_members other ON other.conversation_id=c.id AND other.user_id<>? LEFT JOIN users u ON u.id=other.user_id LEFT JOIN profiles p ON p.user_id=other.user_id WHERE c.type='direct' AND c.status='pending' ORDER BY c.created_at DESC LIMIT 100").bind(auth.sub,auth.sub).all();
     return json({items:(rows.results||[]).map(x=>({id:x.id,direction:x.initiated_by===auth.sub?"outgoing":"incoming",createdAt:x.created_at,firstMessage:x.first_message||"",participant:{id:x.other_id,username:x.username,displayName:x.display_name||x.username,avatarUrl:x.avatar_url||""}}))});
   }
   const messageRequestAction=path.match(/^\/v1\/conversations\/([0-9a-f-]+)\/(accept|decline)$/i);
@@ -1207,6 +1207,8 @@ async function route(request, env) {
     if(!row||row.status!=="pending")return json({error:"request_not_found"},404);
     if(action==="accept"){
       if(row.initiated_by===auth.sub)return json({error:"cannot_accept_own_request"},403);
+      const recipientMember=await env.DB.prepare("SELECT 1 AS ok FROM conversation_members WHERE conversation_id=? AND user_id=?").bind(id,auth.sub).first();
+      if(!recipientMember)return json({error:"request_not_found"},404);
       await env.DB.prepare("UPDATE conversations SET status='accepted',request_decided_at=? WHERE id=? AND status='pending'").bind(new Date().toISOString(),id).run();
       return json({accepted:true});
     }
@@ -1246,7 +1248,7 @@ async function route(request, env) {
     if (!recipient) return json({ error: "user_not_found", message: "Pengguna tidak ditemui." }, 404);
     if (recipient.id === auth.sub) return json({ error: "cannot_message_self", message: "Anda tidak boleh memulakan perbualan dengan akaun sendiri." }, 400);
     let existing = await env.DB.prepare(
-      "SELECT c.id FROM conversations c " +
+      "SELECT c.id,c.status FROM conversations c " +
       "JOIN conversation_members mine ON mine.conversation_id=c.id AND mine.user_id=? " +
       "JOIN conversation_members other ON other.conversation_id=c.id AND other.user_id=? " +
       "WHERE c.type='direct' AND (SELECT COUNT(*) FROM conversation_members all_members WHERE all_members.conversation_id=c.id)=2 LIMIT 1"

@@ -37,12 +37,16 @@ jobs:
           cache-dependency-path: workers/api/package.json
       - run: npm install --ignore-scripts --no-audit --no-fund
       - name: Confirm scheduled maintenance date and Cloudflare credentials
+        id: guard
         run: |
           if [ "${{ github.event_name }}" = "schedule" ] && [ "$(date -u +%F)" != "2026-11-27" ]; then
+            echo "apply=false" >> "$GITHUB_OUTPUT"
             echo "Scheduled one-time maintenance date has passed; skipping."
             exit 0
           fi
           test -n "$CLOUDFLARE_API_TOKEN"
           test -n "$CLOUDFLARE_ACCOUNT_ID"
+          echo "apply=true" >> "$GITHUB_OUTPUT"
       - name: Apply additive query-efficiency indexes
+        if: steps.guard.outputs.apply == 'true'
         run: npx wrangler d1 execute gomogie-db --remote --file=sql/0014_query_efficiency.sql

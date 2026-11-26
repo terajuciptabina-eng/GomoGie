@@ -47,6 +47,22 @@ jobs:
           assert "gomogie_push_subscriptions" in "\n".join(p.read_text() for p in push_migrations)
           print("Validated Worker push sender, VAPID generator, D1 migration and deployment configuration.")
           PY
+      - name: Validate friend and message request implementation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          worker = Path('workers/api/src/index.js').read_text()
+          migration = Path('workers/api/sql/0019_relationships_and_message_requests.sql').read_text()
+          page = Path('index.html').read_text()
+          for route in ['/v1/friends','/v1/friend-requests','/v1/message-requests','/friend-request']:
+              assert route in worker, f'Missing relationship route: {route}'
+          assert 'gomogie_message_requests' in worker and 'friend_requests' in worker
+          assert 'CREATE TABLE IF NOT EXISTS friend_requests' in migration
+          assert 'CREATE TABLE IF NOT EXISTS gomogie_message_requests' in migration
+          assert 'data-connect-tab="friends"' in page and 'data-connect-tab="requests"' in page and 'data-connect-tab="messages"' in page
+          assert 'settings-feature-detail' not in page and 'settings-feature-summary' not in page
+          print('Validated friendship, follow separation, message requests and Connect UI.')
+          PY
       - name: Validate Pages notification-click scope fix
         run: |
           python - <<'PY'
@@ -58,7 +74,7 @@ jobs:
 
   deploy:
     needs: validate
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     runs-on: ubuntu-latest
     environment: cloudflare-production
     steps:
@@ -83,6 +99,12 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: wrangler d1 execute gomogie-db --remote --file=sql/0018_web_push.sql
+      - name: Apply additive relationship and message request schema
+        working-directory: workers/api
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: wrangler d1 execute gomogie-db --remote --file=sql/0019_relationships_and_message_requests.sql
       - name: Deploy Worker before checking existing Push keys
         working-directory: workers/api
         env:

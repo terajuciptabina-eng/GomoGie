@@ -1370,6 +1370,8 @@ function notificationAction(type){
  if(type==="reaction")return {verb:"liked your post",icon:"♥"};
  if(type==="comment")return {verb:"replied to your post",icon:"↩"};
  if(type==="follow")return {verb:"started following you",icon:"＋"};
+ if(type==="friend_request")return {verb:"sent you a friend request",icon:"♙"};
+ if(type==="friend_accepted")return {verb:"accepted your friend request",icon:"✓"};
  return {verb:"interacted with you",icon:"•"};
 }
 async function openPushSettings(){

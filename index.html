@@ -510,7 +510,7 @@ body.pull-releasing .top,body.pull-releasing .layout{transform:translate3d(0,0,0
 
 /* Live in-app notification toast */
 .gomogie-live-toast{position:fixed;z-index:1500;top:calc(14px + env(safe-area-inset-top));right:16px;width:min(390px,calc(100vw - 32px));display:flex;align-items:flex-start;gap:11px;padding:14px 15px;background:#fff;border:1px solid #dfe9e7;border-radius:16px;box-shadow:0 14px 44px rgba(15,35,40,.2);color:#17282e;animation:gomogieToastIn .22s ease-out;cursor:pointer}.gomogie-live-toast .toast-icon{width:38px;height:38px;display:grid;place-items:center;flex:0 0 38px;border-radius:50%;background:#e4f6f2;color:#008f7d;font-size:18px}.gomogie-live-toast .toast-copy{min-width:0;flex:1}.gomogie-live-toast strong{display:block;font-size:13px;margin-bottom:3px}.gomogie-live-toast span{display:block;font-size:12px;line-height:1.4;color:#687980}.gomogie-live-toast button{border:0;background:transparent;color:#829096;font-size:20px;padding:0 2px}@keyframes gomogieToastIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
-</style>
+.notification-push-enable{border:1px solid #bfe8df;background:#eaf8f4;color:#087f72;border-radius:10px;padding:8px 10px;font-size:12px;font-weight:750}.notification-push-enable:disabled{opacity:.55}</style>
 </head>
 <body>
 <div class="refresh-indicator" id="refreshIndicator" role="status" aria-live="polite"><span class="refresh-spinner" aria-hidden="true"></span><span id="refreshLabel">Pull to refresh</span></div>
@@ -1243,7 +1243,7 @@ function notificationAction(type){
 async function openNotificationCenter(){
  if(!currentUser){openAuth();return}
  const layer=document.createElement("div");layer.className="notification-layer";
- layer.innerHTML='<section class="notification-panel" role="dialog" aria-modal="true" aria-label="Notifications"><header class="notification-header"><div class="notification-heading"><h2>Notifications</h2><span class="notification-count" id="notificationCount">…</span></div><div class="notification-header-actions"><button class="notification-mark-all" id="notificationMarkAll" type="button">Mark all read</button><button class="notification-close" id="notificationClose" type="button" aria-label="Close">×</button></div></header><div class="notification-tabs"><button type="button" class="notification-tab active" data-notification-filter="all">All</button><button type="button" class="notification-tab" data-notification-filter="unread">Unread</button></div><div class="notification-list" id="notificationList"><div class="notification-loading">Loading notifications…</div></div></section>';
+ layer.innerHTML='<section class="notification-panel" role="dialog" aria-modal="true" aria-label="Notifications"><header class="notification-header"><div class="notification-heading"><h2>Notifications</h2><span class="notification-count" id="notificationCount">…</span></div><div class="notification-header-actions"><button class="notification-push-enable" id="notificationPushEnable" type="button">Enable push</button><button class="notification-mark-all" id="notificationMarkAll" type="button">Mark all read</button><button class="notification-close" id="notificationClose" type="button" aria-label="Close">×</button></div></header><div class="notification-tabs"><button type="button" class="notification-tab active" data-notification-filter="all">All</button><button type="button" class="notification-tab" data-notification-filter="unread">Unread</button></div><div class="notification-list" id="notificationList"><div class="notification-loading">Loading notifications…</div></div></section>';
  document.body.appendChild(layer);
  let items=[],filter="all",unreadCount=0;
  const list=layer.querySelector("#notificationList"),count=layer.querySelector("#notificationCount"),markAll=layer.querySelector("#notificationMarkAll");
@@ -1252,6 +1252,34 @@ async function openNotificationCenter(){
  layer.addEventListener("click",e=>{if(e.target===layer)close()});
  const onKey=e=>{if(e.key==="Escape"){close();document.removeEventListener("keydown",onKey)}};
  document.addEventListener("keydown",onKey);
+ async function setPushButton(){
+  const button=layer.querySelector("#notificationPushEnable");if(!button)return;
+  try{const registration=await navigator.serviceWorker?.getRegistration();const subscription=registration&&await registration.pushManager.getSubscription();button.textContent=subscription?"Push enabled":"Enable push";button.dataset.enabled=subscription?"1":"0"}catch{button.textContent="Enable push"}
+ }
+ async function togglePush(){
+  const button=layer.querySelector("#notificationPushEnable");if(!button)return;
+  if(!("serviceWorker"in navigator)||!("PushManager"in window)||!("Notification"in window)){alert("Push notifications are not supported in this browser.");return}
+  button.disabled=true;
+  try{
+   const config=await apiRequest("/v1/push/public-key");
+   if(!config.publicKey||!config.configured)throw new Error("Push service is not configured on the server yet.");
+   const permission=Notification.permission==="granted"?"granted":await Notification.requestPermission();
+   if(permission!=="granted")throw new Error("Notification permission was not granted.");
+   const registration=await navigator.serviceWorker.register("./sw.js");
+   await navigator.serviceWorker.ready;
+   let subscription=await registration.pushManager.getSubscription();
+   if(button.dataset.enabled==="1"&&subscription){
+    await apiRequest("/v1/push/subscribe",{method:"DELETE",body:JSON.stringify({endpoint:subscription.endpoint})});
+    await subscription.unsubscribe();button.dataset.enabled="0";
+   }else{
+    const key=Uint8Array.from(atob(config.publicKey.replace(/-/g,"+").replace(/_/g,"/")+"=".repeat((4-config.publicKey.length%4)%4)),c=>c.charCodeAt(0));
+    if(!subscription)subscription=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:key});
+    await apiRequest("/v1/push/subscribe",{method:"POST",body:JSON.stringify({subscription:subscription.toJSON()})});
+    button.dataset.enabled="1";
+   }
+   await setPushButton();
+  }catch(error){alert(error.message||"Unable to update push notification settings.")}finally{button.disabled=false}
+ }
  const renderList=()=>{
   const visible=filter==="unread"?items.filter(n=>!n.isRead):items;
   count.textContent=unreadCount+" unread";
@@ -1262,6 +1290,7 @@ async function openNotificationCenter(){
  };
  const load=async()=>{const data=await apiRequest("/v1/notifications?limit=50");items=data.items||[];unreadCount=Number(data.unreadCount||0);notificationUnreadCount=unreadCount;paintNotificationBadge();renderList()};
  layer.querySelectorAll("[data-notification-filter]").forEach(b=>b.onclick=()=>{filter=b.dataset.notificationFilter;renderList()});
+ layer.querySelector("#notificationPushEnable").onclick=togglePush;setPushButton();
  markAll.onclick=async()=>{if(!unreadCount)return;markAll.disabled=true;try{await apiRequest("/v1/notifications/read-all",{method:"PATCH"});items=items.map(n=>({...n,isRead:true}));unreadCount=0;notificationUnreadCount=0;paintNotificationBadge();renderList();}catch(error){alert(error.message)}finally{markAll.disabled=false}};
  list.onclick=async e=>{const row=e.target.closest("[data-notification-id]");if(!row)return;const id=row.dataset.notificationId,type=row.dataset.notificationType,entity=row.dataset.notificationEntity,actor=row.dataset.notificationActor,n=items.find(x=>x.id===id);if(n&&!n.isRead){try{await apiRequest("/v1/notifications/"+encodeURIComponent(id)+"/read",{method:"PATCH"});n.isRead=true;unreadCount=Math.max(0,unreadCount-1);notificationUnreadCount=unreadCount;paintNotificationBadge();renderList();}catch(error){alert(error.message);return}}close();if(type==="follow"&&actor){active="profile";selectedProfileId=actor;profileTab="posts";render();return}if(entity){active="home";render();requestAnimationFrame(()=>{const target=document.getElementById("post-"+entity);if(target)target.scrollIntoView({behavior:"smooth",block:"center"})})}};
  try{await load()}catch(error){list.innerHTML='<div class="notification-empty"><strong>Couldn’t load notifications</strong><span>'+esc(error.message)+'</span></div>'}

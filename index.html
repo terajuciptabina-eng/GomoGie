@@ -829,6 +829,8 @@ function openAccountSettings(){
  layer.hidden=false;
 }
 function closeAccountSettings(){const layer=document.getElementById("settingsLayer");if(layer)layer.hidden=true}
+// Capture the profile overflow action globally because the profile view is rebuilt dynamically.
+document.addEventListener("click",function(event){const trigger=event.target.closest("#profileMore");if(!trigger)return;event.preventDefault();event.stopImmediatePropagation();openAccountSettings()},true);
 document.getElementById("accountMenuButton").onclick=()=>openAccountSettings();
 document.getElementById("closeSettings").onclick=closeAccountSettings;
 document.getElementById("settingsLayer").addEventListener("click",e=>{if(e.target.id==="settingsLayer")closeAccountSettings()});

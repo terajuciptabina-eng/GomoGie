@@ -97,6 +97,7 @@ jobs:
           assert './data/demo-accounts.json' in worker
           assert './data/demo-posts.json' in worker
           assert 'cache.put(request' in worker
+          assert 'new URL(event.notification.data?.url||"./",self.registration.scope)' in worker, 'Notification click must remain inside the GomoGie Pages project path.'
           print('Validated PWA registration, manifest, iOS/Android icons and offline demo fixtures.')
           PY
 

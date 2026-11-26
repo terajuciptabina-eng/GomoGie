@@ -221,10 +221,12 @@ async function syncNewsFeedsSingleFlight(env) {
 
 async function syncNewsFeeds(env){
  const now=new Date().toISOString();let inserted=0,checked=0,errors=0;
+ // Read the active source list once per sync, instead of one D1 query per RSS source.
+ const activeRows=await env.DB.prepare("SELECT id FROM gomogie_news_sources WHERE active=1").all();
+ const activeSourceIds=new Set((activeRows.results||[]).map(row=>row.id));
  for(const feed of NEWS_FEEDS){
+  if(!activeSourceIds.has(feed.id))continue;
   try{
-   const source=await env.DB.prepare("SELECT active FROM gomogie_news_sources WHERE id=?").bind(feed.id).first();
-   if(!source||!source.active)continue;
    const res=await fetch(feed.url,{headers:{accept:"application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9","user-agent":"GomoGieContentDiscovery/1.0 (+https://terajuciptabina-eng.github.io/GomoGie/)"},signal:AbortSignal.timeout(12000)});
    if(!res.ok)throw new Error("Feed HTTP "+res.status);
    const xml=(await res.text()).slice(0,1500000),atom=/<feed\b/i.test(xml);

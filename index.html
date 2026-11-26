@@ -55,8 +55,9 @@ body.pull-releasing .top,body.pull-releasing .layout{transform:translate3d(0,0,0
  .compose-actions{display:flex;flex-wrap:wrap;gap:8px}
  .compose-actions button{min-height:42px}
  .card,.composer,.panel,.empty{overflow-wrap:anywhere}
- .post-actions{display:flex;flex-wrap:wrap;gap:8px 12px}
- .post-actions button{min-height:40px}
+ .post-actions{display:flex;flex-wrap:nowrap;gap:12px;overflow-x:auto;overflow-y:hidden;white-space:nowrap;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+ .post-actions::-webkit-scrollbar{display:none}
+ .post-actions button{flex:0 0 auto;min-height:40px;white-space:nowrap}
  .profile-actions{flex-wrap:wrap;justify-content:flex-end}
  .profile-stats{display:flex;flex-wrap:wrap;gap:10px 16px}
  .profile-meta{overflow-wrap:anywhere}

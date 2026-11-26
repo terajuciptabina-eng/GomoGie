@@ -1503,7 +1503,7 @@ async function searchPublicMusic(term="",genre="all",append=false){
     if(title.length<4||!musicSignals||nonMusic)return null;
     if(genre!=="all"&&!(genreTerms[genre]||[genre]).some(x=>(subjects+" "+titleLower).includes(x)))return null;
     const creator=md.creator||d.creator||"Independent artist";
-    const licenseLabel=/publicdomain\\/(?:zero|mark)/.test(lic)?"Public domain":/by-sa/.test(lic)?"CC BY-SA":"CC BY";
+    const licenseLabel=(lic.includes("publicdomain/zero")||lic.includes("publicdomain/mark"))?"Public domain":(lic.includes("by-sa")?"CC BY-SA":"CC BY");
     return {id:d.identifier,title,artist:String(Array.isArray(creator)?creator.join(", "):creator),year:d.year||md.year||"",license:licenseLabel,stream:"https://archive.org/download/"+encodeURIComponent(d.identifier)+"/"+file.name.split("/").map(encodeURIComponent).join("/"),art:"https://archive.org/services/img/"+encodeURIComponent(d.identifier)};
    }catch(error){console.warn("Skipping unavailable IA item",d.identifier,error);return null}
   }));

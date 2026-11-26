@@ -43,7 +43,7 @@ const privateJwk = JSON.stringify({
 });
 
 function putSecret(name, value) {
-  const result = spawnSync("npx", ["wrangler", "secret", "put", name], {
+  const result = spawnSync("wrangler", ["secret", "put", name], {
     input: value + "\n",
     encoding: "utf8",
     env: process.env,

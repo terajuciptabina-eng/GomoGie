@@ -439,10 +439,20 @@ async function route(request, env) {
     }
     const user = await env.DB.prepare("SELECT id,email,username,password_hash,status FROM users WHERE email = ? COLLATE NOCASE OR username = ? COLLATE NOCASE")
       .bind(input.login.trim(), input.login.trim()).first();
-    if (!user || user.status !== "active" || !(await passwordVerify(input.password, user.password_hash))) {
+    if (!user || user.status === "deleted" || !(await passwordVerify(input.password, user.password_hash))) {
       return json({ error: "invalid_credentials", message: "Maklumat log masuk tidak tepat." }, 401);
     }
-    return json({ user: { id: user.id, email: user.email, username: user.username }, accessToken: await signToken(user, env, 2592000), tokenType: "Bearer", expiresIn: 2592000 });
+    let accountRestored = false;
+    if (user.status === "deactivated" || user.status === "pending_deletion") {
+      await env.DB.batch([
+        env.DB.prepare("UPDATE users SET status='active',updated_at=? WHERE id=?").bind(new Date().toISOString(), user.id),
+        env.DB.prepare("UPDATE gomogie_account_deletion_requests SET status='cancelled' WHERE user_id=? AND status='pending'").bind(user.id)
+      ]);
+      accountRestored = true;
+    } else if (user.status !== "active") {
+      return json({ error: "account_unavailable", message: "Akaun ini tidak tersedia." }, 403);
+    }
+    return json({ user: { id: user.id, email: user.email, username: user.username }, accessToken: await signToken(user, env, 2592000), tokenType: "Bearer", expiresIn: 2592000, accountRestored });
   }
 
   const publicCommentsRead = method === "GET" && /^\/v1\/posts\/[0-9a-f-]+\/comments$/i.test(path);
@@ -453,10 +463,53 @@ async function route(request, env) {
   const optionalNewsAuth = path === "/v1/news" && !!request.headers.get("Authorization");
   const newsPreferencesRequest = path === "/v1/news/preferences";
   const communityRequest = path === "/v1/communities" || path.startsWith("/v1/communities/");
-  const needsAuth = communityRequest || newsPreferencesRequest || followingFeedRequest || optionalFeedAuth || optionalNewsAuth || path === "/v1/auth/me" || (path === "/v1/auth/remember" && method === "POST") || (path.startsWith("/v1/posts") && !publicCommentsRead) || (path.startsWith("/v1/media") && !publicMediaRead) || (path.startsWith("/v1/videos") && !publicVideoRead) || path.startsWith("/v1/users/") || path.startsWith("/v1/notifications") || path.startsWith("/v1/conversations");
+  const needsAuth = communityRequest || newsPreferencesRequest || followingFeedRequest || optionalFeedAuth || optionalNewsAuth || path === "/v1/auth/me" || (path === "/v1/auth/remember" && method === "POST") || (path.startsWith("/v1/posts") && !publicCommentsRead) || (path.startsWith("/v1/media") && !publicMediaRead) || (path.startsWith("/v1/videos") && !publicVideoRead) || path.startsWith("/v1/users/") || path.startsWith("/v1/account/") || path.startsWith("/v1/notifications") || path.startsWith("/v1/conversations");
   const authDiagnostic = {};
   const auth = needsAuth ? await authenticate(request, env, authDiagnostic) : null;
   if (needsAuth && !auth) return json({ error: "unauthorized", code: authDiagnostic.reason || "authentication_failed", message: "Sesi tidak dapat disahkan." }, 401);
+
+  if (path === "/v1/account/username" && method === "PUT") {
+    const input = await readJson(request), username = typeof input?.username === "string" ? input.username.trim() : "";
+    if (!/^[a-zA-Z0-9_]{3,24}$/.test(username) || typeof input?.password !== "string") return json({ error: "validation_error", message: "Username mesti 3–24 aksara, menggunakan huruf, nombor atau underscore." }, 400);
+    const account = await env.DB.prepare("SELECT password_hash FROM users WHERE id=? AND status='active'").bind(auth.sub).first();
+    if (!account || !(await passwordVerify(input.password, account.password_hash))) return json({ error: "password_incorrect", message: "Kata laluan semasa tidak tepat." }, 403);
+    const duplicate = await env.DB.prepare("SELECT id FROM users WHERE username=? COLLATE NOCASE AND id<>?").bind(username, auth.sub).first();
+    if (duplicate) return json({ error: "username_taken", message: "Username ini sudah digunakan." }, 409);
+    await env.DB.prepare("UPDATE users SET username=?,updated_at=? WHERE id=?").bind(username, new Date().toISOString(), auth.sub).run();
+    const user = { id: auth.sub, username };
+    return json({ user, accessToken: await signToken(user, env, 2592000) });
+  }
+
+  if (path === "/v1/account/password" && method === "PUT") {
+    const input = await readJson(request);
+    if (!input || typeof input.currentPassword !== "string" || typeof input.newPassword !== "string" || input.newPassword.length < 9 || input.newPassword.length > 128) return json({ error: "validation_error", message: "Kata laluan baharu mesti 9–128 aksara." }, 400);
+    const account = await env.DB.prepare("SELECT password_hash FROM users WHERE id=? AND status='active'").bind(auth.sub).first();
+    if (!account || !(await passwordVerify(input.currentPassword, account.password_hash))) return json({ error: "password_incorrect", message: "Kata laluan semasa tidak tepat." }, 403);
+    await env.DB.prepare("UPDATE users SET password_hash=?,updated_at=? WHERE id=?").bind(await passwordHash(input.newPassword), new Date().toISOString(), auth.sub).run();
+    return json({ updated: true });
+  }
+
+  if (path === "/v1/account/deactivate" && method === "POST") {
+    const input = await readJson(request);
+    if (typeof input?.password !== "string") return json({ error: "validation_error", message: "Masukkan kata laluan untuk mengesahkan tindakan." }, 400);
+    const account = await env.DB.prepare("SELECT password_hash FROM users WHERE id=? AND status='active'").bind(auth.sub).first();
+    if (!account || !(await passwordVerify(input.password, account.password_hash))) return json({ error: "password_incorrect", message: "Kata laluan semasa tidak tepat." }, 403);
+    await env.DB.prepare("UPDATE users SET status='deactivated',updated_at=? WHERE id=?").bind(new Date().toISOString(), auth.sub).run();
+    return json({ deactivated: true, message: "Akaun dinyahaktifkan. Log masuk semula untuk mengaktifkannya." });
+  }
+
+  if (path === "/v1/account/delete" && method === "POST") {
+    const input = await readJson(request);
+    if (input?.confirmation !== "DELETE" || typeof input.password !== "string") return json({ error: "confirmation_required", message: "Taip DELETE dan masukkan kata laluan untuk meneruskan." }, 400);
+    const account = await env.DB.prepare("SELECT password_hash FROM users WHERE id=? AND status='active'").bind(auth.sub).first();
+    if (!account || !(await passwordVerify(input.password, account.password_hash))) return json({ error: "password_incorrect", message: "Kata laluan semasa tidak tepat." }, 403);
+    const now = new Date(), scheduled = new Date(now.getTime() + 30 * 86400000);
+    await env.DB.batch([
+      env.DB.prepare("UPDATE users SET status='pending_deletion',updated_at=? WHERE id=?").bind(now.toISOString(), auth.sub),
+      env.DB.prepare("INSERT INTO gomogie_account_deletion_requests (user_id,requested_at,scheduled_for,status) VALUES (?,?,?,'pending') ON CONFLICT(user_id) DO UPDATE SET requested_at=excluded.requested_at,scheduled_for=excluded.scheduled_for,status='pending'").bind(auth.sub, now.toISOString(), scheduled.toISOString())
+    ]);
+    return json({ deletionScheduled: true, scheduledFor: scheduled.toISOString(), recoveryDays: 30, message: "Permintaan pemadaman dijadualkan selepas 30 hari. Log masuk semula dalam tempoh ini untuk membatalkannya." });
+  }
 
   if (path === "/v1/auth/me" && method === "GET") {
     const user = await env.DB.prepare("SELECT id,email,username FROM users WHERE id=? AND status='active'").bind(auth.sub).first();
@@ -722,7 +775,7 @@ async function route(request, env) {
         (input.location !== undefined && typeof input.location !== "string") ||
         (input.website !== undefined && typeof input.website !== "string") ||
         (input.avatarUrl !== undefined && typeof input.avatarUrl !== "string") ||
-        (input.coverUrl !== undefined && typeof input.coverUrl !== "string")) {
+        (input.coverUrl !== undefined && typeof input.coverUrl !== "string") || (input.isPrivate !== undefined && typeof input.isPrivate !== "boolean")) {
       return json({ error: "validation_error", message: "Maklumat profil tidak sah." }, 400);
     }
     const fields = {
@@ -743,9 +796,9 @@ async function route(request, env) {
     }
     const now = new Date().toISOString();
     await env.DB.prepare(
-      "UPDATE profiles SET display_name=?,bio=?,location=?,website=?,avatar_url=COALESCE(?,avatar_url),cover_url=COALESCE(?,cover_url),updated_at=? WHERE user_id=?"
+      "UPDATE profiles SET display_name=?,bio=?,location=?,website=?,avatar_url=COALESCE(?,avatar_url),cover_url=COALESCE(?,cover_url),is_private=COALESCE(?,is_private),updated_at=? WHERE user_id=?"
     ).bind(input.displayName.trim(), fields.bio, fields.location, fields.website,
-      fields.avatarUrl || null, fields.coverUrl || null, now, auth.sub).run();
+      fields.avatarUrl || null, fields.coverUrl || null, input.isPrivate === undefined ? null : (input.isPrivate ? 1 : 0), now, auth.sub).run();
     const row = await env.DB.prepare(
       "SELECT u.id,u.email,u.username,u.created_at,p.display_name,p.bio,p.avatar_url,p.cover_url,p.website,p.location,p.is_private FROM users u JOIN profiles p ON p.user_id=u.id WHERE u.id=?"
     ).bind(auth.sub).first();
@@ -1089,8 +1142,43 @@ async function route(request, env) {
   return json({ error: "not_found" }, 404);
 }
 
+async function processAccountDeletionQueue(env) {
+  const due = await env.DB.prepare("SELECT user_id FROM gomogie_account_deletion_requests WHERE status='pending' AND scheduled_for<=? LIMIT 25").bind(new Date().toISOString()).all();
+  let completed = 0, failed = 0;
+  for (const item of due.results || []) {
+    const userId = item.user_id;
+    try {
+      const images = await env.DB.prepare("SELECT object_key FROM gomogie_media_assets WHERE owner_id=?").bind(userId).all();
+      const videos = await env.DB.prepare("SELECT object_key FROM gomogie_video_assets WHERE owner_id=?").bind(userId).all();
+      if (env.MEDIA_BUCKET) for (const asset of [...(images.results || []), ...(videos.results || [])]) { try { await env.MEDIA_BUCKET.delete(asset.object_key); } catch (error) { console.warn("Media cleanup deferred", userId, error); } }
+      await env.DB.batch([
+        env.DB.prepare("DELETE FROM posts WHERE user_id=?").bind(userId),
+        env.DB.prepare("DELETE FROM comments WHERE user_id=?").bind(userId),
+        env.DB.prepare("DELETE FROM reactions WHERE user_id=?").bind(userId),
+        env.DB.prepare("DELETE FROM follows WHERE follower_id=? OR following_id=?").bind(userId,userId),
+        env.DB.prepare("DELETE FROM notifications WHERE recipient_id=? OR actor_id=?").bind(userId,userId),
+        env.DB.prepare("DELETE FROM messages WHERE sender_id=?").bind(userId),
+        env.DB.prepare("DELETE FROM conversation_members WHERE user_id=?").bind(userId),
+        env.DB.prepare("DELETE FROM gomogie_news_preferences WHERE user_id=?").bind(userId),
+        env.DB.prepare("DELETE FROM gomogie_media_assets WHERE owner_id=?").bind(userId),
+        env.DB.prepare("DELETE FROM gomogie_video_assets WHERE owner_id=?").bind(userId)
+      ]);
+      const owned = await env.DB.prepare("SELECT id FROM communities WHERE owner_id=?").bind(userId).all().catch(()=>({results:[]}));
+      for (const community of owned.results || []) { try { await env.DB.prepare("DELETE FROM communities WHERE id=?").bind(community.id).run(); } catch (error) { console.warn("Community cleanup deferred", community.id, error); } }
+      const suffix = crypto.randomUUID().replace(/-/g,"").slice(0,16), erasedPassword = await passwordHash(crypto.randomUUID()+crypto.randomUUID()), now = new Date().toISOString();
+      await env.DB.batch([
+        env.DB.prepare("UPDATE profiles SET display_name='Deleted member',bio='',avatar_url=NULL,cover_url=NULL,website='',location='',is_private=1,updated_at=? WHERE user_id=?").bind(now,userId),
+        env.DB.prepare("UPDATE users SET email=?,username=?,password_hash=?,status='deleted',updated_at=? WHERE id=?").bind("deleted+"+suffix+"@deleted.invalid","deleted_"+suffix,erasedPassword,now,userId),
+        env.DB.prepare("UPDATE gomogie_account_deletion_requests SET status='completed' WHERE user_id=?").bind(userId)
+      ]);
+      completed++;
+    } catch (error) { failed++; console.error("Account deletion failed", userId, error); }
+  }
+  return { checked:(due.results||[]).length, completed, failed };
+}
+
 export default {
-  async scheduled(controller, env, ctx) { ctx.waitUntil((async()=>{const sync=await syncNewsFeeds(env);console.log("GomoGie scheduled news sync",sync);const images=await hydrateRecentNewsImages(env,12);console.log("GomoGie scheduled news image hydration",images)})().catch(error=>console.error("GomoGie scheduled news cycle failed",error))); },
+  async scheduled(controller, env, ctx) { ctx.waitUntil((async()=>{const sync=await syncNewsFeeds(env);console.log("GomoGie scheduled news sync",sync);const images=await hydrateRecentNewsImages(env,12);console.log("GomoGie scheduled news image hydration",images);const deletions=await processAccountDeletionQueue(env);console.log("GomoGie account deletion processing",deletions)})().catch(error=>console.error("GomoGie scheduled cycle failed",error))); },
   async fetch(request, env) {
     const headers = corsHeaders(request, env);
     if (request.method === "OPTIONS") {

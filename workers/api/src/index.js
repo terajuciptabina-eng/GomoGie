@@ -464,7 +464,8 @@ async function route(request, env) {
   const optionalNewsAuth = path === "/v1/news" && !!request.headers.get("Authorization");
   const newsPreferencesRequest = path === "/v1/news/preferences";
   const communityRequest = path === "/v1/communities" || path.startsWith("/v1/communities/");
-  const needsAuth = communityRequest || newsPreferencesRequest || followingFeedRequest || optionalFeedAuth || optionalNewsAuth || path === "/v1/auth/me" || (path === "/v1/auth/remember" && method === "POST") || ((path.startsWith("/v1/posts") && !publicCommentsRead) || path.startsWith("/v1/saved")) || (path.startsWith("/v1/media") && !publicMediaRead) || (path.startsWith("/v1/videos") && !publicVideoRead) || path.startsWith("/v1/users/") || path.startsWith("/v1/account/") || path.startsWith("/v1/notifications") || path.startsWith("/v1/conversations");
+  const publicRelationshipRead = method === "GET" && /^\/v1\/users\/[a-zA-Z0-9_]{3,24}\/(relationships|followers|following)$/.test(path);
+  const needsAuth = !publicRelationshipRead && (communityRequest || newsPreferencesRequest || followingFeedRequest || optionalFeedAuth || optionalNewsAuth || path === "/v1/auth/me" || (path === "/v1/auth/remember" && method === "POST") || ((path.startsWith("/v1/posts") && !publicCommentsRead) || path.startsWith("/v1/saved")) || (path.startsWith("/v1/media") && !publicMediaRead) || (path.startsWith("/v1/videos") && !publicVideoRead) || path.startsWith("/v1/users/") || path.startsWith("/v1/account/") || path.startsWith("/v1/notifications") || path.startsWith("/v1/conversations"));
   const authDiagnostic = {};
   const auth = needsAuth ? await authenticate(request, env, authDiagnostic) : null;
   if (needsAuth && !auth) return json({ error: "unauthorized", code: authDiagnostic.reason || "authentication_failed", message: "Sesi tidak dapat disahkan." }, 401);
@@ -1082,6 +1083,24 @@ async function route(request, env) {
     return json({ items: (rows.results || []).map(row => ({
       id: row.following_id, username: row.username, status: row.status
     })) });
+  }
+
+  const relationshipMatch = path.match(/^\/v1\/users\/([a-zA-Z0-9_]{3,24})\/(relationships|followers|following)$/);
+  if (relationshipMatch && method === "GET") {
+    const target = await env.DB.prepare("SELECT id FROM users WHERE username=? COLLATE NOCASE AND status='active'").bind(relationshipMatch[1]).first();
+    if (!target) return json({ error: "user_not_found" }, 404);
+    const kind = relationshipMatch[2];
+    if (kind === "relationships") {
+      const [followers, following] = await Promise.all([
+        env.DB.prepare("SELECT COUNT(*) AS count FROM follows WHERE following_id=? AND status='accepted'").bind(target.id).first(),
+        env.DB.prepare("SELECT COUNT(*) AS count FROM follows WHERE follower_id=? AND status='accepted'").bind(target.id).first()
+      ]);
+      return json({ followers: Number(followers?.count || 0), following: Number(following?.count || 0) });
+    }
+    const column = kind === "followers" ? "following_id" : "follower_id";
+    const joinColumn = kind === "followers" ? "follower_id" : "following_id";
+    const rows = await env.DB.prepare("SELECT u.id,u.username,p.display_name,p.avatar_url FROM follows f JOIN users u ON u.id=f." + joinColumn + " LEFT JOIN profiles p ON p.user_id=u.id WHERE f." + column + "=? AND f.status='accepted' AND u.status='active' ORDER BY f.created_at DESC LIMIT 200").bind(target.id).all();
+    return json({ items: (rows.results || []).map(row => ({ id: row.id, username: row.username, displayName: row.display_name || row.username, avatarUrl: row.avatar_url || "" })) });
   }
 
   const followMatch = path.match(/^\/v1\/users\/([a-zA-Z0-9_]{3,24})\/follow$/);

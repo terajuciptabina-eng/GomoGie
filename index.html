@@ -848,6 +848,19 @@ body{background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;te
 .profile-actions [data-profile-friend]{min-height:40px;padding:9px 14px;border-radius:999px;border:1px solid #cfe9e3;background:#eaf7f4;color:#078879;font-weight:750}.profile-actions [data-profile-friend]:disabled{opacity:.7}
 
 .profile-actions [data-profile-message]{min-height:40px;padding:9px 14px;border-radius:999px;border:1px solid #d8e3e7;background:#f1f5f6;color:#20313a;font-weight:750}
+
+/* Shared desktop page-heading alignment: Pulse mirrors Watch */
+.pulse-page-heading-row{display:flex;align-items:center;justify-content:space-between;gap:18px;min-width:0}
+.pulse-page-heading-row .pulse-page-title{flex:0 0 auto;margin:0}
+.pulse-page-heading-row .news-mode-tabs{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:0 0 0 auto;min-width:0}
+.pulse-page-description{margin:8px 0 0}
+@media(max-width:600px){
+ .pulse-page-heading-row{display:contents}
+ .pulse-page-title{order:1}
+ .pulse-page-description{order:2}
+ .pulse-page-heading-row .news-mode-tabs{order:3;justify-content:flex-start;width:100%;margin:10px 0 14px}
+}
+
 </style>
 <section class="install-guide-layer" id="installGuideLayer" hidden role="dialog" aria-modal="true" aria-labelledby="installGuideTitle">
  <div class="install-guide-card">
@@ -1156,7 +1169,7 @@ function pulse(){
  const q=searchQuery.toLowerCase().replace(/^#/,"");
  const newsSourceList=newsMode==="global"?viralNewsGlobalItems:newsMode==="archive"?viralNewsArchiveItems:viralNewsItems;
  const newsList=filterUnreadNews(newsSourceList.filter(item=>newsContentFilter==="all"||(newsContentFilter==="article"&&(item.content_type||"article")==="article")||(newsContentFilter==="video"&&item.content_type==="video")||(newsContentFilter==="documentary"&&item.content_type==="documentary")||(newsContentFilter==="entertainment"&&item.category==="entertainment")).filter(item=>!q||String(item.title+" "+item.summary).toLowerCase().includes(q)));
- view.innerHTML='<header class="pulse-page-header"><h1 class="pulse-page-title">Pulse</h1><p class="pulse-page-description">Discover articles, videos, documentaries and more from publishers and creators.</p></header><div class="news-mode-tabs"><button type="button" data-news-mode="for-you" class="'+(newsMode==="for-you"?"selected":"")+'">For You</button><button type="button" data-news-mode="global" class="'+(newsMode==="global"?"selected":"")+'">Global Trending</button><button type="button" data-news-mode="archive" class="'+(newsMode==="archive"?"selected":"")+'">Archive</button></div>'+(currentUser?newsPreferencesPanel():'<p class="pulse-intro">Log in to personalise news by region and interests.</p>')+'<div class="news-content-tabs"><button data-content-filter="all" class="'+(newsContentFilter==="all"?"selected":"")+'">All</button><button data-content-filter="article" class="'+(newsContentFilter==="article"?"selected":"")+'">Articles</button><button data-content-filter="video" class="'+(newsContentFilter==="video"?"selected":"")+'">Video</button><button data-content-filter="documentary" class="'+(newsContentFilter==="documentary"?"selected":"")+'">Documentaries</button><button data-content-filter="entertainment" class="'+(newsContentFilter==="entertainment"?"selected":"")+'">Entertainment</button></div>'+viralNewsBlock(newsList,false);
+ view.innerHTML='<header class="pulse-page-header"><div class="pulse-page-heading-row"><h1 class="pulse-page-title">Pulse</h1><div class="news-mode-tabs"><button type="button" data-news-mode="for-you" class="'+(newsMode==="for-you"?"selected":"")+'">For You</button><button type="button" data-news-mode="global" class="'+(newsMode==="global"?"selected":"")+'">Global Trending</button><button type="button" data-news-mode="archive" class="'+(newsMode==="archive"?"selected":"")+'">Archive</button></div></div><p class="pulse-page-description">Discover articles, videos, documentaries and more from publishers and creators.</p></header>'+(currentUser?newsPreferencesPanel():'<p class="pulse-intro">Log in to personalise news by region and interests.</p>')+'<div class="news-content-tabs"><button data-content-filter="all" class="'+(newsContentFilter==="all"?"selected":"")+'">All</button><button data-content-filter="article" class="'+(newsContentFilter==="article"?"selected":"")+'">Articles</button><button data-content-filter="video" class="'+(newsContentFilter==="video"?"selected":"")+'">Video</button><button data-content-filter="documentary" class="'+(newsContentFilter==="documentary"?"selected":"")+'">Documentaries</button><button data-content-filter="entertainment" class="'+(newsContentFilter==="entertainment"?"selected":"")+'">Entertainment</button></div>'+viralNewsBlock(newsList,false);
 }
 function watch(){
  const readVideoNewsIds=getReadNewsIds();

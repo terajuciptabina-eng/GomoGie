@@ -185,6 +185,28 @@ body.pull-releasing .top,body.pull-releasing .layout{transform:translate3d(0,0,0
 .viral-news-image-fallback{height:auto;min-height:0;padding:10px 0;margin:0 0 8px;background:transparent;border-radius:0;display:block;overflow:visible}.viral-news-image-fallback span{font-size:11px;letter-spacing:.08em;color:var(--teal);font-weight:800}.viral-news-image-fallback strong{display:none}.viral-news-image-fallback span{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#338f83}.viral-news-image-fallback strong{font-size:23px;line-height:1.2;max-width:80%}.viral-news-image-link.image-unavailable{display:none}
 .viral-news-reader{border-top:1px solid var(--line);padding-top:10px;margin:8px 0 12px}.viral-news-reader summary{cursor:pointer;color:var(--teal);font-size:13px;font-weight:800;list-style:none}.viral-news-reader summary::-webkit-details-marker{display:none}.viral-news-reader summary:after{content:"＋";float:right}.viral-news-reader[open] summary:after{content:"−"}.viral-news-reader-body{white-space:pre-wrap;color:#465761;font-size:14px;line-height:1.75;padding:12px 0 4px;overflow-wrap:anywhere}.viral-news-card .viral-news-title{margin-bottom:6px}.viral-news-card>p{margin-top:0}.viral-news-image-link{pointer-events:none}
 
+/* GomoGie Reading Experience */
+.viral-news-reader{border:0;padding:0;margin:12px 0 0}
+.viral-news-reader summary{display:flex;align-items:center;gap:8px;padding:12px 14px;border:1px solid #ccebe5;border-radius:12px;background:#effaf8;color:#008f80;font-size:14px}
+.viral-news-reader summary:before{content:"▤";font-size:17px}
+.viral-news-reader summary:after{content:"Baca";margin-left:auto;float:none;font-size:12px;font-weight:750}
+.viral-news-reader[open] summary{border-radius:12px 12px 0 0;background:#e5f7f3}
+.viral-news-reader[open] summary:after{content:"Tutup"}
+.viral-news-reader-body{white-space:normal;padding:0 14px 16px;border:1px solid #ccebe5;border-top:0;border-radius:0 0 12px 12px;background:#fbfefd;color:#40535e;font-size:16px;line-height:1.85}
+.viral-news-reader-intro{padding:15px 0 12px;margin:0 0 12px;border-bottom:1px solid #e4efed;color:#263943;font-size:16px;line-height:1.7}
+.viral-news-reader-intro strong{display:block;margin-bottom:6px;color:#008f80;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+.viral-news-reader-tools{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;background:#fbfefd;border-bottom:1px solid #e4efed}
+.viral-news-reader-tools small{color:#71808c;font-size:11px}
+.viral-news-reader-font{display:flex;gap:6px}
+.viral-news-reader-font button{width:34px;height:32px;border:1px solid #dce9e6;border-radius:9px;background:white;color:#40535e;font-weight:750}
+.viral-news-reader-progress{height:3px;margin:0 -14px;background:#e5efed}
+.viral-news-reader-progress span{display:block;width:0;height:100%;background:#00ae9c;transition:width .12s linear}
+.viral-news-reader-copy{padding-top:14px}
+.viral-news-reader-copy p{margin:0 0 17px}
+.viral-news-reader-copy p:last-child{margin-bottom:4px}
+.viral-news-read-label{display:inline-flex;align-items:center;gap:5px;margin-left:7px;color:#008f80;font-size:10px;font-weight:750}
+@media(max-width:700px){.viral-news-reader-body{font-size:16px;line-height:1.85;padding:0 13px 14px}.viral-news-reader-tools{top:0}.viral-news-reader-intro{font-size:15px}}
+
 /* Communities production UI */
 .community-head{display:flex;align-items:center;justify-content:space-between;gap:14px}.community-head .section-title{margin-bottom:4px}.community-search{display:flex;gap:8px;margin:14px 0}.community-search input,.community-form input,.community-form textarea,.community-form select{width:100%;min-width:0;padding:11px 13px;border:1px solid #dce5e7;border-radius:11px;background:#fff;color:var(--ink);font:inherit}.community-search input{flex:1}.community-status{font-size:13px;color:var(--teal);margin:8px 0}.community-demo-grid{margin:12px 0}.community-card-top,.community-card-bottom{display:flex;align-items:center;justify-content:space-between;gap:8px}.community-card-top small,.community-card-bottom span{font-size:11px;color:var(--muted)}.community-demo-card button{white-space:nowrap}.community-demo-card .community-card-bottom button{font-size:12px}.community-form{display:grid;gap:12px}.community-form label{display:grid;gap:6px;font-size:13px;font-weight:650}.community-form-actions{display:flex;gap:8px}.community-detail{margin-top:16px}.community-detail-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:20px 0}.community-detail-heading h2{font-size:24px;margin:8px 0}.community-detail-heading p{margin:0 0 8px;color:#586873}.community-detail-heading small,.community-muted{color:var(--muted);font-size:12px}.community-columns{display:grid;grid-template-columns:minmax(0,1fr) 240px;gap:22px;border-top:1px solid var(--line);padding-top:18px}.community-columns h3{margin:0 0 12px}.community-post-form{display:grid;gap:8px;margin-bottom:14px}.community-post-form textarea{min-height:90px;resize:vertical;padding:12px;border:1px solid var(--line);border-radius:12px;font:inherit}.community-post-form button{justify-self:end}.community-post{padding:13px 0;border-bottom:1px solid var(--line)}.community-post p{white-space:pre-wrap;margin:8px 0}.community-post small,.community-member small{display:block;color:var(--muted);font-size:11px}.community-post strong small{display:inline}.community-member{display:flex;align-items:center;gap:9px;padding:8px 0}.community-member-avatar{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#e3f5f2;color:#008f80;font-weight:750}.community-member strong{font-size:12px}.community-detail-actions{display:flex;gap:8px}.community-detail-actions button{white-space:nowrap}@media(max-width:700px){.community-head{align-items:flex-start;flex-direction:column}.community-head>.primary{width:100%}.community-detail-heading{flex-direction:column}.community-columns{grid-template-columns:1fr}.community-detail-actions{width:100%}.community-detail-actions button{flex:1}.community-demo-grid{grid-template-columns:1fr 1fr}.community-demo-card{padding:11px}.community-card-bottom{align-items:flex-start;flex-direction:column}.community-card-bottom button{width:100%}}
 
@@ -335,8 +357,8 @@ function markNewsAsRead(itemId){
  try{const ids=getReadNewsIds();ids.add(String(itemId));localStorage.setItem(NEWS_READ_STORAGE_KEY,JSON.stringify([...ids].slice(-1000)))}catch(error){console.warn("Unable to save read news state",error)}
 }
 function filterUnreadNews(items){
- const read=getReadNewsIds();
- return (items||[]).filter(item=>!read.has(String(item.id))).slice(0,12);
+ // Reading an article must never remove it from Pulse. Read state is informational only.
+ return (items||[]).slice(0,12);
 }
 function viralNewsCard(item){
  const date=notificationRelativeTime(item.published_at),region=NEWS_REGIONS.find(x=>x[0]===item.region_code)?.[1]||"Malaysia",ageHours=(Date.now()-Date.parse(item.published_at))/3600000,isMalay=item.language==="ms",categoryLabel=(isMalay?{national:"Nasional",politics:"Politik",business:"Bisnes",technology:"Teknologi",sports:"Sukan",entertainment:"Hiburan",world:"Dunia",lifestyle:"Gaya hidup"}:NEWS_CATEGORY_LABELS)[item.category]||"News";
@@ -346,7 +368,11 @@ function viralNewsCard(item){
  const summaryText=cleanNewsText(item.summary||""),story=cleanNewsText(item.body_text||"");
  const normaliseNewsText=value=>value.toLocaleLowerCase().replace(/[\\s\\p{P}]+/gu," ").trim();
  const hasDistinctFullStory=!!story&&normaliseNewsText(story)!==normaliseNewsText(summaryText);
- const reader=hasDistinctFullStory?'<details class="viral-news-reader"><summary>'+(isMalay?"Baca berita penuh di GomoGie":"Read full update on GomoGie")+'</summary><div class="viral-news-reader-body">'+esc(story)+'</div></details>':"";
+ const sentences=story.match(/[^.!?]+[.!?]+(?:["'”’)]*)|[^.!?]+$/g)||[story];
+ const paragraphs=[];for(let i=0;i<sentences.length;i+=3){const paragraph=sentences.slice(i,i+3).join(" ").trim();if(paragraph)paragraphs.push(paragraph)}
+ const readIds=getReadNewsIds(),alreadyRead=readIds.has(String(item.id));
+ const readingMinutes=Math.max(1,Math.ceil((story||summaryText).split(/\\s+/).filter(Boolean).length/200));
+ const reader=hasDistinctFullStory?'<details class="viral-news-reader"><summary>'+(isMalay?"Baca artikel penuh":"Read full article")+(alreadyRead?'<span class="viral-news-read-label">✓ Dibaca</span>':'')+'</summary><div class="viral-news-reader-body"><div class="viral-news-reader-progress" aria-hidden="true"><span></span></div><div class="viral-news-reader-intro"><strong>'+(isMalay?"Ringkasan":"At a glance")+'</strong>'+esc(summaryText||"")+'</div><div class="viral-news-reader-tools"><small>◷ '+readingMinutes+' min '+(isMalay?"bacaan":"read")+'</small><div class="viral-news-reader-font"><button type="button" data-reader-font="minus" aria-label="Kecilkan tulisan">A−</button><button type="button" data-reader-font="plus" aria-label="Besarkan tulisan">A+</button></div></div><div class="viral-news-reader-copy">'+paragraphs.map(paragraph=>'<p>'+esc(paragraph)+'</p>').join("")+'</div></div></details>':"";
  return '<article class="viral-news-card" data-news-id="'+esc(item.id)+'">'+(video||image)+'<div class="viral-news-meta"><span class="viral-news-brand">GomoGie News</span><span>'+esc(item.source_name||"News source")+'</span>'+(item.language==="ms"?'<span class="viral-news-language">Bahasa Melayu</span>':item.language==="en"?'<span class="viral-news-language">English</span>':'')+'<span>· '+esc(categoryLabel)+'</span>'+(item.region_code!=="MY"?'<span>· '+esc(region)+'</span>':'')+(ageHours>=0&&ageHours<=24?'<span class="viral-news-trending">'+(isMalay?"Terkini":"Latest")+'</span>':'')+(Number(item.trendScore)>=5?'<span class="viral-news-trending">Trending</span>':'')+'</div><h4 class="viral-news-title">'+esc(cleanNewsText(item.title))+'</h4>'+reader+'<div class="viral-news-foot"><span>'+esc(date||"Latest")+'</span><a href="'+esc(item.canonical_url)+'" target="_blank" rel="noopener noreferrer nofollow">'+(isMalay?"Sumber asal: ":"Original source: ")+esc(item.source_name||"source")+' ↗</a></div></article>';
 }
 function viralNewsBlock(items,compact=false){
@@ -625,9 +651,13 @@ function bind(){
  document.querySelectorAll(".viral-news-card").forEach(card=>{
   const id=card.dataset.newsId;
   const reader=card.querySelector(".viral-news-reader");
-  // Mark as read, but keep the card visible while the reader is open.
-  // The unread filter takes effect on the next Pulse render/navigation.
-  if(reader)reader.addEventListener("toggle",()=>{if(reader.open)markNewsAsRead(id)});
+  // Keep read stories visible in Pulse; remember progress without filtering them out.
+  if(reader){
+   reader.addEventListener("toggle",()=>{if(reader.open){markNewsAsRead(id);const label=reader.querySelector(".viral-news-read-label");if(!label){const badge=document.createElement("span");badge.className="viral-news-read-label";badge.textContent="✓ Dibaca";reader.querySelector("summary")?.appendChild(badge)}}});
+   const body=reader.querySelector(".viral-news-reader-body"),progress=reader.querySelector(".viral-news-reader-progress span");
+   if(body&&progress)body.addEventListener("scroll",()=>{const max=body.scrollHeight-body.clientHeight;progress.style.width=(max>0?Math.min(100,body.scrollTop/max*100):100)+"%"},{passive:true});
+   reader.querySelectorAll("[data-reader-font]").forEach(button=>button.addEventListener("click",()=>{const copy=reader.querySelector(".viral-news-reader-copy");if(!copy)return;const current=parseFloat(getComputedStyle(copy).fontSize)||16;copy.style.fontSize=Math.max(14,Math.min(22,current+(button.dataset.readerFont==="plus"?2:-2)))+"px"}));
+  }
   const sourceLink=card.querySelector(".viral-news-foot a");
   if(sourceLink)sourceLink.addEventListener("click",()=>markNewsAsRead(id));
  });

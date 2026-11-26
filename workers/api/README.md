@@ -107,14 +107,15 @@ A successful readiness response proves only that the Worker can query D1. It doe
 
 ## Account management (migration 0015)
 
-Apply `sql/0015_account_management.sql` to the existing `gomogie-db` D1 database before deploying the updated Worker.
+Apply `sql/0015_account_management.sql` and then `sql/0016_session_revocation.sql` to the existing `gomogie-db` D1 database before deploying the updated Worker.
 
 - `PUT /v1/account/username` — change username with current-password confirmation and uniqueness check.
-- `PUT /v1/account/password` — change password after verifying the current password.
+- `PUT /v1/account/password` — change password after verifying the current password; other issued sessions are revoked.
+- `POST /v1/account/logout-all` — revoke all other sessions after current-password confirmation; the current device receives a replacement token.
 - `POST /v1/account/deactivate` — deactivate the account; a successful password login reactivates it.
 - `POST /v1/account/delete` — schedule deletion after 30 days; a successful password login during the recovery window cancels the request.
 - `PUT /v1/auth/me` now accepts `isPrivate` to update public/private profile visibility.
 
 The existing 15-minute Cron Trigger also processes due deletion requests. At the end of the recovery period the Worker removes the member's posts, comments, reactions, follows, notifications, sent messages, memberships, and uploaded media, then anonymises the remaining account identity so foreign-key relationships in other members' records are not broken.
 
-Email changes remain disabled until an email-verification delivery flow is configured. Password changes do not currently revoke other already-issued stateless JWTs; members should use Log out on shared devices. The settings UI does not claim device-by-device session management.
+Email changes remain disabled until an email-verification delivery flow is configured. JWTs carry a database-backed session version. Password changes, deactivation, deletion requests and Log out all devices increment that version and revoke older tokens.

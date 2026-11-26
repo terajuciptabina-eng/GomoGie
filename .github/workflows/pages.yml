@@ -63,7 +63,7 @@ jobs:
           assert 'maximum-scale=1,user-scalable=no,viewport-fit=cover' in html, 'Mobile viewport must lock pinch zoom'
           assert 'document.addEventListener("gesturestart",e=>e.preventDefault()' in html, 'iOS gesture zoom must be blocked'
           assert 'async function openThread(postId)' in html, 'Threaded conversation UI missing'
-          assert 'parentId:replyTo' in html, 'Nested replies must send parent comment ID'
+          assert 'body:JSON.stringify({content,parentId})' in html, 'Nested replies must send the selected parent comment ID'
           assert 'data-quote="' in html and '[[quote:' in html, 'Quote repost UI and source marker missing'
           assert 'data-topic="' in html and 'Trending topics' not in html, 'Topic discovery controls missing'
           print('Extracted application script and verified Cloudflare feed integration.')

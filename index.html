@@ -744,9 +744,24 @@ function viralNewsCard(item){
  const reader=hasDistinctFullStory&&!isPlayableVideo?'<details class="viral-news-reader"><summary>'+(isMalay?"Baca artikel penuh":"Read full article")+(alreadyRead?'<span class="viral-news-read-label">✓ Dibaca</span>':'')+'</summary><div class="viral-news-reader-body"><div class="viral-news-reader-progress" aria-hidden="true"><span></span></div><div class="viral-news-reader-tools"><small>◷ '+readingMinutes+' min '+(isMalay?"bacaan":"read")+'</small><div class="viral-news-reader-font"><button type="button" data-reader-font="minus" aria-label="Kecilkan tulisan">A−</button><button type="button" data-reader-font="plus" aria-label="Besarkan tulisan">A+</button></div></div><div class="viral-news-reader-copy">'+paragraphs.map(paragraph=>'<p>'+esc(paragraph)+'</p>').join("")+'</div><div class="viral-news-reader-bottom"><button type="button" data-reader-close>'+(isMalay?"Tutup artikel":"Close article")+'</button></div></div></details>':"";
  return '<article class="viral-news-card" data-news-id="'+esc(item.id)+'">'+(video||image)+'<div class="viral-news-meta"><span class="viral-news-brand">GomoGie News</span><span>'+esc(item.source_name||"News source")+'</span>'+(item.language==="ms"?'<span class="viral-news-language">Bahasa Melayu</span>':item.language==="en"?'<span class="viral-news-language">English</span>':'')+'<span>· '+esc(categoryLabel)+'</span>'+(item.region_code!=="MY"?'<span>· '+esc(region)+'</span>':'')+(ageHours>=0&&ageHours<=24?'<span class="viral-news-trending">'+(isMalay?"Terkini":"Latest")+'</span>':'')+(Number(item.trendScore)>=5?'<span class="viral-news-trending">Trending</span>':'')+'</div><h4 class="viral-news-title">'+esc(cleanNewsText(item.title))+'</h4>'+(cardSummary?'<p class="viral-news-card-summary">'+esc(cardSummary)+'</p>':'')+reader+'<div class="viral-news-foot"><span>'+esc(date||"Latest")+'</span><a href="'+esc(item.canonical_url)+'" target="_blank" rel="noopener noreferrer nofollow">'+(isMalay?"Sumber asal: ":"Original source: ")+esc(item.source_name||"source")+' ↗</a></div></article>';
 }
+
+function dedupeViralNews(items){
+ const clean=value=>String(value||"").toLowerCase().normalize("NFKD").replace(/[\\u0300-\\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();
+ const ranked=[...(items||[])].filter(Boolean).sort((a,b)=>{
+  const score=x=>(x.embed_url?4:0)+(x.video_url?2:0)+(x.thumbnail_url||x.image_url?1:0);
+  return score(b)-score(a);
+ });
+ const seen=new Set();
+ return ranked.filter(item=>{
+  const url=String(item.canonical_url||"").trim().toLowerCase().replace(/[?#].*$/,"").replace(/\\/$/,"");
+  const key=url||[clean(item.title),clean(item.source_name)].filter(Boolean).join("|");
+  if(!key||seen.has(key))return false;
+  seen.add(key);return true;
+ });
+}
 function viralNewsBlock(items,compact=false){
  if(!items?.length)return '<section class="viral-news-block"><div class="viral-news-heading"><div><span class="viral-news-kicker">CONTENT DISCOVERY</span><h3>📰 '+(compact?"Content for you":"GomoGie Content Discovery")+'</h3></div>'+(compact?'<button type="button" data-open-news="pulse">See all</button>':'')+'</div><div class="empty">No news stories available yet. New updates are checked automatically.</div></section>';
- return '<section class="viral-news-block"><div class="viral-news-heading"><div><span class="viral-news-kicker">CONTENT DISCOVERY</span><h3>📰 '+(compact?"Content for you":"GomoGie Content Discovery")+'</h3></div>'+(compact?'<button type="button" data-open-news="pulse">See all</button>':'')+'</div>'+items.map(viralNewsCard).join("")+'</section>';
+ return '<section class="viral-news-block"><div class="viral-news-heading"><div><span class="viral-news-kicker">CONTENT DISCOVERY</span><h3>📰 '+(compact?"Content for you":"GomoGie Content Discovery")+'</h3></div>'+(compact?'<button type="button" data-open-news="pulse">See all</button>':'')+'</div>'+dedupeViralNews(items).map(viralNewsCard).join("")+'</section>';
 }
 function newsPreferencesPanel(){
  return '<details class="news-preferences"><summary>Personalise your news</summary><div class="news-preferences-body"><label>Region<select id="newsRegion">'+NEWS_REGIONS.map(([v,l])=>'<option value="'+v+'" '+(newsPreferences.region===v?'selected':'')+'>'+l+'</option>').join("")+'</select></label><div class="news-interest-grid">'+Object.entries(NEWS_CATEGORY_LABELS).map(([v,l])=>'<label><input type="checkbox" data-news-interest value="'+v+'" '+(newsPreferences.interests.includes(v)?'checked':'')+'> '+l+'</label>').join("")+'</div><button type="button" class="primary" id="saveNewsPreferences">Save preferences</button><small id="newsPreferencesStatus" aria-live="polite"></small></div></details>';

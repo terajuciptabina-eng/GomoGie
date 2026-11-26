@@ -464,7 +464,7 @@ async function route(request, env) {
   const optionalNewsAuth = path === "/v1/news" && !!request.headers.get("Authorization");
   const newsPreferencesRequest = path === "/v1/news/preferences";
   const communityRequest = path === "/v1/communities" || path.startsWith("/v1/communities/");
-  const needsAuth = communityRequest || newsPreferencesRequest || followingFeedRequest || optionalFeedAuth || optionalNewsAuth || path === "/v1/auth/me" || (path === "/v1/auth/remember" && method === "POST") || (path.startsWith("/v1/posts") && !publicCommentsRead) || (path.startsWith("/v1/media") && !publicMediaRead) || (path.startsWith("/v1/videos") && !publicVideoRead) || path.startsWith("/v1/users/") || path.startsWith("/v1/account/") || path.startsWith("/v1/notifications") || path.startsWith("/v1/conversations");
+  const needsAuth = communityRequest || newsPreferencesRequest || followingFeedRequest || optionalFeedAuth || optionalNewsAuth || path === "/v1/auth/me" || (path === "/v1/auth/remember" && method === "POST") || ((path.startsWith("/v1/posts") && !publicCommentsRead) || path.startsWith("/v1/saved")) || (path.startsWith("/v1/media") && !publicMediaRead) || (path.startsWith("/v1/videos") && !publicVideoRead) || path.startsWith("/v1/users/") || path.startsWith("/v1/account/") || path.startsWith("/v1/notifications") || path.startsWith("/v1/conversations");
   const authDiagnostic = {};
   const auth = needsAuth ? await authenticate(request, env, authDiagnostic) : null;
   if (needsAuth && !auth) return json({ error: "unauthorized", code: authDiagnostic.reason || "authentication_failed", message: "Sesi tidak dapat disahkan." }, 401);

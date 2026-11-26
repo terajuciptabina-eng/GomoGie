@@ -243,9 +243,11 @@ body.pull-releasing .top,body.pull-releasing .layout{transform:translate3d(0,0,0
 }
 .viral-news-reader summary::-webkit-details-marker{display:none}
 .viral-news-reader summary:before{font-size:17px;color:#00a895}
-.viral-news-reader-toggle-label{margin-left:auto;color:#71808c;font-size:13px;font-weight:600}
 .viral-news-reader summary:hover,
 .viral-news-reader[open] summary:hover{background:transparent}
+.viral-news-reader-bottom{display:flex;justify-content:flex-end;padding:18px 0 4px;margin-top:12px;border-top:1px solid #e8efed}
+.viral-news-reader-bottom button{appearance:none;border:0;background:transparent;padding:8px 0;color:#008f80;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer}
+.viral-news-reader-bottom button:focus-visible{outline:2px solid #00ae9c;outline-offset:3px;border-radius:4px}
 .viral-news-reader summary:focus-visible{outline:2px solid #00ae9c;outline-offset:3px;border-radius:4px}
 
 </style>
@@ -412,7 +414,7 @@ function viralNewsCard(item){
  const cardSummary=cardText.length>180?cardText.slice(0,177).replace(/\\s+\\S*$/,"")+"…":cardText;
  const readIds=getReadNewsIds(),alreadyRead=readIds.has(String(item.id));
  const readingMinutes=Math.max(1,Math.ceil((story||summaryText).split(/\\s+/).filter(Boolean).length/200));
- const reader=hasDistinctFullStory?'<details class="viral-news-reader"><summary>'+(isMalay?"Baca artikel penuh":"Read full article")+(alreadyRead?'<span class="viral-news-read-label">✓ Dibaca</span>':'')+'<span class="viral-news-reader-toggle-label" data-closed-label="'+(isMalay?"Baca":"Read")+'" data-open-label="'+(isMalay?"Tutup":"Close")+'"></span></summary><div class="viral-news-reader-body"><div class="viral-news-reader-progress" aria-hidden="true"><span></span></div><div class="viral-news-reader-tools"><small>◷ '+readingMinutes+' min '+(isMalay?"bacaan":"read")+'</small><div class="viral-news-reader-font"><button type="button" data-reader-font="minus" aria-label="Kecilkan tulisan">A−</button><button type="button" data-reader-font="plus" aria-label="Besarkan tulisan">A+</button></div></div><div class="viral-news-reader-copy">'+paragraphs.map(paragraph=>'<p>'+esc(paragraph)+'</p>').join("")+'</div></div></details>':"";
+ const reader=hasDistinctFullStory?'<details class="viral-news-reader"><summary>'+(isMalay?"Baca artikel penuh":"Read full article")+(alreadyRead?'<span class="viral-news-read-label">✓ Dibaca</span>':'')+'</summary><div class="viral-news-reader-body"><div class="viral-news-reader-progress" aria-hidden="true"><span></span></div><div class="viral-news-reader-tools"><small>◷ '+readingMinutes+' min '+(isMalay?"bacaan":"read")+'</small><div class="viral-news-reader-font"><button type="button" data-reader-font="minus" aria-label="Kecilkan tulisan">A−</button><button type="button" data-reader-font="plus" aria-label="Besarkan tulisan">A+</button></div></div><div class="viral-news-reader-copy">'+paragraphs.map(paragraph=>'<p>'+esc(paragraph)+'</p>').join("")+'</div><div class="viral-news-reader-bottom"><button type="button" data-reader-close>'+(isMalay?"Tutup artikel":"Close article")+'</button></div></div></details>':"";
  return '<article class="viral-news-card" data-news-id="'+esc(item.id)+'">'+(video||image)+'<div class="viral-news-meta"><span class="viral-news-brand">GomoGie News</span><span>'+esc(item.source_name||"News source")+'</span>'+(item.language==="ms"?'<span class="viral-news-language">Bahasa Melayu</span>':item.language==="en"?'<span class="viral-news-language">English</span>':'')+'<span>· '+esc(categoryLabel)+'</span>'+(item.region_code!=="MY"?'<span>· '+esc(region)+'</span>':'')+(ageHours>=0&&ageHours<=24?'<span class="viral-news-trending">'+(isMalay?"Terkini":"Latest")+'</span>':'')+(Number(item.trendScore)>=5?'<span class="viral-news-trending">Trending</span>':'')+'</div><h4 class="viral-news-title">'+esc(cleanNewsText(item.title))+'</h4>'+(cardSummary?'<p class="viral-news-card-summary">'+esc(cardSummary)+'</p>':'')+reader+'<div class="viral-news-foot"><span>'+esc(date||"Latest")+'</span><a href="'+esc(item.canonical_url)+'" target="_blank" rel="noopener noreferrer nofollow">'+(isMalay?"Sumber asal: ":"Original source: ")+esc(item.source_name||"source")+' ↗</a></div></article>';
 }
 function viralNewsBlock(items,compact=false){
@@ -694,6 +696,7 @@ function bind(){
   // Keep read stories visible in Pulse; remember progress without filtering them out.
   if(reader){
    reader.addEventListener("toggle",()=>{if(!reader.open){markNewsAsRead(id);setTimeout(()=>{if(active==="pulse")render()},0)}});
+   reader.querySelector("[data-reader-close]")?.addEventListener("click",()=>{reader.open=false});
    const body=reader.querySelector(".viral-news-reader-body"),progress=reader.querySelector(".viral-news-reader-progress span");
    if(body&&progress)body.addEventListener("scroll",()=>{const max=body.scrollHeight-body.clientHeight;progress.style.width=(max>0?Math.min(100,body.scrollTop/max*100):100)+"%"},{passive:true});
    reader.querySelectorAll("[data-reader-font]").forEach(button=>button.addEventListener("click",()=>{const copy=reader.querySelector(".viral-news-reader-copy");if(!copy)return;const current=parseFloat(getComputedStyle(copy).fontSize)||16;copy.style.fontSize=Math.max(14,Math.min(22,current+(button.dataset.readerFont==="plus"?2:-2)))+"px"}));

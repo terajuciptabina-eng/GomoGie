@@ -1260,6 +1260,7 @@ async function route(request, env) {
       env.DB.prepare("INSERT INTO conversation_members (conversation_id,user_id,joined_at,last_read_at) VALUES (?,?,?,NULL)").bind(id, recipient.id, now),
       ...(friendship?[]:[env.DB.prepare("INSERT INTO gomogie_message_requests (id,conversation_id,requester_id,recipient_id,status,created_at) VALUES (?,?,?,?,'pending',?)").bind(uuid(),id,auth.sub,recipient.id,now)])
     ]);
+    if(!friendship)await notifyPushDevices(env,recipient.id,{id,title:"New message request",body:"Someone wants to send you a message."});
     return json({ conversation: { id }, created: true, status }, 201);
   }
 

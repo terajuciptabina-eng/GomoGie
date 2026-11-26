@@ -107,6 +107,17 @@ jobs:
               }
             });
           '
+          feed="$(curl --silent --show-error --fail --retry 3 --retry-delay 2 https://gomogie-api.terajuciptabina.workers.dev/v1/feed?limit=1)"
+          news="$(curl --silent --show-error --fail --retry 3 --retry-delay 2 'https://gomogie-api.terajuciptabina.workers.dev/v1/news?mode=for-you&limit=1')"
+          FEED_JSON="$feed" NEWS_JSON="$news" node -e '
+            const feed = JSON.parse(process.env.FEED_JSON);
+            const news = JSON.parse(process.env.NEWS_JSON);
+            if (!Array.isArray(feed.items)) throw new Error("Public feed response is invalid");
+            if (!Array.isArray(news.items)) throw new Error("Pulse news response is invalid");
+            console.log("Public feed items:", feed.items.length);
+            console.log("Pulse news items:", news.items.length);
+            if (!news.items.length) console.log("::warning::Pulse API is responding, but currently has no published news items.");
+          '
 
       - name: Report missing Cloudflare deployment credentials
         if: ${{ env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == '' }}

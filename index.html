@@ -251,6 +251,59 @@ body.pull-releasing .top,body.pull-releasing .layout{transform:translate3d(0,0,0
 .viral-news-reader-bottom button:focus-visible{outline:2px solid #00ae9c;outline-offset:3px;border-radius:4px}
 .viral-news-reader summary:focus-visible{outline:2px solid #00ae9c;outline-offset:3px;border-radius:4px}
 
+
+/* Account settings visual refresh */
+.settings-layer{background:rgba(8,23,29,.58);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);padding:20px}
+.settings-dialog{width:min(100%,480px);max-height:min(88dvh,820px);border:1px solid rgba(255,255,255,.82);border-radius:26px;box-shadow:0 28px 90px rgba(7,24,30,.28);background:#fbfdfd;scrollbar-width:thin}
+.settings-header{position:relative;padding:25px 24px 21px;background:linear-gradient(125deg,#e8f8f4 0%,#f5fbfa 56%,#f1f6fb 100%);border-bottom:1px solid #e3eeec}
+.settings-header:after{content:"";position:absolute;left:24px;bottom:0;width:54px;height:3px;border-radius:4px;background:#08a995}
+.settings-header h2{font-size:22px;letter-spacing:-.035em;font-weight:850}
+.settings-header p{display:inline-flex;align-items:center;margin-top:9px;padding:5px 10px;border-radius:99px;background:#fff;color:#087f73;font-size:12px;font-weight:700;border:1px solid #dcefeb}
+.settings-close{width:38px;height:38px;background:rgba(255,255,255,.85);border:1px solid #e4eeec;color:#53676d;transition:transform .18s,background .18s}
+.settings-close:active{transform:scale(.94);background:#eaf5f2}
+.settings-item{padding:15px 22px;background:transparent;transition:background .18s}
+.settings-item:first-of-type{margin-top:9px}
+.settings-item:hover{background:#f0f8f6}
+.settings-item-icon{width:43px;height:43px;border-radius:15px;background:linear-gradient(145deg,#e1f6f1,#d7f0eb);color:#008f80;font-size:20px;box-shadow:inset 0 0 0 1px #d2eee8}
+.settings-item strong{font-size:14px;font-weight:800;letter-spacing:-.01em}
+.settings-item small{font-size:11px;line-height:1.4}
+.settings-chevron{font-size:27px;color:#8ba09e}
+.settings-account-fields{padding:9px 18px 4px}
+.settings-detail{margin:8px 0;padding:0;border:1px solid #e6eeed;border-radius:15px;background:#fff;overflow:hidden;box-shadow:0 2px 8px rgba(17,53,55,.025);transition:border-color .18s,box-shadow .18s}
+.settings-detail[open]{border-color:#a9ddd3;box-shadow:0 5px 18px rgba(7,139,122,.08)}
+.settings-detail summary{min-height:54px;padding:0 15px;font-size:13px;font-weight:800;letter-spacing:-.01em}
+.settings-detail summary:after{content:"＋";width:25px;height:25px;display:grid;place-items:center;border-radius:9px;background:#eff7f5;color:#008f80;font-size:17px}
+.settings-detail[open] summary:after{content:"−";background:#dff4ef}
+.settings-detail form,.settings-email-note{padding:14px 15px 16px;border-top:1px solid #edf2f1;background:#fbfdfd}
+.settings-detail label{font-size:12px;font-weight:750}
+.settings-detail input:not([type=checkbox]){min-height:45px;border-color:#dce7e5;border-radius:11px;background:#fff}
+.settings-detail input:not([type=checkbox]):focus{outline:0;border-color:#08a995;box-shadow:0 0 0 3px rgba(8,169,149,.12)}
+.settings-detail form .primary{min-height:45px;border-radius:12px;font-weight:800;box-shadow:0 5px 12px rgba(0,158,143,.12)}
+.settings-detail form small,.settings-email-note p,.settings-detail form>p{font-size:11px;line-height:1.55}
+.settings-switch-row{padding:10px 0}
+.settings-switch-row input{accent-color:#00a995}
+.settings-divider{height:1px;background:#e5edeb;margin:12px 22px}
+.settings-account-danger{margin:0 18px 12px;padding:15px 13px 8px;border:1px solid #f2dddd;border-radius:17px;background:linear-gradient(145deg,#fffafa,#fff5f5)}
+.settings-account-danger h3{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:#a65a5a;margin:0 2px 8px}
+.settings-danger-detail{border-color:#f3e2e2;background:rgba(255,255,255,.8)}
+.settings-danger-detail summary{color:#bd3b3b}
+.settings-danger-detail summary:after{background:#fff0f0;color:#c43e3e}
+.settings-danger-detail[open]{border-color:#e8baba;box-shadow:0 5px 18px rgba(177,49,49,.07)}
+.settings-danger-button{border-radius:12px;background:#fff4f4}
+.settings-logout{width:calc(100% - 36px);margin:8px 18px 18px;min-height:49px;border:1px solid #f0cccc;border-radius:14px;background:linear-gradient(135deg,#fff8f8,#fff1f1);color:#bf3737;font-size:14px;font-weight:850;letter-spacing:.01em;transition:transform .18s,box-shadow .18s}
+.settings-logout:active{transform:scale(.985);box-shadow:inset 0 2px 5px rgba(150,40,40,.08)}
+@media(max-width:700px){
+ .settings-layer{align-items:end;padding:0;background:rgba(8,23,29,.58)}
+ .settings-dialog{width:100%;max-height:88dvh;border-radius:27px 27px 0 0;padding-bottom:calc(env(safe-area-inset-bottom) + 4px);box-shadow:0 -18px 55px rgba(7,24,30,.2)}
+ .settings-header{padding:23px 20px 18px}
+ .settings-header:after{left:20px}
+ .settings-item{padding:14px 20px}
+ .settings-account-fields{padding-left:15px;padding-right:15px}
+ .settings-account-danger{margin-left:15px;margin-right:15px}
+ .settings-logout{width:calc(100% - 30px);margin-left:15px;margin-right:15px}
+}
+@media(prefers-reduced-motion:reduce){.settings-detail,.settings-item,.settings-close,.settings-logout{transition:none}}
+
 </style>
 </head>
 <body>

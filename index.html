@@ -387,38 +387,54 @@ body.pull-releasing .top,body.pull-releasing .layout{transform:translate3d(0,0,0
 @media(max-width:700px){.gm-dialog-layer{align-items:end;padding:0}.gm-dialog{width:100%;border-radius:23px 23px 0 0;padding-bottom:calc(env(safe-area-inset-bottom) + 5px)}.gm-dialog-head{padding:20px 20px 7px}.gm-dialog-body{padding:8px 20px 17px}.gm-dialog-actions{padding:12px 16px 15px}}
 
 /* Balanced, consistent post action layout */
+/* Compact, aligned post actions: one row on desktop, two tight rows on mobile */
 .post-actions{
- display:grid;
- grid-template-columns:repeat(6,minmax(0,1fr));
+ display:flex;
+ flex-wrap:nowrap;
  align-items:center;
- gap:6px;
+ justify-content:space-between;
+ gap:clamp(5px,1.4vw,14px);
  padding:10px 14px;
  color:#63727c;
+ min-width:0;
 }
 .post-actions button{
- display:flex;
+ display:inline-flex;
+ flex:0 1 auto;
  align-items:center;
  justify-content:center;
  gap:5px;
  min-width:0;
  min-height:38px;
- padding:6px 3px;
+ padding:5px 4px;
  border:0;
- border-radius:10px;
+ border-radius:8px;
  background:transparent;
  color:inherit;
- font:600 13px/1.2 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+ font:550 13px/1.15 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
  white-space:nowrap;
 }
 .post-actions button:hover{background:#f2f8f7}
-.post-actions button.liked{color:#e34d6f;background:#fff2f5}
+.post-actions button.liked{color:#e34d6f}
 @media(max-width:700px){
  .post-actions{
-  grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:5px;
-  padding:9px 12px;
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,max-content));
+  justify-content:space-between;
+  align-content:start;
+  grid-auto-rows:38px;
+  row-gap:2px;
+  column-gap:8px;
+  padding:8px 12px;
+  height:auto;
+  min-height:0;
  }
- .post-actions button{font-size:12px;min-height:40px}
+ .post-actions button{
+  justify-content:flex-start;
+  font-size:12px;
+  min-height:38px;
+  padding:4px 2px;
+ }
 }
 </style>
 </head>

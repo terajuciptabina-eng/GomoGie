@@ -59,6 +59,9 @@ jobs:
               const health = JSON.parse(raw);
               console.log("Worker health:", JSON.stringify(health));
               if (health.checks?.database !== "available") process.exit(1);
+              if (health.checks?.databaseReads !== "available") {
+                console.log("::warning::D1 is reachable but row-reading queries are unavailable; check daily quota.");
+              }
               if (health.checks?.mediaStorage !== "available") {
                 console.log("::warning::R2 media storage is degraded; Worker and D1 are responding.");
               }

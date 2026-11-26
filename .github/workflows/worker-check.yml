@@ -7,12 +7,6 @@ on:
       - "workers/api/**"
       - ".github/workflows/worker-check.yml"
   workflow_dispatch:
-    inputs:
-      apply_query_indexes:
-        description: "Apply the additive D1 query-efficiency indexes after quota reset or plan upgrade"
-        required: false
-        default: false
-        type: boolean
 
   pull_request:
     paths:
@@ -45,10 +39,6 @@ jobs:
       - run: npm install --ignore-scripts --no-audit --no-fund
       - run: npm run typecheck
       - run: npx wrangler deploy --dry-run
-
-      - name: Apply additive D1 query-efficiency indexes
-        if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' && github.event_name == 'workflow_dispatch' && inputs.apply_query_indexes == true }}
-        run: npx wrangler d1 execute gomogie-db --remote --file=sql/0014_query_efficiency.sql
 
       - name: Deploy Worker to Cloudflare
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}

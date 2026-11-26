@@ -124,7 +124,7 @@ jobs:
           path = Path('sw.js')
           source = path.read_text()
           revision = os.environ['GITHUB_RUN_ID'] + '-' + os.environ['GITHUB_RUN_ATTEMPT']
-          updated, count = re.subn(r'const CACHE_NAME=CACHE_PREFIX+"[^"]+";', 'const CACHE_NAME=CACHE_PREFIX+"build-' + revision + '";', source, count=1)
+          updated, count = re.subn(r'const CACHE_NAME=CACHE_PREFIX\\+"[^"]+";', 'const CACHE_NAME=CACHE_PREFIX+"build-' + revision + '";', source, count=1)
           assert count == 1, 'Service worker cache revision declaration not found exactly once'
           path.write_text(updated)
           print('Stamped service worker build revision: ' + revision)

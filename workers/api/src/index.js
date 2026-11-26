@@ -233,7 +233,7 @@ async function syncNewsFeeds(env){
     const image=newsImageFromRss(block,canonical.href)||block.match(/<media:thumbnail\b[^>]*url=["']([^"']+)["']/i)?.[1]||"";
     const dateRaw=newsTag(block,"pubDate")||newsTag(block,"published")||newsTag(block,"updated")||newsTag(block,"dc:date");
     const parsed=Date.parse(dateRaw),published=Number.isFinite(parsed)?new Date(parsed).toISOString():now;
-    if(Date.now()-Date.parse(published)>72*3600000)continue;
+    if(Date.now()-Date.parse(published)>(feed.contentType==="video"||feed.contentType==="documentary"?7:3)*24*3600000)continue;
     const kind=feed.contentType||"article",embed=videoId?"https://www.youtube-nocookie.com/embed/"+encodeURIComponent(videoId):"";
     const category=feed.id==="aphd-video"?"documentary":newsCategory(title,summary);
     const result=await env.DB.prepare("INSERT INTO gomogie_news_items (id,source_id,external_id,title,summary,body_text,image_url,canonical_url,category,region_code,published_at,fetched_at,status,content_type,embed_url) VALUES (?,?,?,?,?,?,?,?,?,?,?,?, 'published',?,?) ON CONFLICT(canonical_url) DO UPDATE SET summary=CASE WHEN length(excluded.summary)>length(gomogie_news_items.summary) THEN excluded.summary ELSE gomogie_news_items.summary END,body_text=CASE WHEN length(excluded.body_text)>length(COALESCE(gomogie_news_items.body_text,'')) THEN excluded.body_text ELSE gomogie_news_items.body_text END,image_url=COALESCE(NULLIF(excluded.image_url,''),gomogie_news_items.image_url),content_type=excluded.content_type,embed_url=COALESCE(NULLIF(excluded.embed_url,''),gomogie_news_items.embed_url),fetched_at=excluded.fetched_at").bind(uuid(),feed.id,guid||canonical.href,title,summary,body,image?new URL(image,canonical).href:"",canonical.href,category,newsRegion(title,summary),published,now,kind,embed).run();
@@ -242,7 +242,7 @@ async function syncNewsFeeds(env){
    await env.DB.prepare("UPDATE gomogie_news_sources SET last_checked_at=?,last_error=NULL WHERE id=?").bind(now,feed.id).run();
   }catch(error){errors++;await env.DB.prepare("UPDATE gomogie_news_sources SET last_checked_at=?,last_error=? WHERE id=?").bind(now,String(error.message||error).slice(0,300),feed.id).run().catch(()=>{})}
  }
- await env.DB.prepare("UPDATE gomogie_news_items SET status='archived' WHERE status='published' AND julianday(published_at)<julianday('now','-72 hours')").run();
+ await env.DB.prepare("UPDATE gomogie_news_items SET status='archived' WHERE status='published' AND content_type='article' AND julianday(published_at)<julianday('now','-72 hours')").run();
  await env.DB.prepare("DELETE FROM gomogie_news_items WHERE julianday(published_at)<julianday('now','-30 days')").run();
  return{inserted,checked,errors,at:now};
 }

@@ -925,6 +925,42 @@ async function route(request, env) {
     return json({ scope:followingFeedRequest?"following":"public",items });
   }
 
+  const savedPostMatch = path.match(/^\\/v1\\/saved\\/([0-9a-f-]+)$/i);
+  if(path==="/v1/saved"&&method==="GET"){
+    const rows=await env.DB.prepare(
+      "SELECT p.id,p.user_id,p.content,p.visibility,p.created_at,p.comments_enabled,u.username,pr.display_name,pr.avatar_url,pr.cover_url,"+
+      "(SELECT COUNT(*) FROM reactions r WHERE r.post_id=p.id) AS reaction_count,"+
+      "(SELECT COUNT(*) FROM comments c WHERE c.post_id=p.id AND c.status='published') AS comment_count,ma.id AS media_id,va.id AS video_id,gp.id AS poll_id,gp.closes_at AS poll_closes_at "+
+      "FROM gomogie_saved_posts sp JOIN posts p ON p.id=sp.post_id JOIN users u ON u.id=p.user_id LEFT JOIN profiles pr ON pr.user_id=p.user_id "+
+      "LEFT JOIN gomogie_post_media pm ON pm.post_id=p.id LEFT JOIN gomogie_media_assets ma ON ma.id=pm.media_id AND ma.status='ready' "+
+      "LEFT JOIN gomogie_post_videos pv ON pv.post_id=p.id LEFT JOIN gomogie_video_assets va ON va.id=pv.video_id AND va.status='ready' "+
+      "LEFT JOIN gomogie_polls gp ON gp.post_id=p.id WHERE sp.user_id=? AND p.status='published' ORDER BY sp.saved_at DESC LIMIT 200"
+    ).bind(auth.sub).all();
+    const items=await Promise.all((rows.results||[]).map(async row=>{
+      let poll=null;
+      if(row.poll_id){
+        const [options,vote]=await Promise.all([
+          env.DB.prepare("SELECT o.id,o.label,o.position,COUNT(v.user_id) AS votes FROM gomogie_poll_options o LEFT JOIN gomogie_poll_votes v ON v.option_id=o.id AND v.poll_id=o.poll_id WHERE o.poll_id=? GROUP BY o.id,o.label,o.position ORDER BY o.position").bind(row.poll_id).all(),
+          env.DB.prepare("SELECT option_id FROM gomogie_poll_votes WHERE poll_id=? AND user_id=?").bind(row.poll_id,auth.sub).first()
+        ]);
+        const total=(options.results||[]).reduce((sum,item)=>sum+Number(item.votes||0),0);
+        poll={id:row.poll_id,closesAt:row.poll_closes_at,closed:!!row.poll_closes_at&&Date.parse(row.poll_closes_at)<=Date.now(),totalVotes:total,selectedOptionId:vote?.option_id||null,options:(options.results||[]).map(item=>({id:item.id,label:item.label,votes:Number(item.votes||0),percentage:total?Math.round(Number(item.votes||0)*100/total):0}))};
+      }
+      return {id:row.id,content:row.content,visibility:row.visibility,createdAt:row.created_at,commentsEnabled:Boolean(row.comments_enabled),author:{id:row.user_id,username:row.username,displayName:row.display_name,avatarUrl:row.avatar_url,coverUrl:row.cover_url},mediaType:row.video_id?"video":row.media_id?"image":poll?"poll":"text",mediaUrl:row.video_id?videoUrl(row.video_id):row.media_id?mediaUrl(row.media_id):"",reactionCount:row.reaction_count,commentCount:row.comment_count,poll};
+    }));
+    return json({items});
+  }
+  if(savedPostMatch&&method==="POST"){
+    const post=await env.DB.prepare("SELECT id FROM posts WHERE id=? AND status='published'").bind(savedPostMatch[1]).first();
+    if(!post)return json({error:"post_not_found"},404);
+    await env.DB.prepare("INSERT INTO gomogie_saved_posts (user_id,post_id,saved_at) VALUES (?,?,?) ON CONFLICT(user_id,post_id) DO NOTHING").bind(auth.sub,post.id,new Date().toISOString()).run();
+    return json({saved:true,postId:post.id});
+  }
+  if(savedPostMatch&&method==="DELETE"){
+    await env.DB.prepare("DELETE FROM gomogie_saved_posts WHERE user_id=? AND post_id=?").bind(auth.sub,savedPostMatch[1]).run();
+    return json({saved:false,postId:savedPostMatch[1]});
+  }
+
   const pollVoteMatch = path.match(/^\/v1\/posts\/([0-9a-f-]+)\/poll\/vote$/i);
   if (pollVoteMatch && method === "POST") {
     const input=await readJson(request),optionId=input?.optionId;

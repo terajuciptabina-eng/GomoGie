@@ -1101,6 +1101,10 @@ export default {
           const cachedHeaders = new Headers(cached.headers);
           cachedHeaders.set("x-gomogie-edge-cache", "HIT");
           for (const [key, value] of Object.entries(headers)) cachedHeaders.set(key, value);
+          cachedHeaders.set("x-content-type-options", "nosniff");
+          cachedHeaders.set("referrer-policy", "no-referrer");
+          cachedHeaders.set("x-frame-options", "DENY");
+          cachedHeaders.set("permissions-policy", "camera=(), microphone=(), geolocation=()");
           return new Response(cached.body, { status: cached.status, statusText: cached.statusText, headers: cachedHeaders });
         }
       }

@@ -1207,9 +1207,14 @@ async function pollLiveNotifications(){
  }catch(error){console.warn("Live notification check deferred:",error)}
 }
 function startLiveNotificationPolling(){
+ if(!currentUser){
+  if(notificationPollTimer)clearInterval(notificationPollTimer);
+  notificationPollTimer=null;notificationPrimedForUser="";knownNotificationIds.clear();return;
+ }
+ if(notificationPollTimer&&notificationPrimedForUser===currentUser.id)return;
  if(notificationPollTimer)clearInterval(notificationPollTimer);
- notificationPrimedForUser="";knownNotificationIds.clear();
- if(currentUser){pollLiveNotifications();notificationPollTimer=window.setInterval(pollLiveNotifications,12000)}
+ notificationPollTimer=null;notificationPrimedForUser="";knownNotificationIds.clear();
+ pollLiveNotifications();notificationPollTimer=window.setInterval(pollLiveNotifications,12000);
 }
 async function refreshNotificationBadge(){
  if(!currentUser){notificationUnreadCount=0;paintNotificationBadge();return}

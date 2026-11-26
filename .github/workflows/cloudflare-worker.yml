@@ -1,0 +1,108 @@
+name: Validate and deploy GomoGie Cloudflare Worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "workers/api/**"
+      - ".github/workflows/cloudflare-worker.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate Worker and VAPID generator syntax
+        run: |
+          node --check workers/api/src/index.js
+          node --check workers/api/scripts/generate-vapid.mjs
+      - name: Validate push implementation and migration
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          worker = Path("workers/api/src/index.js").read_text()
+          helper = Path("workers/api/scripts/generate-vapid.mjs").read_text()
+          config = Path("workers/api/wrangler.toml").read_text()
+          migrations = list(Path("workers/api").rglob("*.sql"))
+          push_migrations = [p for p in migrations if "push" in p.name.lower() or "push" in p.read_text().lower()]
+          assert "async function sendWebPush" in worker
+          assert "async function notifyPushDevices" in worker
+          assert "VAPID_PUBLIC_KEY" in worker and "VAPID_PRIVATE_JWK" in worker and "VAPID_SUBJECT" in worker
+          assert 'path==="/v1/push/public-key"' in worker
+          assert 'path==="/v1/push/subscribe"' in worker
+          assert "mailto:terajuciptabina@gmail.com" in helper
+          assert "database_name = \"gomogie-db\"" in config
+          assert push_migrations, "No D1 migration defining the web-push subscription table was found."
+          assert "gomogie_push_subscriptions" in "\n".join(p.read_text() for p in push_migrations)
+          print("Validated Worker push sender, VAPID generator, D1 migration and deployment configuration.")
+          PY
+      - name: Validate Pages notification-click scope fix
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          worker = Path("sw.js").read_text()
+          assert 'new URL(event.notification.data?.url||"./",self.registration.scope).href' in worker
+          print("Validated notification navigation remains inside the GomoGie Pages scope.")
+          PY
+
+  deploy:
+    needs: validate
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: cloudflare-production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify required deployment secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_JWK: ${{ secrets.VAPID_PRIVATE_JWK }}
+          VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "::error::Missing CLOUDFLARE_API_TOKEN repository/environment secret."; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "::error::Missing CLOUDFLARE_ACCOUNT_ID repository/environment secret."; exit 1; }
+          test -n "$VAPID_PUBLIC_KEY" || { echo "::error::Missing VAPID_PUBLIC_KEY repository/environment secret."; exit 1; }
+          test -n "$VAPID_PRIVATE_JWK" || { echo "::error::Missing VAPID_PRIVATE_JWK repository/environment secret."; exit 1; }
+          test -n "$VAPID_SUBJECT" || { echo "::error::Missing VAPID_SUBJECT repository/environment secret."; exit 1; }
+      - name: Install Wrangler
+        run: npm install --global wrangler@4
+      - name: Apply remote D1 migrations
+        working-directory: workers/api
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler d1 migrations apply gomogie-db --remote
+      - name: Configure Web Push secrets
+        working-directory: workers/api
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_JWK: ${{ secrets.VAPID_PRIVATE_JWK }}
+          VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
+        run: |
+          printf '%s' "$VAPID_PUBLIC_KEY" | npx wrangler secret put VAPID_PUBLIC_KEY
+          printf '%s' "$VAPID_PRIVATE_JWK" | npx wrangler secret put VAPID_PRIVATE_JWK
+          printf '%s' "$VAPID_SUBJECT" | npx wrangler secret put VAPID_SUBJECT
+      - name: Deploy Worker
+        working-directory: workers/api
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler deploy

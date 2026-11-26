@@ -856,8 +856,12 @@ body{background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;te
 .pulse-page-heading-row .news-mode-tabs{grid-area:tabs;display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:0;min-width:0}
 .pulse-page-description{grid-area:description;margin:0}
 @media(max-width:600px){
- .pulse-page-header{grid-template-columns:minmax(0,1fr);grid-template-areas:"title" "description" "tabs";row-gap:0}
- .pulse-page-heading-row .news-mode-tabs{justify-content:flex-start;width:100%;margin:10px 0 14px}
+ /* Match Watch: heading and tabs share one row on mobile */
+ .pulse-page-header{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"title tabs" "description description";column-gap:8px;row-gap:8px;align-items:center}
+ .pulse-page-heading-row .news-mode-tabs{justify-content:flex-end;min-width:0;max-width:100%;width:auto;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;white-space:nowrap;scrollbar-width:none;-webkit-overflow-scrolling:touch;margin:0;padding:2px 0}
+ .pulse-page-heading-row .news-mode-tabs::-webkit-scrollbar{display:none}
+ .pulse-page-heading-row .news-mode-tabs button{flex:0 0 auto;min-height:38px;padding:7px 9px;font-size:11px;white-space:nowrap}
+ .pulse-page-description{font-size:14px;line-height:1.5}
 }
 
 </style>

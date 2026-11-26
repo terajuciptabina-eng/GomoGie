@@ -293,7 +293,24 @@ async function clearToken(){
  try{sessionStorage.removeItem(TOKEN_KEY)}catch{}
 }
 function saveAuthDiagnostic(details){const record={at:new Date().toISOString(),origin:location.origin,path:location.pathname,...details};try{localStorage.setItem("gomogie-auth-diagnostic",JSON.stringify(record))}catch{}if(details.stage==="auth_me_rejected"||details.stage==="network_error"||details.stage==="auth_check_failed")console.warn("GomoGie session diagnostic:",record)}
-async function apiRequest(path,options={}){const headers={accept:"application/json",...(options.headers||{})};const token=await getToken();if(token)headers.authorization="Bearer "+token;if(options.body&&!(options.body instanceof FormData))headers["content-type"]="application/json";let response;try{response=await fetch(API_BASE+path,{...options,headers,cache:"no-store"})}catch(error){if(path==="/v1/auth/me")saveAuthDiagnostic({stage:"network_error",hasToken:!!token,message:String(error.message||error)});throw error}const payload=response.status===204?null:await response.json().catch(()=>({}));if(!response.ok){const error=new Error(payload?.message||payload?.error||"Request failed ("+response.status+")");error.status=response.status;error.code=String(payload?.code||payload?.error||"unknown");if(path==="/v1/auth/me")saveAuthDiagnostic({stage:"auth_me_rejected",status:response.status,hasToken:!!token,code:error.code,message:String(payload?.message||payload?.error||"")});throw error}if(path==="/v1/auth/me")saveAuthDiagnostic({stage:"auth_me_ok",status:response.status,hasToken:!!token});return payload}
+async function apiRequest(path,options={}){
+ const method=String(options.method||"GET").toUpperCase(),headers={accept:"application/json",...(options.headers||{})},token=await getToken();
+ if(token)headers.authorization="Bearer "+token;
+ if(options.body&&!(options.body instanceof FormData))headers["content-type"]="application/json";
+ const requestOptions={...options,headers,cache:"no-store"};
+ let response;
+ try{response=await fetch(API_BASE+path,requestOptions)}catch(error){if(path==="/v1/auth/me")saveAuthDiagnostic({stage:"network_error",hasToken:!!token,message:String(error.message||error)});throw error}
+ // Public discovery/feed must remain available even when a saved session has expired.
+ if(response.status===401&&token&&method==="GET"&&(path==="/v1/feed"||path.startsWith("/v1/news?mode="))){
+  const publicHeaders={...headers};delete publicHeaders.authorization;
+  response=await fetch(API_BASE+path,{...requestOptions,headers:publicHeaders});
+  if(response.ok)saveAuthDiagnostic({stage:"public_read_recovered_from_stale_session",path});
+ }
+ const payload=response.status===204?null:await response.json().catch(()=>({}));
+ if(!response.ok){const error=new Error(payload?.message||payload?.error||"Request failed ("+response.status+")");error.status=response.status;error.code=String(payload?.code||payload?.error||"unknown");if(path==="/v1/auth/me")saveAuthDiagnostic({stage:"auth_me_rejected",status:response.status,hasToken:!!token,code:error.code,message:String(payload?.message||payload?.error||"")});throw error}
+ if(path==="/v1/auth/me")saveAuthDiagnostic({stage:"auth_me_ok",status:response.status,hasToken:!!token});
+ return payload
+}
 async function uploadImage(file,purpose){if(!file)throw new Error("Pilih gambar dahulu.");const body=new FormData();body.append("file",file,file.name);body.append("purpose",purpose);const result=await apiRequest("/v1/media",{method:"POST",body});return result.media}
 async function uploadVideo(file){if(!file)throw new Error("Pilih video dahulu.");if(file.type!=="video/mp4")throw new Error("Pilih fail MP4 (H.264/AAC disyorkan untuk Safari).");if(file.size>50*1024*1024)throw new Error("Saiz video maksimum ialah 50 MB.");const body=new FormData();body.append("file",file,file.name);const result=await apiRequest("/v1/videos",{method:"POST",body});return result.video}
 function setAuthError(message){const node=document.getElementById("authError");if(node)node.textContent=message||""}
@@ -303,10 +320,37 @@ function openAuth(mode="login"){const layer=document.getElementById("authLayer")
 function closeAuth(){const layer=document.getElementById("authLayer");if(layer)layer.hidden=true}
 function syncAuthButton(){const button=document.getElementById("authButton");if(button)button.textContent=currentUser?"Log out":"Log in"}
 async function signOut(showMessage=true){await clearToken();currentUser=null;selectedProfileId=null;editingProfile=false;profileDraft={};followed.clear();followingFeedPosts=[];feedMode="for-you";active="home";profileTab="posts";notificationUnreadCount=0;closeAccountSettings();closeAuth();syncAuthButton();render();openAuth("login");if(showMessage)alert("You have been logged out. Please log in again to continue.")}
-async function restoreSession(){const token=await getToken();const remembered=readRememberedUser();if(!token){saveAuthDiagnostic({stage:"token_missing",cookiePresent:!!readTokenCookie(),localStoragePresent:(()=>{try{return !!localStorage.getItem(TOKEN_KEY)}catch{return false}})(),rememberedUserPresent:!!remembered});currentUser=null;syncAuthButton();return}if(remembered){currentUser=remembered;syncAuthButton()}try{const data=await apiRequest("/v1/auth/me");currentUser={...data.user,...data.profile};try{localStorage.setItem(USER_KEY,JSON.stringify(currentUser))}catch{}try{const renewed=await apiRequest("/v1/auth/remember",{method:"POST"});if(validAccessToken(renewed?.accessToken))await saveToken(renewed.accessToken)}catch(renewError){console.warn("Remembered session renewal deferred:",renewError)}try{const following=await apiRequest("/v1/users/me/following");followed=new Set((following.items||[]).map(item=>item.id))}catch(followError){console.warn("Following list restore deferred:",followError)}const id=data.user.id;let profile=accounts.find(a=>a.id===id);if(!profile){profile={id,handle:data.user.username,displayName:data.profile.displayName||data.user.username,avatarUrl:data.profile.avatarUrl||"",coverUrl:data.profile.coverUrl||"",bio:data.profile.bio||"",location:data.profile.location||"",website:data.profile.website||"",joined:"GomoGie",followers:0,following:0};accounts.unshift(profile)}else Object.assign(profile,{handle:data.user.username,displayName:data.profile.displayName||data.user.username,bio:data.profile.bio||"",location:data.profile.location||"",website:data.profile.website||"",avatarUrl:data.profile.avatarUrl||profile.avatarUrl,coverUrl:data.profile.coverUrl||profile.coverUrl});syncAuthButton()}catch(error){console.warn("Session verification failed; diagnostic retained:",error);if(!currentUser)currentUser=remembered;saveAuthDiagnostic({stage:error.status===401?"auth_rejected":"auth_check_failed",status:error.status||0,hasToken:true,rememberedUserPresent:!!remembered,code:error.code||"unknown",message:String(error.message||error)});syncAuthButton()}}
+async function restoreSession(){
+ const token=await getToken(),remembered=readRememberedUser();
+ if(!token){saveAuthDiagnostic({stage:"token_missing",cookiePresent:!!readTokenCookie(),localStoragePresent:(()=>{try{return !!localStorage.getItem(TOKEN_KEY)}catch{return false}})(),rememberedUserPresent:!!remembered});currentUser=null;syncAuthButton();return}
+ if(remembered){currentUser=remembered;syncAuthButton()}
+ try{
+  const data=await apiRequest("/v1/auth/me");
+  currentUser={...data.user,...data.profile};
+  try{localStorage.setItem(USER_KEY,JSON.stringify(currentUser))}catch{}
+  try{const renewed=await apiRequest("/v1/auth/remember",{method:"POST"});if(validAccessToken(renewed?.accessToken))await saveToken(renewed.accessToken)}catch(renewError){console.warn("Remembered session renewal deferred:",renewError)}
+  try{const following=await apiRequest("/v1/users/me/following");followed=new Set((following.items||[]).map(item=>item.id))}catch(followError){console.warn("Following list restore deferred:",followError)}
+  const id=data.user.id;let profile=accounts.find(a=>a.id===id);
+  if(!profile){profile={id,handle:data.user.username,displayName:data.profile.displayName||data.user.username,avatarUrl:data.profile.avatarUrl||"",coverUrl:data.profile.coverUrl||"",bio:data.profile.bio||"",location:data.profile.location||"",website:data.profile.website||"",joined:"GomoGie",followers:0,following:0};accounts.unshift(profile)}
+  else Object.assign(profile,{handle:data.user.username,displayName:data.profile.displayName||data.user.username,bio:data.profile.bio||"",location:data.profile.location||"",website:data.profile.website||"",avatarUrl:data.profile.avatarUrl||profile.avatarUrl,coverUrl:data.profile.coverUrl||profile.coverUrl});
+  syncAuthButton()
+ }catch(error){
+  console.warn("Session verification failed; diagnostic retained:",error);
+  if(error.status===401){
+   // Do not keep a cached identity looking signed in after the API rejects its token.
+   await clearToken();currentUser=null;followed.clear();followingFeedPosts=[];feedMode="for-you";
+   saveAuthDiagnostic({stage:"stale_session_cleared",status:401,code:error.code||"unauthorized",rememberedUserPresent:!!remembered});
+  }else{
+   if(!currentUser)currentUser=remembered;
+   saveAuthDiagnostic({stage:"auth_check_failed",status:error.status||0,hasToken:true,rememberedUserPresent:!!remembered,code:error.code||"unknown",message:String(error.message||error)});
+  }
+  syncAuthButton()
+ }
+}
 async function fetchPublicApiFeed(){
  const headers={accept:"application/json"},token=await getToken();if(token)headers.authorization="Bearer "+token;
- const response=await fetch(API_BASE+"/v1/feed?limit=30",{headers,cache:"no-store"});
+ let response=await fetch(API_BASE+"/v1/feed?limit=30",{headers,cache:"no-store"});
+ if(response.status===401&&token){const publicHeaders={accept:"application/json"};response=await fetch(API_BASE+"/v1/feed?limit=30",{headers:publicHeaders,cache:"no-store"});if(response.ok)saveAuthDiagnostic({stage:"public_feed_recovered_from_stale_session"})}
  if(!response.ok)throw new Error("Public API feed unavailable ("+response.status+")");
  const payload=await response.json();
  if(!Array.isArray(payload.items))throw new Error("Invalid API feed response");

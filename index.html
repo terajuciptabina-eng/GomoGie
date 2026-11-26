@@ -418,24 +418,27 @@ body.pull-releasing .top,body.pull-releasing .layout{transform:translate3d(0,0,0
 .post-actions button.liked{color:#e34d6f}
 @media(max-width:700px){
  .post-actions{
-  display:flex;
-  flex-wrap:nowrap;
+  display:grid;
+  grid-template-columns:.72fr 1.25fr 1.18fr .92fr .76fr .92fr;
   align-items:center;
-  justify-content:space-between;
-  gap:3px;
+  justify-content:stretch;
+  gap:2px;
   padding:8px 10px;
   overflow:visible;
  }
  .post-actions button{
-  flex:0 1 auto;
+  display:inline-flex;
+  flex:initial;
+  align-items:center;
   justify-content:center;
   gap:3px;
   min-width:0;
-  min-height:34px;
-  padding:3px 1px;
+  min-height:38px;
+  padding:3px 0;
   font-size:11.5px;
   line-height:1;
   letter-spacing:-.15px;
+  white-space:nowrap;
  }
 }
 </style>

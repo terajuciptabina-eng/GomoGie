@@ -1133,7 +1133,14 @@ async function route(request, env) {
     if(!requestRow||requestRow.recipient_id!==auth.sub||requestRow.status!=="pending")return json({error:"request_not_found"},404);
     const accept=friendRequestAction[2].toLowerCase()==="accept",now=new Date().toISOString();
     await env.DB.prepare("UPDATE friend_requests SET status=?,updated_at=? WHERE id=? AND recipient_id=? AND status='pending'").bind(accept?"accepted":"declined",now,requestRow.id,auth.sub).run();
-    if(accept){await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),requestRow.requester_id,auth.sub,"friend_accepted",requestRow.id,now).run();await notifyPushDevices(env,requestRow.requester_id,{id:requestRow.id,title:"Friend request accepted",body:"Your friend request was accepted."});}
+    if(accept){
+      try{
+        await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),requestRow.requester_id,auth.sub,"friend_accepted",requestRow.id,now).run();
+      }catch(error){console.error("Friend acceptance in-app notification failed",requestRow.id,error);}
+      try{
+        await notifyPushDevices(env,requestRow.requester_id,{id:requestRow.id,title:"Friend request accepted",body:"Your friend request was accepted."});
+      }catch(error){console.error("Friend acceptance push notification failed",requestRow.id,error);}
+    }
     return json({accepted:accept});
   }
   const friendRemove=path.match(/^\/v1\/friends\/([a-zA-Z0-9_]{3,24})$/);

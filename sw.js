@@ -1,5 +1,5 @@
 const CACHE_PREFIX="gomogie-shell-";
-const CACHE_NAME=CACHE_PREFIX+"v33";
+const CACHE_NAME=CACHE_PREFIX+"v34";
 const APP_SHELL=["./","./index.html","./manifest.webmanifest","./assets/brand/favicon.svg","./assets/brand/apple-touch-icon.png","./assets/brand/icon-192.png","./assets/brand/icon-512.png","./assets/brand/GomoGie-wordmark-transparent.svg","./assets/brand/brand-tokens.css","./data/demo-accounts.json","./data/demo-posts.json"];
 const scopedURL=path=>new URL(path,self.registration.scope).href;
 const normalizedDataURL=value=>{const clean=new URL(value);clean.search="";clean.hash="";return clean.href};

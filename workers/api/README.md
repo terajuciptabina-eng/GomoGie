@@ -103,3 +103,18 @@ A successful readiness response proves only that the Worker can query D1. It doe
 - Cloudflare Cron Trigger ingests the configured BERNAMA English RSS source every 15 minutes.
 - Additive D1 migration: `sql/0004_viral_news.sql`.
 - News cards are attributed and link to the publisher. The system stores only RSS headlines and short descriptions; it does not copy full articles or publisher images. Confirm publisher rights before public/commercial launch.
+
+
+## Account management (migration 0015)
+
+Apply `sql/0015_account_management.sql` to the existing `gomogie-db` D1 database before deploying the updated Worker.
+
+- `PUT /v1/account/username` — change username with current-password confirmation and uniqueness check.
+- `PUT /v1/account/password` — change password after verifying the current password.
+- `POST /v1/account/deactivate` — deactivate the account; a successful password login reactivates it.
+- `POST /v1/account/delete` — schedule deletion after 30 days; a successful password login during the recovery window cancels the request.
+- `PUT /v1/auth/me` now accepts `isPrivate` to update public/private profile visibility.
+
+The existing 15-minute Cron Trigger also processes due deletion requests. At the end of the recovery period the Worker removes the member's posts, comments, reactions, follows, notifications, sent messages, memberships, and uploaded media, then anonymises the remaining account identity so foreign-key relationships in other members' records are not broken.
+
+Email changes remain disabled until an email-verification delivery flow is configured. Password changes do not currently revoke other already-issued stateless JWTs; members should use Log out on shared devices. The settings UI does not claim device-by-device session management.

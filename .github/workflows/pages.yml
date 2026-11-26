@@ -82,6 +82,8 @@ jobs:
           worker = Path('sw.js').read_text()
           assert 'apple-touch-icon' in html
           assert 'navigator.serviceWorker.register("./sw.js"' in html
+          assert 'updateViaCache:"none"' in html, 'Service worker script must bypass intermediary HTTP cache'
+          assert 'appRegistration.update()' in html and 'visibilitychange' in html, 'App must check for updates when opened and resumed'
           expected = {
               'assets/brand/apple-touch-icon.png': 180,
               'assets/brand/icon-192.png': 192,
@@ -114,6 +116,19 @@ jobs:
         uses: actions/configure-pages@v5
         with:
           enablement: true
+      - name: Stamp a unique service-worker build revision
+        run: |
+          python - <<'PY'
+          import os, re
+          from pathlib import Path
+          path = Path('sw.js')
+          source = path.read_text()
+          revision = os.environ['GITHUB_RUN_ID'] + '-' + os.environ['GITHUB_RUN_ATTEMPT']
+          updated, count = re.subn(r'const CACHE_NAME=CACHE_PREFIX+"[^"]+";', 'const CACHE_NAME=CACHE_PREFIX+"build-' + revision + '";', source, count=1)
+          assert count == 1, 'Service worker cache revision declaration not found exactly once'
+          path.write_text(updated)
+          print('Stamped service worker build revision: ' + revision)
+          PY
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@v4
         with:

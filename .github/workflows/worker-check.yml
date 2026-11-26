@@ -51,7 +51,7 @@ jobs:
       - name: Smoke-test deployed Worker and storage dependencies
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
         run: |
-          response="$(curl --silent --show-error --fail --retry 5 --retry-delay 3 --retry-all-errors https://gomogie-api.terajuciptabina.workers.dev/v1/health)"
+          response="$(curl --silent --show-error --fail --connect-timeout 8 --max-time 20 --retry 2 --retry-delay 2 --retry-all-errors https://gomogie-api.terajuciptabina.workers.dev/v1/health)"
           echo "$response" | node -e '
             let raw = "";
             process.stdin.on("data", chunk => raw += chunk);
@@ -67,8 +67,8 @@ jobs:
               }
             });
           '
-          feed_status="$(curl --silent --show-error --retry 2 --retry-delay 2 -o /tmp/gomogie-feed.json -w '%{http_code}' 'https://gomogie-api.terajuciptabina.workers.dev/v1/feed?limit=1')"
-          news_status="$(curl --silent --show-error --retry 2 --retry-delay 2 -o /tmp/gomogie-news.json -w '%{http_code}' 'https://gomogie-api.terajuciptabina.workers.dev/v1/news?mode=for-you&limit=1')"
+          feed_status="$(curl --silent --show-error --connect-timeout 8 --max-time 20 --retry 2 --retry-delay 2 -o /tmp/gomogie-feed.json -w '%{http_code}' 'https://gomogie-api.terajuciptabina.workers.dev/v1/feed?limit=1')"
+          news_status="$(curl --silent --show-error --connect-timeout 8 --max-time 20 --retry 2 --retry-delay 2 -o /tmp/gomogie-news.json -w '%{http_code}' 'https://gomogie-api.terajuciptabina.workers.dev/v1/news?mode=for-you&limit=1')"
           if [ "$feed_status" = "200" ]; then
             FEED_JSON="$(cat /tmp/gomogie-feed.json)" node -e 'const x=JSON.parse(process.env.FEED_JSON);if(!Array.isArray(x.items))process.exit(1);console.log("Public feed items:",x.items.length)'
           else

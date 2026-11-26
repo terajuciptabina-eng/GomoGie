@@ -1162,7 +1162,15 @@ async function processAccountDeletionQueue(env) {
     try {
       const images = await env.DB.prepare("SELECT object_key FROM gomogie_media_assets WHERE owner_id=?").bind(userId).all();
       const videos = await env.DB.prepare("SELECT object_key FROM gomogie_video_assets WHERE owner_id=?").bind(userId).all();
-      if (env.MEDIA_BUCKET) for (const asset of [...(images.results || []), ...(videos.results || [])]) await env.MEDIA_BUCKET.delete(asset.object_key);
+      const mediaObjects = [...(images.results || []), ...(videos.results || [])];
+      // Fail closed: never erase D1 ownership records if R2 cannot be reached.
+      if (mediaObjects.length && !env.MEDIA_BUCKET) throw new Error("R2_MEDIA_BUCKET_UNAVAILABLE");
+      if (env.MEDIA_BUCKET) {
+        for (const asset of mediaObjects) {
+          if (!asset.object_key) throw new Error("R2_MEDIA_OBJECT_KEY_MISSING");
+          await env.MEDIA_BUCKET.delete(asset.object_key);
+        }
+      }
       await env.DB.batch([
         env.DB.prepare("DELETE FROM posts WHERE user_id=?").bind(userId),
         env.DB.prepare("DELETE FROM comments WHERE user_id=?").bind(userId),

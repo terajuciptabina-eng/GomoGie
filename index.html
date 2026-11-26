@@ -754,7 +754,8 @@ function dedupeViralNews(items){
  const seen=new Set();
  return ranked.filter(item=>{
   const url=String(item.canonical_url||"").trim().toLowerCase().replace(/[?#].*$/,"").replace(/\/$/,"");
-  const titleSource=[clean(item.title),clean(item.source_name)].filter(Boolean).join("|");\n  const key=titleSource||url;
+  const titleSource=[clean(item.title),clean(item.source_name)].filter(Boolean).join("|");
+  const key=titleSource||url;
   if(!key||seen.has(key))return false;
   seen.add(key);return true;
  });

@@ -250,6 +250,13 @@ body.pull-releasing .top,body.pull-releasing .layout{transform:translate3d(0,0,0
 .viral-news-reader-bottom button:focus-visible{outline:2px solid #00ae9c;outline-offset:3px;border-radius:4px}
 .viral-news-reader summary:focus-visible{outline:2px solid #00ae9c;outline-offset:3px;border-radius:4px}
 
+/* Watch feed sizing fix: slides must fill the available mobile viewport */
+.watch-stream{display:block;width:100%;max-width:100%;box-sizing:border-box}
+.watch-slide{display:block;width:100%;max-width:100%;box-sizing:border-box;aspect-ratio:auto}
+.watch-publisher-frame{width:100%;height:100%;box-sizing:border-box}
+.watch-publisher-frame iframe{width:100%;height:100%;max-width:100%;box-sizing:border-box}
+.watch-video{width:100%;height:100%;max-width:100%;object-fit:contain;background:#050505}
+@media(max-width:700px){.watch-stream{width:100%;max-width:100%;margin-left:0;margin-right:0}.watch-slide{width:100%;max-width:100%;aspect-ratio:auto}}
 </style>
 </head>
 <body>

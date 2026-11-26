@@ -264,7 +264,7 @@ let viralNewsItems=[],viralNewsGlobalItems=[],viralNewsArchiveItems=[],viralVide
 let accounts=[],posts=[],followingFeedPosts=[],feedMode="for-you",active="home",watchMode="for-you",watchAudioUnlocked=false,liked=new Set(),followed=new Set(),selectedProfileId=null,profileTab="posts",editingProfile=false,profileDraft={},savedPosts=new Set(),localPendingPosts=[],composerImageFile=null,composerImagePreview="",composerVideoFile=null,composerVideoPreview="",composerPollOpen=false,searchQuery="";
 const view=document.getElementById("view");
 const API_BASE="https://gomogie-api.terajuciptabina.workers.dev";
-let currentUser=null;
+let currentUser=null,backendDegraded=false;
 const TOKEN_KEY="gomogie-access-token";
 const USER_KEY="gomogie-remembered-user";
 function validAccessToken(value){return typeof value==="string"&&value.split(".").length===3&&value.length>80}
@@ -352,9 +352,14 @@ async function fetchPublicApiFeed(){
  const headers={accept:"application/json"},token=await getToken();if(token)headers.authorization="Bearer "+token;
  let response=await fetch(API_BASE+"/v1/feed?limit=30",{headers,cache:"no-store"});
  if(response.status===401&&token){const publicHeaders={accept:"application/json"};response=await fetch(API_BASE+"/v1/feed?limit=30",{headers:publicHeaders,cache:"no-store"});if(response.ok)saveAuthDiagnostic({stage:"public_feed_recovered_from_stale_session"})}
- if(!response.ok)throw new Error("Public API feed unavailable ("+response.status+")");
+ if(!response.ok){
+  const payload=await response.json().catch(()=>({}));
+  backendDegraded=String(payload.error||"").startsWith("d1_daily_");
+  throw new Error(payload.message||"Public API feed unavailable ("+response.status+")");
+ }
  const payload=await response.json();
  if(!Array.isArray(payload.items))throw new Error("Invalid API feed response");
+ backendDegraded=false;
  return payload.items;
 }
 async function fetchFollowingApiFeed(){
@@ -436,6 +441,7 @@ async function loadViralNews(){
   }));
  }catch(error){
   console.warn("Viral News unavailable; restoring last successful news snapshot:",error);
+  if(/had bacaan harian D1|daily row read limit/i.test(String(error.message||"")))backendDegraded=true;
   let cached=null;try{cached=await localGet("last-live-news")}catch(cacheError){console.warn("News cache unavailable:",cacheError)}
   if(cached&&Date.now()-Number(cached.savedAt||0)<7*24*60*60*1000){
    viralNewsItems=Array.isArray(cached.personal)?cached.personal:[];
@@ -907,7 +913,7 @@ function openLocalDB(){return new Promise((resolve,reject)=>{if(!("indexedDB" in
 async function localGet(key){const db=await openLocalDB();return new Promise((resolve,reject)=>{const tx=db.transaction("cache","readonly"),r=tx.objectStore("cache").get(key);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);tx.oncomplete=()=>db.close()})}
 async function localSet(key,value){const db=await openLocalDB();return new Promise((resolve,reject)=>{const tx=db.transaction("cache","readwrite");tx.objectStore("cache").put(value,key);tx.oncomplete=()=>{db.close();resolve()};tx.onerror=()=>{db.close();reject(tx.error)}})}
 async function saveLocalPendingPosts(){try{await localSet("pending-posts",localPendingPosts)}catch(e){console.warn("Pending post cache unavailable",e)}}
-function updateConnectionState(){const n=document.getElementById("connectionNotice");if(n){n.classList.toggle("visible",!navigator.onLine);n.textContent="You are offline. Showing your last loaded feed; publishing and messaging are unavailable."}}
+function updateConnectionState(){const n=document.getElementById("connectionNotice");if(n){const offline=!navigator.onLine;n.classList.toggle("visible",offline||backendDegraded);n.textContent=offline?"You are offline. Showing your last loaded feed; publishing and messaging are unavailable.":backendDegraded?"GomoGie data is temporarily limited by the database daily quota. Showing previously cached content where available; your saved data is safe.":""}}
 window.addEventListener("online",updateConnectionState);window.addEventListener("offline",updateConnectionState);
 // R2 can fail transiently during regional incidents. Retry media reads before showing a placeholder.
 document.addEventListener("error",event=>{

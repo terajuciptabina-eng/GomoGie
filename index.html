@@ -790,15 +790,21 @@ body{background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;te
 }
 
 
-/* Watch and Pulse — keep editorial labels readable on narrow screens */
-.viral-news-meta{row-gap:7px;column-gap:7px}
-.viral-news-trending{display:inline-flex;align-items:center;white-space:nowrap;padding:3px 7px;border-radius:999px;background:#fff4e5;font-size:10px;line-height:1.25}
-.viral-news-language{white-space:nowrap}
-.watch-discovery .viral-news-card{margin:0;padding:13px}
-.watch-discovery .viral-news-video{margin-bottom:10px}
+
+/* Editorial metadata: keep status labels together as one compact group */
+.viral-news-meta{align-items:center;row-gap:7px}
+.viral-news-flags{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;white-space:nowrap}
+.viral-news-flags:empty{display:none}
+.viral-news-trending{white-space:nowrap;flex:0 0 auto}
+.watch-page{padding-bottom:calc(110px + env(safe-area-inset-bottom))}
+.pulse-page{padding-bottom:calc(110px + env(safe-area-inset-bottom))}
+.watch-discovery .viral-news-video{aspect-ratio:16/9}
+.watch-discovery .viral-news-card{min-width:0}
+.watch-discovery .viral-news-title{overflow-wrap:anywhere}
 @media(max-width:600px){
- .watch-discovery .viral-news-card{padding:11px}
- .watch-discovery .viral-news-title{font-size:16px;line-height:1.35}
+ .viral-news-meta{column-gap:6px}
+ .viral-news-flags{gap:5px}
+ .watch-discovery .viral-news-card{margin-bottom:2px}
 }
 
 </style>
@@ -1119,7 +1125,7 @@ function viralNewsCard(item){
  const readIds=getReadNewsIds(),alreadyRead=readIds.has(String(item.id));
  const readingMinutes=Math.max(1,Math.ceil((story||summaryText).split(/\\s+/).filter(Boolean).length/200));
  const reader=hasDistinctFullStory&&!isPlayableVideo?'<details class="viral-news-reader"><summary>'+"Read full article"+(alreadyRead?'<span class="viral-news-read-label">✓ Read</span>':'')+'</summary><div class="viral-news-reader-body"><div class="viral-news-reader-progress" aria-hidden="true"><span></span></div><div class="viral-news-reader-tools"><small>◷ '+readingMinutes+' min '+"read"+'</small><div class="viral-news-reader-font"><button type="button" data-reader-font="minus" aria-label="Decrease text size">A−</button><button type="button" data-reader-font="plus" aria-label="Increase text size">A+</button></div></div><div class="viral-news-reader-copy">'+paragraphs.map(paragraph=>'<p>'+esc(paragraph)+'</p>').join("")+'</div><div class="viral-news-reader-bottom"><button type="button" data-reader-close>'+"Close article"+'</button></div></div></details>':"";
- return '<article class="viral-news-card" data-news-id="'+esc(item.id)+'">'+(video||image)+'<div class="viral-news-meta"><span class="viral-news-brand">GomoGie News</span><span>'+esc(item.source_name||"News source")+'</span>'+(item.language==="ms"?'<span class="viral-news-language">Malay</span>':item.language==="en"?'<span class="viral-news-language">English</span>':'')+'<span>· '+esc(categoryLabel)+'</span>'+(item.region_code!=="MY"?'<span>· '+esc(region)+'</span>':'')+(ageHours>=0&&ageHours<=24?'<span class="viral-news-trending">'+"Latest"+'</span>':'')+(Number(item.trendScore)>=5?'<span class="viral-news-trending">Trending</span>':'')+'</div><h4 class="viral-news-title">'+esc(cleanNewsText(item.title))+'</h4>'+(cardSummary?'<p class="viral-news-card-summary">'+esc(cardSummary)+'</p>':'')+reader+'<div class="viral-news-foot"><span>'+esc(date||"Latest")+'</span><a href="'+esc(item.canonical_url)+'" target="_blank" rel="noopener noreferrer nofollow">'+"Original source: "+esc(item.source_name||"source")+' ↗</a></div></article>';
+ return '<article class="viral-news-card" data-news-id="'+esc(item.id)+'">'+(video||image)+'<div class="viral-news-meta"><span class="viral-news-brand">GomoGie News</span><span>'+esc(item.source_name||"News source")+'</span>'+(item.language==="ms"?'<span class="viral-news-language">Malay</span>':item.language==="en"?'<span class="viral-news-language">English</span>':'')+'<span>· '+esc(categoryLabel)+'</span>'+(item.region_code!=="MY"?'<span>· '+esc(region)+'</span>':'')+'<span class="viral-news-flags">'+(ageHours>=0&&ageHours<=24?'<span class="viral-news-trending">'+"Latest"+'</span>':'')+(Number(item.trendScore)>=5?'<span class="viral-news-trending">Trending</span>':'')+'</span></div><h4 class="viral-news-title">'+esc(cleanNewsText(item.title))+'</h4>'+(cardSummary?'<p class="viral-news-card-summary">'+esc(cardSummary)+'</p>':'')+reader+'<div class="viral-news-foot"><span>'+esc(date||"Latest")+'</span><a href="'+esc(item.canonical_url)+'" target="_blank" rel="noopener noreferrer nofollow">'+"Original source: "+esc(item.source_name||"source")+' ↗</a></div></article>';
 }
 
 function dedupeViralNews(items){

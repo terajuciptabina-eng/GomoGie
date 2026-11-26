@@ -1489,7 +1489,7 @@ async function searchPublicMusic(term="",genre="all",append=false){
     const meta=await mr.json(),md=meta.metadata||{};
     const rawLicense=md.licenseurl||d.licenseurl||"";
     const lic=String(Array.isArray(rawLicense)?rawLicense.join(" "):rawLicense).toLowerCase();
-    const allowed=(/creativecommons\.org\/licenses\/by(?:-sa)?\//.test(lic)||/creativecommons\.org\/publicdomain\/(?:zero|mark)\//.test(lic))&&!/by-nc|by-nd/.test(lic);
+    const allowed=(/creativecommons\.org\/licenses\/by(?:-sa)?\//.test(lic)||/creativecommons\.org\/publicdomain\/(?:zero|mark)\//.test(lic))&&!/by-nc/.test(lic);
     if(!allowed)return null;
     const playable=/\.(mp3|m4a|mp4|aac|wav|ogg|opus)$/i;
     const files=(meta.files||[]).filter(f=>f.name&&playable.test(f.name)&&(!f.size||Number(f.size)>0)&&!f.name.includes("__ia_thumb"));

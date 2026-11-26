@@ -429,11 +429,23 @@ async function loadViralNews(){
   viralNewsGlobalItems=Array.isArray(global.items)?global.items:[];
   viralNewsArchiveItems=Array.isArray(archive.items)?archive.items:[];
   viralVideoItems=Array.isArray(videos.items)?videos.items:[];
+  try{await localSet("last-live-news",{personal:viralNewsItems,global:viralNewsGlobalItems,archive:viralNewsArchiveItems,videos:viralVideoItems,savedAt:Date.now()})}catch(error){console.warn("News cache save deferred:",error)}
   const imageTargets=[...new Map([...viralNewsItems,...viralNewsGlobalItems,...viralNewsArchiveItems].map(item=>[item.canonical_url,item])).values()].slice(0,18);
   await Promise.all(imageTargets.map(async item=>{
    try{const preview=await apiRequest("/v1/link-preview?url="+encodeURIComponent(item.canonical_url));if(!item.image_url&&preview?.image&&(preview.image.startsWith("https://")||preview.image.startsWith("http://")))item.image_url=preview.image;}catch(error){console.debug("News image preview unavailable",error)}
   }));
- }catch(error){console.warn("Viral News unavailable:",error);viralNewsItems=[];viralNewsGlobalItems=[];viralNewsArchiveItems=[];viralVideoItems=[]}
+ }catch(error){
+  console.warn("Viral News unavailable; restoring last successful news snapshot:",error);
+  let cached=null;try{cached=await localGet("last-live-news")}catch(cacheError){console.warn("News cache unavailable:",cacheError)}
+  if(cached&&Date.now()-Number(cached.savedAt||0)<7*24*60*60*1000){
+   viralNewsItems=Array.isArray(cached.personal)?cached.personal:[];
+   viralNewsGlobalItems=Array.isArray(cached.global)?cached.global:[];
+   viralNewsArchiveItems=Array.isArray(cached.archive)?cached.archive:[];
+   viralVideoItems=Array.isArray(cached.videos)?cached.videos:[];
+  }else{
+   viralNewsItems=[];viralNewsGlobalItems=[];viralNewsArchiveItems=[];viralVideoItems=[];
+  }
+ }
 }
 const NEWS_READ_STORAGE_KEY="gomogie.news.read.v1";
 function getReadNewsIds(){try{return new Set(JSON.parse(localStorage.getItem(NEWS_READ_STORAGE_KEY)||"[]"))}catch{return new Set()}}
@@ -549,7 +561,7 @@ function watch(){
 }
 let activeCommunitySlug=null,communityCache=[];
 function communities(){
- if(!currentUser){view.innerHTML='<h2 class="section-title">Communities</h2><div class="empty">Log in to discover, join and create communities.</div>';return}
+ if(!currentUser){view.innerHTML='<h2 class="section-title">Communities</h2><div class="empty">Your session has ended. Log in again to discover, join and create communities.<p><button class="primary" id="communityLoginButton" type="button">Log in</button></p></div>';document.getElementById("communityLoginButton").onclick=()=>openAuth("login");return}
  view.innerHTML='<div class="community-head"><div><h2 class="section-title">Communities</h2><p class="pulse-intro">Find your people. Build a space around what matters to you.</p></div><button class="primary" id="createCommunityOpen">＋ Create community</button></div><form id="communitySearchForm" class="community-search"><input name="q" maxlength="80" placeholder="Search communities…"><button class="soft" type="submit">Search</button></form><div id="communityStatus" class="community-status" aria-live="polite"></div><div id="communityGrid" class="community-demo-grid"><div class="empty">Loading communities…</div></div><section class="panel" id="communityCreatePanel" hidden><h3>Create a community</h3><form id="communityCreateForm" class="community-form"><label>Community name<input name="name" maxlength="60" required placeholder="e.g. Malaysian Photography"></label><label>Description<textarea name="description" maxlength="500" rows="3" placeholder="What is this community about?"></textarea></label><label>Privacy<select name="visibility"><option value="public">Public — anyone can discover and join</option><option value="approval">Approval required — requests need approval</option><option value="private">Private — members only</option></select></label><div class="community-form-actions"><button class="primary" type="submit">Create</button><button class="soft" type="button" id="communityCreateCancel">Cancel</button></div></form></section><section id="communityDetail"></section>';
  const panel=document.getElementById("communityCreatePanel");
  document.getElementById("createCommunityOpen").onclick=()=>{panel.hidden=!panel.hidden};
@@ -897,6 +909,33 @@ async function localSet(key,value){const db=await openLocalDB();return new Promi
 async function saveLocalPendingPosts(){try{await localSet("pending-posts",localPendingPosts)}catch(e){console.warn("Pending post cache unavailable",e)}}
 function updateConnectionState(){const n=document.getElementById("connectionNotice");if(n){n.classList.toggle("visible",!navigator.onLine);n.textContent="You are offline. Showing your last loaded feed; publishing and messaging are unavailable."}}
 window.addEventListener("online",updateConnectionState);window.addEventListener("offline",updateConnectionState);
+// R2 can fail transiently during regional incidents. Retry media reads before showing a placeholder.
+document.addEventListener("error",event=>{
+ const element=event.target;
+ if(!(element instanceof HTMLImageElement||element instanceof HTMLVideoElement))return;
+ const source=element.currentSrc||element.src||"";
+ if(!source.startsWith(API_BASE+"/v1/media/")&&!source.startsWith(API_BASE+"/v1/videos/"))return;
+ const retries=Number(element.dataset.gomogieMediaRetries||0);
+ if(retries<2){
+  element.dataset.gomogieMediaRetries=String(retries+1);
+  setTimeout(()=>{
+   try{
+    const retryUrl=new URL(source);retryUrl.searchParams.set("gomogie_retry",String(retries+1));
+    if(element instanceof HTMLVideoElement){element.src=retryUrl.href;element.load()}
+    else element.src=retryUrl.href;
+   }catch{}
+  },700*(retries+1));
+  return;
+ }
+ element.classList.add("media-unavailable");
+ if(element instanceof HTMLImageElement){
+  const avatar=element.classList.contains("avatar")||element.classList.contains("profile-avatar");
+  element.src=avatar
+   ?"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Crect width='120' height='120' fill='%23e7edef'/%3E%3Ccircle cx='60' cy='43' r='22' fill='%2393a4aa'/%3E%3Cpath d='M18 120c3-28 20-43 42-43s39 15 42 43' fill='%2393a4aa'/%3E%3C/svg%3E"
+   :"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 180'%3E%3Crect width='320' height='180' fill='%23e7edef'/%3E%3Crect x='128' y='55' width='64' height='64' rx='10' fill='none' stroke='%2393a4aa' stroke-width='6'/%3E%3Ccircle cx='148' cy='75' r='7' fill='%2393a4aa'/%3E%3Cpath d='m134 109 20-20 14 13 10-9 9 16' fill='none' stroke='%2393a4aa' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E";
+ }
+},{capture:true});
+
 async function loadGomoGieData(){
  accounts=[];posts=[];localPendingPosts=[];
  let liveAccounts=[],livePosts=[];

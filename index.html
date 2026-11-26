@@ -436,7 +436,7 @@ function pulse(){
 function watch(){
  const readVideoNewsIds=getReadNewsIds();
  const videoDiscoveryItems=[...new Map([...viralNewsItems,...viralNewsGlobalItems].filter(item=>item&&(item.content_type==="video"||!!item.embed_url)&&!readVideoNewsIds.has(String(item.id))).map(item=>[String(item.id),item])).values()];
- const videoDiscovery=watchMode==="for-you"&&videoDiscoveryItems.length?'<section class="watch-discovery"><div class="viral-news-heading"><div><span class="viral-news-kicker">CONTENT DISCOVERY</span><h3>▶ Video discovery</h3></div><button type="button" data-open-news="pulse">See all</button></div>'+videoDiscoveryItems.map(viralNewsCard).join("")+'</section>':"";
+ const videoDiscovery=watchMode==="for-you"&&videoDiscoveryItems.length?'<section class="watch-discovery"><div class="viral-news-heading"><div><span class="viral-news-kicker">CONTENT DISCOVERY</span><h3>▶ Video untuk anda</h3><p class="pulse-intro">Terus tonton video daripada penerbit dan pencipta kandungan.</p></div></div>'+videoDiscoveryItems.map(viralNewsCard).join("")+'</section>':"";
  const seenMedia=new Set();
  const vids=posts.filter(p=>p.type==="video"&&!p.isWatchDuplicate&&(watchMode==="for-you"||followed.has(p.authorId))&&p.mediaUrl&&!seenMedia.has(p.mediaUrl)&&seenMedia.add(p.mediaUrl));
  const safePoster="https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg?auto=compress&cs=tinysrgb&w=1200";

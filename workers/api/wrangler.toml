@@ -1,8 +1,6 @@
 name = "gomogie-api"
 main = "src/index.js"
 compatibility_date = "2026-11-25"
-migrations_dir = "sql"
-
 [[r2_buckets]]
 binding = "MEDIA_BUCKET"
 bucket_name = "gomogie-media"
@@ -11,6 +9,7 @@ bucket_name = "gomogie-media"
 binding = "DB"
 database_name = "gomogie-db"
 database_id = "83f2911c-59e7-42aa-8e60-2c2db361cff1"
+migrations_dir = "sql"
 
 [vars]
 APP_ENV = "production"

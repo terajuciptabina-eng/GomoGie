@@ -465,7 +465,7 @@ async function route(request, env) {
   const newsPreferencesRequest = path === "/v1/news/preferences";
   const communityRequest = path === "/v1/communities" || path.startsWith("/v1/communities/");
   const publicRelationshipRead = method === "GET" && /^\/v1\/users\/[a-zA-Z0-9_]{3,24}\/(relationships|followers|following)$/.test(path);
-  const needsAuth = !publicRelationshipRead && (communityRequest || newsPreferencesRequest || followingFeedRequest || optionalFeedAuth || optionalNewsAuth || path === "/v1/auth/me" || (path === "/v1/auth/remember" && method === "POST") || ((path.startsWith("/v1/posts") && !publicCommentsRead) || path.startsWith("/v1/saved")) || (path.startsWith("/v1/media") && !publicMediaRead) || (path.startsWith("/v1/videos") && !publicVideoRead) || path.startsWith("/v1/users/") || path.startsWith("/v1/account/") || path.startsWith("/v1/notifications") || (path.startsWith("/v1/push/") && !(path === "/v1/push/public-key" && method === "GET")) || path.startsWith("/v1/conversations"));
+  const needsAuth = !publicRelationshipRead && (communityRequest || newsPreferencesRequest || followingFeedRequest || optionalFeedAuth || optionalNewsAuth || path === "/v1/auth/me" || (path === "/v1/auth/remember" && method === "POST") || ((path.startsWith("/v1/posts") && !publicCommentsRead) || path.startsWith("/v1/saved")) || (path.startsWith("/v1/media") && !publicMediaRead) || (path.startsWith("/v1/videos") && !publicVideoRead) || path.startsWith("/v1/users/") || path.startsWith("/v1/account/") || path.startsWith("/v1/notifications") || (path.startsWith("/v1/push/") && !(path === "/v1/push/public-key" && method === "GET")) || path.startsWith("/v1/conversations") || path === "/v1/friends" || path === "/v1/friend-requests");
   const authDiagnostic = {};
   const auth = needsAuth ? await authenticate(request, env, authDiagnostic) : null;
   if (needsAuth && !auth) return json({ error: "unauthorized", code: authDiagnostic.reason || "authentication_failed", message: "Sesi tidak dapat disahkan." }, 401);
@@ -1089,6 +1089,57 @@ async function route(request, env) {
       await notifyPushDevices(env,recipientId,{id:commentMatch[1],title:"New reply on GomoGie",body:"Someone replied to a post you’re part of."});
     }
     return json({ comment: { id, postId: commentMatch[1], userId: auth.sub, parentId: parent?.id || null, content: input.content.trim(), createdAt: now } }, 201);
+  }
+
+  // Friends are explicit two-way relationships; follows remain independent one-way relationships.
+  if (path === "/v1/users/search" && method === "GET") {
+    const q=(url.searchParams.get("q")||"").trim().replace(/^@/,"").slice(0,24);
+    if(q.length<2)return json({items:[]});
+    const rows=await env.DB.prepare("SELECT u.id,u.username,p.display_name,p.avatar_url FROM users u LEFT JOIN profiles p ON p.user_id=u.id WHERE u.status='active' AND u.id<>? AND (u.username LIKE ? OR p.display_name LIKE ?) ORDER BY CASE WHEN u.username=? COLLATE NOCASE THEN 0 ELSE 1 END,u.username LIMIT 20").bind(auth.sub,"%"+q+"%","%"+q+"%",q).all();
+    return json({items:(rows.results||[]).map(x=>({id:x.id,username:x.username,displayName:x.display_name||x.username,avatarUrl:x.avatar_url||""}))});
+  }
+  if (path === "/v1/friends" && method === "GET") {
+    const rows=await env.DB.prepare("SELECT u.id,u.username,p.display_name,p.avatar_url,fr.created_at AS since FROM friend_requests fr JOIN users u ON u.id=CASE WHEN fr.requester_id=? THEN fr.recipient_id ELSE fr.requester_id END LEFT JOIN profiles p ON p.user_id=u.id WHERE fr.status='accepted' AND (fr.requester_id=? OR fr.recipient_id=?) AND u.status='active' ORDER BY fr.updated_at DESC LIMIT 500").bind(auth.sub,auth.sub,auth.sub).all();
+    return json({items:(rows.results||[]).map(x=>({id:x.id,username:x.username,displayName:x.display_name||x.username,avatarUrl:x.avatar_url||"",since:x.since}))});
+  }
+  if (path === "/v1/friend-requests" && method === "GET") {
+    const rows=await env.DB.prepare("SELECT fr.id,fr.requester_id,fr.recipient_id,fr.created_at,u.username,p.display_name,p.avatar_url FROM friend_requests fr JOIN users u ON u.id=CASE WHEN fr.recipient_id=? THEN fr.requester_id ELSE fr.recipient_id END LEFT JOIN profiles p ON p.user_id=u.id WHERE fr.status='pending' AND (fr.recipient_id=? OR fr.requester_id=?) AND u.status='active' ORDER BY fr.created_at DESC LIMIT 100").bind(auth.sub,auth.sub,auth.sub).all();
+    return json({items:(rows.results||[]).map(x=>({id:x.id,direction:x.recipient_id===auth.sub?"incoming":"outgoing",createdAt:x.created_at,person:{id:x.requester_id===auth.sub?x.recipient_id:x.requester_id,username:x.username,displayName:x.display_name||x.username,avatarUrl:x.avatar_url||""}}))});
+  }
+  const friendRequestMatch=path.match(/^\/v1\/users\/([a-zA-Z0-9_]{3,24})\/friend-request$/);
+  if(friendRequestMatch&&method==="POST"){
+    const target=await env.DB.prepare("SELECT id,username FROM users WHERE username=? COLLATE NOCASE AND status='active'").bind(friendRequestMatch[1]).first();
+    if(!target)return json({error:"user_not_found",message:"Pengguna tidak ditemui."},404);
+    if(target.id===auth.sub)return json({error:"cannot_friend_self"},400);
+    const pair=await env.DB.prepare("SELECT id,status,requester_id,recipient_id FROM friend_requests WHERE (requester_id=? AND recipient_id=?) OR (requester_id=? AND recipient_id=?) LIMIT 1").bind(auth.sub,target.id,target.id,auth.sub).first();
+    if(pair?.status==="accepted")return json({friend:true,alreadyFriends:true});
+    const now=new Date().toISOString();
+    if(pair?.status==="pending"&&pair.recipient_id===auth.sub){
+      await env.DB.prepare("UPDATE friend_requests SET status='accepted',updated_at=? WHERE id=?").bind(now,pair.id).run();
+      return json({friend:true,accepted:true});
+    }
+    if(pair?.status==="pending")return json({requestSent:true,pending:true});
+    const id=uuid();
+    await env.DB.prepare("INSERT INTO friend_requests (id,requester_id,recipient_id,status,created_at,updated_at) VALUES (?,?,?,'pending',?,?) ON CONFLICT(requester_id,recipient_id) DO UPDATE SET status='pending',created_at=excluded.created_at,updated_at=excluded.updated_at").bind(id,auth.sub,target.id,now,now).run();
+    await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),target.id,auth.sub,"friend_request",id,now).run();
+    await notifyPushDevices(env,target.id,{id,title:"New friend request",body:"Someone sent you a friend request on GomoGie."});
+    return json({requestSent:true,status:"pending"},201);
+  }
+  const friendRequestAction=path.match(/^\/v1\/friend-requests\/([0-9a-f-]+)\/(accept|decline)$/i);
+  if(friendRequestAction&&method==="POST"){
+    const requestRow=await env.DB.prepare("SELECT id,requester_id,recipient_id,status FROM friend_requests WHERE id=?").bind(friendRequestAction[1]).first();
+    if(!requestRow||requestRow.recipient_id!==auth.sub||requestRow.status!=="pending")return json({error:"request_not_found"},404);
+    const accept=friendRequestAction[2].toLowerCase()==="accept",now=new Date().toISOString();
+    await env.DB.prepare("UPDATE friend_requests SET status=?,updated_at=? WHERE id=? AND recipient_id=? AND status='pending'").bind(accept?"accepted":"declined",now,requestRow.id,auth.sub).run();
+    if(accept){await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),requestRow.requester_id,auth.sub,"friend_accepted",requestRow.id,now).run();await notifyPushDevices(env,requestRow.requester_id,{id:requestRow.id,title:"Friend request accepted",body:"Your friend request was accepted."});}
+    return json({accepted:accept});
+  }
+  const friendRemove=path.match(/^\/v1\/friends\/([a-zA-Z0-9_]{3,24})$/);
+  if(friendRemove&&method==="DELETE"){
+    const target=await env.DB.prepare("SELECT id FROM users WHERE username=? COLLATE NOCASE AND status='active'").bind(friendRemove[1]).first();
+    if(!target)return json({error:"user_not_found"},404);
+    await env.DB.prepare("DELETE FROM friend_requests WHERE status='accepted' AND ((requester_id=? AND recipient_id=?) OR (requester_id=? AND recipient_id=?))").bind(auth.sub,target.id,target.id,auth.sub).run();
+    return json({friend:false});
   }
 
   if (path === "/v1/users/me/following" && method === "GET") {

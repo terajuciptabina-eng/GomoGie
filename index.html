@@ -1066,6 +1066,19 @@ function profile(){
  const statsTarget=accounts.find(x=>x.id===a.id);
  const loadRelationships=async()=>{try{const data=await apiRequest("/v1/users/"+encodeURIComponent(a.handle)+"/relationships");const fc=document.getElementById("profileFollowerCount"),gc=document.getElementById("profileFollowingCount"),frc=document.getElementById("profileFriendCount");if(fc)fc.textContent=String(data.followers);if(gc)gc.textContent=String(data.following);if(frc)frc.textContent=String(data.friends||0);if(statsTarget){statsTarget.followers=data.followers;statsTarget.following=data.following;statsTarget.friends=data.friends||0}}catch(error){console.warn("Profile relationship counts unavailable:",error)}};
  loadRelationships();
+ const profileFriendButton=view.querySelector("[data-profile-friend]");
+ if(profileFriendButton&&currentUser){
+  Promise.all([apiRequest("/v1/friends"),apiRequest("/v1/friend-requests")]).then(([friendsData,requestsData])=>{
+   if(!profileFriendButton.isConnected)return;
+   const username=String(a.handle||"").toLowerCase();
+   const isFriend=(friendsData.items||[]).some(item=>String(item.username||"").toLowerCase()===username);
+   const pending=(requestsData.items||[]).find(item=>String(item.person?.username||"").toLowerCase()===username);
+   if(isFriend){profileFriendButton.textContent="Friends";profileFriendButton.disabled=true;profileFriendButton.dataset.relationshipState="friends"}
+   else if(pending?.direction==="outgoing"){profileFriendButton.textContent="Request sent";profileFriendButton.disabled=true;profileFriendButton.dataset.relationshipState="pending"}
+   else if(pending?.direction==="incoming"){profileFriendButton.textContent="Accept request";profileFriendButton.disabled=false;profileFriendButton.dataset.relationshipState="incoming"}
+   else{profileFriendButton.textContent="Add friend";profileFriendButton.disabled=false;profileFriendButton.dataset.relationshipState="none"}
+  }).catch(error=>console.warn("Profile friend status unavailable:",error));
+ }
  view.querySelectorAll("[data-relationship-list]").forEach(button=>button.onclick=async()=>{const kind=button.dataset.relationshipList;button.disabled=true;try{const data=await apiRequest("/v1/users/"+encodeURIComponent(a.handle)+"/"+kind),items=data.items||[];const layer=document.createElement("div");layer.className="relationship-layer";layer.innerHTML='<section class="relationship-dialog" role="dialog" aria-modal="true"><header><strong>'+(kind==="friends"?"Friends":kind==="followers"?"Followers":"Following")+'</strong><button type="button" class="relationship-close" aria-label="Close">×</button></header><div class="relationship-list">'+(items.length?items.map(item=>'<button type="button" class="relationship-person" data-relationship-user="'+esc(item.id)+'"><img src="'+esc(item.avatarUrl||"")+'" alt=""><span><strong>'+esc(item.displayName||item.username)+'</strong><small>@'+esc(item.username)+'</small></span><span class="relationship-arrow">›</span></button>').join(""):'<p class="relationship-empty">No '+kind+' yet.</p>')+'</div></section>';document.body.appendChild(layer);const close=()=>layer.remove();layer.querySelector(".relationship-close").onclick=close;layer.onclick=e=>{if(e.target===layer)close()};layer.querySelectorAll("[data-relationship-user]").forEach(row=>row.onclick=()=>{const id=row.dataset.relationshipUser,item=items.find(x=>x.id===id);close();if(item&&!accounts.some(x=>x.id===id))accounts.push({id,handle:item.username,displayName:item.displayName||item.username,avatarUrl:item.avatarUrl||"",coverUrl:"",bio:"",location:"",website:"",joined:"GomoGie",followers:0,following:0,isSynthetic:false});selectedProfileId=id;profileTab="posts";editingProfile=false;active="profile";render()})}catch(error){alert(error.message||"Unable to load list")}finally{button.disabled=false}});
 }
  

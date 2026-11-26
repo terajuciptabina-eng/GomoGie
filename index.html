@@ -543,6 +543,30 @@ body.pull-releasing .top,body.pull-releasing .layout{transform:translate3d(0,0,0
  <details class="settings-detail settings-danger-detail"><summary>Delete account</summary><form id="deleteSettingsForm"><p>Deletion is scheduled after a 30-day recovery period. Sign in again during that period to cancel. At the end of the period, your profile and personal account data are anonymised and your posts, comments, reactions, follows, messages and uploaded media are removed.</p><label>Type DELETE to confirm<input name="confirmation" autocomplete="off" required></label><label>Current password<input name="password" type="password" autocomplete="current-password" required></label><button type="submit" class="settings-danger-button">Schedule account deletion</button><p class="settings-form-message" id="deleteSettingsMessage" role="status"></p></form></details>
 </div>
 <div class="settings-divider"></div><button class="settings-logout" id="settingsLogout" type="button">Log out</button></section></section><section class="post-edit-layer" id="postEditLayer" hidden><form class="post-edit-dialog" id="postEditForm"><div class="post-edit-heading"><h2>Edit post</h2><button class="post-edit-close" type="button" id="postEditClose" aria-label="Close">×</button></div><p class="post-edit-hint">Make changes to your post. Your media will stay attached.</p><textarea id="postEditText" maxlength="5000" placeholder="What’s happening?"></textarea><p class="post-edit-error" id="postEditError" role="alert" hidden></p><div class="post-edit-footer"><span class="post-edit-count" id="postEditCount">0 / 5,000</span><div class="post-edit-buttons"><button class="post-edit-cancel" type="button" id="postEditCancel">Cancel</button><button class="post-edit-save" type="submit" id="postEditSave">Save changes</button></div></div></form></section><section class="about-layer" id="aboutLayer" hidden><section class="about-dialog" role="dialog" aria-modal="true" aria-labelledby="aboutTitle"><button class="about-close" id="aboutClose" type="button" aria-label="Close">×</button><div class="about-top"><img src="assets/brand/GomoGie-wordmark-transparent.svg" alt="GomoGie"></div><div class="about-content"><h2 id="aboutTitle">About GomoGie</h2><p class="about-tagline">Connect. Share. Discover.</p><p class="about-description">GomoGie is a community platform where people can share moments, join conversations, discover ideas and connect with others.</p><div class="about-footer">Made for community. Built to connect.</div></div></section></section>
+<style>
+.install-guide-layer{position:fixed;inset:0;z-index:1200;background:#10202d88;display:grid;place-items:center;padding:20px;backdrop-filter:blur(5px)}
+.install-guide-layer[hidden]{display:none}
+.install-guide-card{width:min(100%,440px);max-height:min(88vh,760px);overflow:auto;background:#fff;border-radius:24px;padding:24px;box-shadow:0 24px 80px #10202d33;color:#17232d}
+.install-guide-brand{display:flex;align-items:center;gap:10px;margin-bottom:18px}.install-guide-brand img{width:42px;height:42px;object-fit:contain}.install-guide-brand strong{font-size:20px;letter-spacing:-.5px}
+.install-guide-card h2{font-size:23px;line-height:1.2;letter-spacing:-.6px;margin:0 0 8px}.install-guide-intro{color:#687981;font-size:14px;margin:0 0 20px}
+.install-guide-steps{display:grid;gap:12px;margin:0 0 20px}.install-guide-step{display:grid;grid-template-columns:34px 1fr;gap:11px;align-items:start;padding:12px;border:1px solid #e7eeee;border-radius:14px;background:#fbfdfd}.install-guide-number{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:#e5f6f2;color:#008b7c;font-weight:800}.install-guide-step strong{display:block;font-size:14px;margin-bottom:3px}.install-guide-step p{margin:0;color:#687981;font-size:12px;line-height:1.45}
+.install-guide-actions{display:grid;gap:9px}.install-guide-primary{width:100%;border:0;border-radius:13px;background:#008f80;color:white;font-weight:750;padding:14px}.install-guide-secondary{width:100%;border:1px solid #e4ebeb;border-radius:13px;background:#fff;color:#52636a;font-weight:650;padding:12px}
+@media(min-width:600px){.install-guide-card{padding:28px}}
+</style>
+<section class="install-guide-layer" id="installGuideLayer" hidden role="dialog" aria-modal="true" aria-labelledby="installGuideTitle">
+ <div class="install-guide-card">
+  <div class="install-guide-brand"><img src="assets/brand/icon-192.png" alt=""><strong>GomoGie</strong></div>
+  <h2 id="installGuideTitle">Get the best GomoGie experience</h2>
+  <p class="install-guide-intro">A quick setup helps you open GomoGie like an app and receive notifications on your iPhone.</p>
+  <div class="install-guide-steps">
+   <div class="install-guide-step"><span class="install-guide-number">1</span><div><strong>Add GomoGie to your Home Screen</strong><p>In Safari, tap the Share icon, scroll down and choose <b>Add to Home Screen</b>. Keep “Open as Web App” enabled if shown, then tap Add.</p></div></div>
+   <div class="install-guide-step"><span class="install-guide-number">2</span><div><strong>Open GomoGie from its new icon</strong><p>Return to your Home Screen and launch GomoGie using the icon you just added.</p></div></div>
+   <div class="install-guide-step"><span class="install-guide-number">3</span><div><strong>Create your account or sign in</strong><p>Your GomoGie account, posts and notifications stay linked to your account.</p></div></div>
+   <div class="install-guide-step"><span class="install-guide-number">4</span><div><strong>Enable notifications</strong><p>Open Notifications in GomoGie and tap Enable push. Allow notifications when iPhone asks.</p></div></div>
+  </div>
+  <div class="install-guide-actions"><button class="install-guide-primary" id="installGuideDone" type="button">Got it</button><button class="install-guide-secondary" id="installGuideLater" type="button">Continue in Safari for now</button></div>
+ </div>
+</section>
 <section class="auth-layer" id="authLayer" hidden><form class="auth-dialog" id="loginForm"><button class="auth-close" type="button" id="closeAuth" aria-label="Close">×</button><h2 id="authTitle">Welcome back</h2><p id="authIntro">Log in to your GomoGie account.</p><div id="loginFields"><label>Email or username<input name="login" autocomplete="username" required maxlength="254"></label><label>Password<input name="password" type="password" autocomplete="current-password" required maxlength="128"></label><label class="remember-login"><input type="checkbox" id="rememberLogin" checked> Remember my username on this device</label></div><div id="registerFields" hidden><label>Display name<input name="displayName" autocomplete="name" maxlength="60"></label><label>Username<input name="username" autocomplete="username" minlength="3" maxlength="24" pattern="[A-Za-z0-9_]{3,24}"></label><label>Email<input name="email" type="email" autocomplete="email" maxlength="254"></label><label>Password (minimum 9 characters)<input name="registerPassword" type="password" autocomplete="new-password" minlength="9" maxlength="128"></label></div><p class="auth-error" id="authError" role="alert"></p><button class="primary" type="submit" id="loginSubmit">Log in</button><small id="authSwitchText">New to GomoGie? <button type="button" id="showRegister" class="auth-switch">Create account</button></small></form></section>
 <script>
 const labels={home:["⌂","Home"],pulse:["⌁","Pulse"],watch:["▷","Watch"],communities:["♧","Communities"],connect:["✉","Connect"],studio:["▤","Studio"],profile:["◉","Profile"]};
@@ -1531,8 +1555,20 @@ if("serviceWorker" in navigator){
   }catch(error){console.warn("GomoGie update check unavailable:",error)}
  });
 }
+function isIOSDevice(){return /iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1)}
+function isGomoGieStandalone(){return window.matchMedia("(display-mode: standalone)").matches||navigator.standalone===true}
+function showFirstVisitInstallGuide(){
+ if(!isIOSDevice()||isGomoGieStandalone())return;
+ let seen=false;try{seen=localStorage.getItem("gomogie-install-guide-seen-v1")==="1"}catch{}
+ if(seen)return;
+ const layer=document.getElementById("installGuideLayer");if(!layer)return;
+ layer.hidden=false;
+ const dismiss=()=>{layer.hidden=true;try{localStorage.setItem("gomogie-install-guide-seen-v1","1")}catch{}};
+ document.getElementById("installGuideDone")?.addEventListener("click",dismiss,{once:true});
+ document.getElementById("installGuideLater")?.addEventListener("click",dismiss,{once:true});
+}
 updateConnectionState();
-loadGomoGieData().then(()=>startGuestAccessTimer()).catch(()=>{view.innerHTML='<div class="empty">Unable to load GomoGie content. Please check your connection and refresh.</div>'});
+loadGomoGieData().then(()=>{showFirstVisitInstallGuide();startGuestAccessTimer()}).catch(()=>{view.innerHTML='<div class="empty">Unable to load GomoGie content. Please check your connection and refresh.</div>'});
 if("ontouchstart" in window){document.addEventListener("gesturestart",e=>e.preventDefault(),{passive:false});document.addEventListener("gesturechange",e=>e.preventDefault(),{passive:false});document.addEventListener("gestureend",e=>e.preventDefault(),{passive:false})};
 
 const aboutLayer=document.getElementById("aboutLayer");

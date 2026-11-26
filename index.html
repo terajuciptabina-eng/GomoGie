@@ -1297,17 +1297,22 @@ async function openNotificationCenter(){
  async function getPushSubscription(){
   if(!("serviceWorker"in navigator)||!("PushManager"in window))return {registration:null,subscription:null};
   const scope=new URL("./",document.baseURI).href;
-  const registration=await navigator.serviceWorker.getRegistration(scope);
-  const activeRegistration=registration||await navigator.serviceWorker.register("./sw.js");
-  await activeRegistration.update().catch(()=>{});
-  return {registration:activeRegistration,subscription:await activeRegistration.pushManager.getSubscription()};
+  let registration=await navigator.serviceWorker.getRegistration();
+  if(!registration||registration.scope!==scope)registration=await navigator.serviceWorker.getRegistration(scope);
+  if(!registration)registration=await navigator.serviceWorker.register("./sw.js",{scope});
+  // Prefer the registration controlling this GomoGie page, then verify the
+  // exact project scope. This avoids Safari/PWA scope mismatches.
+  const ready=await navigator.serviceWorker.ready.catch(()=>null);
+  if(ready&&ready.scope===scope)registration=ready;
+  await registration.update().catch(()=>{});
+  return {registration,subscription:await registration.pushManager.getSubscription()};
  }
  async function setPushButton(){
   const button=layer.querySelector("#notificationPushEnable"),status=layer.querySelector("#notificationPushStatus");
   if(!button||!status)return;
   try{
    const {subscription}=await getPushSubscription(),enabled=!!subscription;
-   button.hidden=enabled;status.hidden=!enabled;
+   button.hidden=enabled;status.hidden=!enabled;button.textContent="Enable push";
    button.dataset.enabled=enabled?"1":"0";
    status.dataset.enabled=enabled?"1":"0";
   }catch{

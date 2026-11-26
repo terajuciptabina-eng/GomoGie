@@ -1216,7 +1216,10 @@ async function route(request, env) {
     if(!row||row.status!=="pending")return json({error:"request_not_found"},404);
     if(action==="accept"){
       if(row.recipient_id!==auth.sub)return json({error:"request_not_found"},404);
-      await env.DB.prepare("UPDATE gomogie_message_requests SET status='accepted',decided_at=? WHERE conversation_id=? AND status='pending'").bind(new Date().toISOString(),id).run();
+      const now=new Date().toISOString();
+      await env.DB.prepare("UPDATE gomogie_message_requests SET status='accepted',decided_at=? WHERE conversation_id=? AND status='pending'").bind(now,id).run();
+      try{await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),row.requester_id,auth.sub,"message_request_accepted",id,now).run();}catch(error){console.error("Message request acceptance notification failed",id,error);}
+      try{await notifyPushDevices(env,row.requester_id,{id,title:"Message request accepted",body:"Your message request was accepted."});}catch(error){console.error("Message request acceptance push failed",id,error);}
       return json({accepted:true});
     }
     if(row.recipient_id!==auth.sub&&row.requester_id!==auth.sub)return json({error:"request_not_found"},404);
@@ -1269,7 +1272,6 @@ async function route(request, env) {
       env.DB.prepare("INSERT INTO conversation_members (conversation_id,user_id,joined_at,last_read_at) VALUES (?,?,?,NULL)").bind(id, recipient.id, now),
       ...(friendship?[]:[env.DB.prepare("INSERT INTO gomogie_message_requests (id,conversation_id,requester_id,recipient_id,status,created_at) VALUES (?,?,?,?,'pending',?)").bind(uuid(),id,auth.sub,recipient.id,now)])
     ]);
-    if(!friendship)await notifyPushDevices(env,recipient.id,{id,title:"New message request",body:"Someone wants to send you a message."});
     return json({ conversation: { id }, created: true, status }, 201);
   }
 
@@ -1308,6 +1310,15 @@ async function route(request, env) {
       await env.DB.prepare(
         "INSERT INTO messages (id,conversation_id,sender_id,content,media_id,status,created_at,edited_at) VALUES (?,?,?,?,NULL,'sent',?,NULL)"
       ).bind(id, conversationId, auth.sub, input.content.trim(), now).run();
+      const recipient=await env.DB.prepare("SELECT user_id FROM conversation_members WHERE conversation_id=? AND user_id<>? LIMIT 1").bind(conversationId,auth.sub).first();
+      if(recipient){
+        const isPendingRequest=requestRow?.status==="pending";
+        const preview=input.content.trim().replace(/\\s+/g," ").slice(0,120);
+        const title=isPendingRequest?"New message request":"New message";
+        const body=isPendingRequest?"Message request: "+preview:preview;
+        try{await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),recipient.user_id,auth.sub,isPendingRequest?"message_request":"message",conversationId,now).run();}catch(error){console.error("New message in-app notification failed",conversationId,error);}
+        try{await notifyPushDevices(env,recipient.user_id,{id,title,body});}catch(error){console.error("New message push notification failed",conversationId,error);}
+      }
       return json({ message: { id, conversationId, senderId: auth.sub, content: input.content.trim(), mediaId: null, status: "sent", createdAt: now } }, 201);
     }
   }

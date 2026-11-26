@@ -1163,17 +1163,22 @@ async function route(request, env) {
     })) });
   }
 
-  const relationshipMatch = path.match(/^\/v1\/users\/([a-zA-Z0-9_]{3,24})\/(relationships|followers|following)$/);
+  const relationshipMatch = path.match(/^\/v1\/users\/([a-zA-Z0-9_]{3,24})\/(relationships|followers|following|friends)$/);
   if (relationshipMatch && method === "GET") {
     const target = await env.DB.prepare("SELECT id FROM users WHERE username=? COLLATE NOCASE AND status='active'").bind(relationshipMatch[1]).first();
     if (!target) return json({ error: "user_not_found" }, 404);
     const kind = relationshipMatch[2];
     if (kind === "relationships") {
-      const [followers, following] = await Promise.all([
+      const [followers, following, friends] = await Promise.all([
         env.DB.prepare("SELECT COUNT(*) AS count FROM follows WHERE following_id=? AND status='accepted'").bind(target.id).first(),
-        env.DB.prepare("SELECT COUNT(*) AS count FROM follows WHERE follower_id=? AND status='accepted'").bind(target.id).first()
+        env.DB.prepare("SELECT COUNT(*) AS count FROM follows WHERE follower_id=? AND status='accepted'").bind(target.id).first(),
+        env.DB.prepare("SELECT COUNT(*) AS count FROM friend_requests WHERE status='accepted' AND (requester_id=? OR recipient_id=?)").bind(target.id,target.id).first()
       ]);
-      return json({ followers: Number(followers?.count || 0), following: Number(following?.count || 0) });
+      return json({ followers: Number(followers?.count || 0), following: Number(following?.count || 0), friends: Number(friends?.count || 0) });
+    }
+    if(kind==="friends"){
+      const rows=await env.DB.prepare("SELECT u.id,u.username,p.display_name,p.avatar_url,fr.updated_at AS since FROM friend_requests fr JOIN users u ON u.id=CASE WHEN fr.requester_id=? THEN fr.recipient_id ELSE fr.requester_id END LEFT JOIN profiles p ON p.user_id=u.id WHERE fr.status='accepted' AND (fr.requester_id=? OR fr.recipient_id=?) AND u.status='active' ORDER BY fr.updated_at DESC LIMIT 200").bind(target.id,target.id,target.id).all();
+      return json({items:(rows.results||[]).map(row=>({id:row.id,username:row.username,displayName:row.display_name||row.username,avatarUrl:row.avatar_url||"",since:row.since}))});
     }
     const column = kind === "followers" ? "following_id" : "follower_id";
     const joinColumn = kind === "followers" ? "follower_id" : "following_id";

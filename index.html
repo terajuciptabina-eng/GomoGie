@@ -447,7 +447,7 @@ function watch(){
   if(/^https:\/\/www\.youtube-nocookie\.com\/embed\/[\w-]+/.test(raw))return raw;
   try{const u=new URL(raw);let id="";if(u.hostname==="youtu.be")id=u.pathname.split("/").filter(Boolean)[0]||"";else if(/(^|\.)youtube\.com$/.test(u.hostname)){id=u.searchParams.get("v")||u.pathname.match(/\/(?:embed|shorts|live)\/([\w-]+)/)?.[1]||""}return id?"https://www.youtube-nocookie.com/embed/"+encodeURIComponent(id):""}catch{return ""}
  };
- const videoDiscoveryItems=watchMode==="for-you"?[...new Map(viralVideoItems.filter(item=>item&&(item.content_type==="video"||item.content_type==="documentary"||!!item.embed_url||/youtube\.com|youtu\.be/i.test(item.canonical_url||"")).map(item=>({...item,watchEmbedUrl:resolvePublisherVideoUrl(item)})).filter(item=>item.watchEmbedUrl).map(item=>[String(item.id||item.canonical_url),item])).values()]:[];
+ const videoDiscoveryItems=watchMode==="for-you"?[...new Map(viralVideoItems.filter(item=>item&&(item.content_type==="video"||item.content_type==="documentary"||!!item.embed_url||/youtube\.com|youtu\.be/i.test(item.canonical_url||""))).map(item=>({...item,watchEmbedUrl:resolvePublisherVideoUrl(item)})).filter(item=>item.watchEmbedUrl).map(item=>[String(item.id||item.canonical_url),item])).values()]:[];
  const seenMedia=new Set();
  const vids=posts.filter(p=>p.type==="video"&&!p.isWatchDuplicate&&(watchMode==="for-you"||followed.has(p.authorId))&&p.mediaUrl&&!seenMedia.has(p.mediaUrl)&&seenMedia.add(p.mediaUrl));
  const safePoster="https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg?auto=compress&cs=tinysrgb&w=1200";

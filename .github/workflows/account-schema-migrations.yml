@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/account-schema-migrations.yml"
+      - "workers/api/sql/0018_web_push.sql"
   workflow_dispatch:
 
 permissions:
@@ -46,6 +47,15 @@ jobs:
           fi
       - name: Apply saved posts D1 table
         run: npx wrangler d1 execute gomogie-db --remote --file=sql/0017_saved_posts.sql
+      - name: Apply web push subscriptions table
+        run: npx wrangler d1 execute gomogie-db --remote --file=sql/0018_web_push.sql
+      - name: Verify web push schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          push="$(npx wrangler d1 execute gomogie-db --remote --command="SELECT name FROM sqlite_master WHERE type='table' AND name='gomogie_push_subscriptions'" --json)"
+          printf '%s' "$push" | grep -q 'gomogie_push_subscriptions'
+          echo "Verified gomogie_push_subscriptions."
       - name: Verify saved posts schema
         shell: bash
         run: |

@@ -1469,32 +1469,28 @@ async function playMusic(index){ensureMusicPlayer();const track=musicQueue[index
 function playNextMusic(step=1){if(!musicQueue.length)return;let next=musicQueueIndex+step;if(next<0)next=musicQueue.length-1;if(next>=musicQueue.length)next=0;playMusic(next)}
 async function searchPublicMusic(term="",genre="all"){
  musicSearchBusy=true;musicResults=[];musicQueue=[];renderMusicResults();musicPlayerMessage("Searching licensed audio catalogue…");
- const clean=String(term||"").replace(/[^\\p{L}\\p{N}\\s-]/gu," ").trim().replace(/\\s+/g," ").slice(0,80);
- // Search by IA's indexed licenseurl patterns first. Do not scan the first
- // popular audio items and hope that they happen to carry reusable rights.
- const clauses=["mediatype:audio","(licenseurl:http*by* OR licenseurl:http*publicdomain*)"];
- if(clean)clauses.push('(title:('+clean.replace(/"/g,"")+') OR creator:('+clean.replace(/"/g,"")+'))');
- const params=new URLSearchParams();
- params.set("q",clauses.join(" AND "));
+ const clean=String(term||"").replace(/[^\p{L}\p{N}\s-]/gu," ").trim().replace(/\s+/g," ").slice(0,80);
+ const clauses=["mediatype:audio",'(licenseurl:http*by* OR licenseurl:http*publicdomain*)'];
+ if(clean)clauses.push('(title:"'+clean.replace(/"/g,"")+'" OR creator:"'+clean.replace(/"/g,"")+'")');
+ const params=new URLSearchParams();params.set("q",clauses.join(" AND "));
  ["identifier","title","creator","year","licenseurl"].forEach(f=>params.append("fl[]",f));
  params.set("rows","100");params.set("page","1");params.set("output","json");params.append("sort[]","downloads desc");
  try{
   const res=await fetch("https://archive.org/advancedsearch.php?"+params.toString(),{headers:{accept:"application/json"}});
   if(!res.ok)throw new Error("Internet Archive search returned HTTP "+res.status);
   const data=await res.json(),docs=data.response?.docs||[];
-  const candidates=docs.slice(0,80);
-  const found=await Promise.all(candidates.map(async d=>{
+  const found=await Promise.all(docs.slice(0,80).map(async d=>{
    try{
     const mr=await fetch("https://archive.org/metadata/"+encodeURIComponent(d.identifier),{headers:{accept:"application/json"}});
     if(!mr.ok)return null;
     const meta=await mr.json(),md=meta.metadata||{};
     const rawLicense=md.licenseurl||d.licenseurl||"";
-    const lic=String(Array.isArray(rawLicense)?rawLicense[0]||"":rawLicense).toLowerCase();
-    // Exclude NonCommercial and NoDerivatives: GomoGie is a public platform.
-    const allowed=(lic.includes("creativecommons.org/licenses/by/")||lic.includes("creativecommons.org/licenses/by-sa/")||lic.includes("creativecommons.org/publicdomain/zero/")||lic.includes("creativecommons.org/publicdomain/mark/"))&&!/by-nc|by-nd/.test(lic);
+    const lic=String(Array.isArray(rawLicense)?rawLicense.join(" "):rawLicense).toLowerCase();
+    const allowed=(/creativecommons\.org\/licenses\/by(?:-sa)?\//.test(lic)||/creativecommons\.org\/publicdomain\/(?:zero|mark)\//.test(lic))&&!/by-nc|by-nd/.test(lic);
     if(!allowed)return null;
-    const files=(meta.files||[]).filter(f=>f.name&&/\\.(mp3|ogg|opus)$/i.test(f.name)&&(!f.size||Number(f.size)>0)&&!f.name.includes("__ia_thumb"));
-    const file=files.find(f=>/\\.mp3$/i.test(f.name))||files.find(f=>/\\.ogg$/i.test(f.name))||files[0];
+    const playable=/\.(mp3|m4a|mp4|aac|wav|ogg|opus)$/i;
+    const files=(meta.files||[]).filter(f=>f.name&&playable.test(f.name)&&(!f.size||Number(f.size)>0)&&!f.name.includes("__ia_thumb"));
+    const file=files.find(f=>/\.mp3$/i.test(f.name))||files.find(f=>/\.(m4a|mp4|aac)$/i.test(f.name))||files.find(f=>/\.wav$/i.test(f.name))||files.find(f=>/\.(ogg|opus)$/i.test(f.name));
     if(!file)return null;
     const subjects=Array.isArray(md.subject)?md.subject.join(" ").toLowerCase():String(md.subject||"").toLowerCase();
     const genreTerms={pop:["pop"],rock:["rock"],jazz:["jazz"],electronic:["electronic","electronica","techno","house"],classical:["classical","orchestra","symphony"],"hip-hop":["hip-hop","hip hop","rap"],ambient:["ambient"],instrumental:["instrumental"]};

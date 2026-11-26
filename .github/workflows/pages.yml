@@ -119,14 +119,15 @@ jobs:
       - name: Stamp a unique service-worker build revision
         run: |
           python - <<'PY'
-          import os, re
+          import os
           from pathlib import Path
           path = Path('sw.js')
-          source = path.read_text()
+          lines = path.read_text().splitlines()
+          matches = [i for i, line in enumerate(lines) if line.startswith('const CACHE_NAME=CACHE_PREFIX+')]
+          assert len(matches) == 1, f'Expected one cache revision declaration, found {len(matches)}'
           revision = os.environ['GITHUB_RUN_ID'] + '-' + os.environ['GITHUB_RUN_ATTEMPT']
-          updated, count = re.subn(r'const CACHE_NAME=CACHE_PREFIX\\+"[^"]+";', 'const CACHE_NAME=CACHE_PREFIX+"build-' + revision + '";', source, count=1)
-          assert count == 1, 'Service worker cache revision declaration not found exactly once'
-          path.write_text(updated)
+          lines[matches[0]] = 'const CACHE_NAME=CACHE_PREFIX+"build-' + revision + '";'
+          path.write_text('\n'.join(lines) + '\n')
           print('Stamped service worker build revision: ' + revision)
           PY
       - name: Upload site artifact

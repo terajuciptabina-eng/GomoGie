@@ -559,6 +559,10 @@ body.pull-releasing .top,body.pull-releasing .layout{transform:translate3d(0,0,0
 .install-guide-actions{display:grid;gap:9px}.install-guide-primary{width:100%;border:0;border-radius:13px;background:#008f80;color:white;font-weight:750;padding:14px}.install-guide-secondary{width:100%;border:1px solid #e4ebeb;border-radius:13px;background:#fff;color:#52636a;font-weight:650;padding:12px}
 @media(min-width:600px){.install-guide-card{padding:28px}}
 
+
+/* Connect: friend graph, request inbox and direct messages. */
+.connect-shell{padding:18px}.connect-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.connect-heading h3{margin:0}.connect-heading p{margin:5px 0 0;color:var(--muted);font-size:12px}.connect-tabs{display:flex;gap:7px;margin:18px 0 14px;border-bottom:1px solid var(--line)}.connect-tabs button{border:0;background:transparent;padding:10px 12px;color:var(--muted);font-weight:750;border-bottom:2px solid transparent}.connect-tabs button.active{color:var(--teal);border-color:var(--teal)}.connect-tabs span{display:inline-grid;place-items:center;min-width:18px;height:18px;border-radius:99px;background:#e2f5f0;color:#078879;font-size:10px}.connect-search form{display:flex;gap:8px}.connect-search input{min-width:0;flex:1;border:1px solid var(--line);border-radius:12px;padding:12px;font:inherit}.connect-person{display:flex;align-items:center;gap:11px;padding:12px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}.connect-person-meta{display:grid;gap:3px;min-width:0;flex:1}.connect-person-meta strong{font-size:13px}.connect-person-meta small,.connect-last-message,.connect-hint{font-size:11px;color:var(--muted)}.connect-person-actions{display:flex;gap:6px}.connect-action,.connect-more{border:1px solid #dcebe7;border-radius:10px;background:#eaf7f4;color:#078879;padding:8px 11px;font-size:11px;font-weight:750}.connect-action.secondary{background:#fff;color:var(--muted);border-color:var(--line)}.connect-more{background:#fff;color:var(--muted)}.connect-empty{display:grid;gap:6px;padding:28px 12px;text-align:center;color:var(--muted)}.connect-empty strong{color:var(--ink);font-size:14px}.connect-empty span{font-size:12px}.connect-subheading{margin:18px 0 4px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}.connect-pending{font-size:11px;color:var(--muted);padding:8px}.connect-request-preview{width:100%;margin:0 0 0 54px;color:var(--muted);font-size:12px}.connect-last-message{padding:0 0 10px 54px}.connect-last-message time{margin-left:8px}.connect-last-message b{float:right;color:var(--teal)}.connect-thread{min-height:120px}.connect-search[hidden]{display:none}
+@media(max-width:700px){.connect-shell{padding:15px}.connect-heading{align-items:flex-start}.connect-heading .primary{white-space:nowrap}.connect-tabs{justify-content:space-between}.connect-person{gap:9px}.connect-person-actions{margin-left:auto}.connect-action{padding:8px 9px}}
 </style>
 <section class="install-guide-layer" id="installGuideLayer" hidden role="dialog" aria-modal="true" aria-labelledby="installGuideTitle">
  <div class="install-guide-card">
@@ -973,10 +977,62 @@ async function openConversation(id,title){
  }catch(error){panel.innerHTML='<h3>'+esc(title)+'</h3><div class="empty">'+esc(error.message)+'</div>'}
 }
 function connect(){
- view.innerHTML='<h2 class="section-title">Connect</h2><section class="panel"><h3>Direct messages</h3><form id="newConversationForm" style="display:flex;gap:8px;margin:12px 0"><input name="username" required maxlength="24" pattern="[A-Za-z0-9_]{3,24}" placeholder="Enter member username" style="flex:1;min-width:0;border:1px solid #dce4e7;border-radius:12px;padding:12px"><button class="primary" type="submit">New message</button></form><div id="conversationList"><div class="empty">Loading conversations…</div></div></section><section class="panel" id="messageThread"><div class="empty">Choose a conversation or start a new one.</div></section>';
- if(!currentUser){document.getElementById("conversationList").innerHTML='<div class="empty">Log in to view and send private messages.</div>';return}
- document.getElementById("newConversationForm").onsubmit=async e=>{e.preventDefault();const form=e.currentTarget,button=form.querySelector("button"),username=String(new FormData(form).get("username")||"").trim();button.disabled=true;try{const data=await apiRequest("/v1/conversations",{method:"POST",body:JSON.stringify({username})});await loadConversations();await openConversation(data.conversation.id,username)}catch(error){alert(error.message)}finally{button.disabled=false}};
- loadConversations();
+ const tabs=["friends","requests","messages"];
+ let activeTab="friends";
+ view.innerHTML='<h2 class="section-title">Connect</h2><section class="panel connect-shell"><div class="connect-heading"><div><h3>Connect with people</h3><p>Friends, requests and private conversations in one place.</p></div><button type="button" class="primary" id="connectNewMessage">New message</button></div><nav class="connect-tabs" aria-label="Connect categories"><button type="button" data-connect-tab="friends" class="active">Friends</button><button type="button" data-connect-tab="requests">Requests <span id="connectRequestCount" hidden></span></button><button type="button" data-connect-tab="messages">Messages</button></nav><div id="connectSearch" class="connect-search"><form id="connectSearchForm"><input name="q" maxlength="24" placeholder="Search people by name or username" autocomplete="off"><button class="primary" type="submit">Search</button></form><div id="connectSearchResults"></div></div><div id="connectContent"><div class="empty">Loading friends…</div></div></section><section class="panel connect-thread" id="messageThread"><div class="empty">Choose a conversation or start a new one.</div></section>';
+ const content=document.getElementById("connectContent"),searchBox=document.getElementById("connectSearch"),searchResults=document.getElementById("connectSearchResults");
+ if(!currentUser){content.innerHTML='<div class="empty">Sign in to connect with other GomoGie members.</div>';searchBox.hidden=true;return}
+ const personRow=(p,actions)=>'<div class="connect-person"><img class="avatar" src="'+esc(p.avatarUrl||"")+'" alt=""><div class="connect-person-meta"><strong>'+esc(p.displayName||p.username)+'</strong><small>@'+esc(p.username||"member")+'</small></div><div class="connect-person-actions">'+actions+'</div></div>';
+ async function updateRequestCount(){try{const [f,m]=await Promise.all([apiRequest("/v1/friend-requests"),apiRequest("/v1/message-requests")]);const n=(f.items||[]).filter(x=>x.direction==="incoming").length+(m.items||[]).filter(x=>x.direction==="incoming").length;const badge=document.getElementById("connectRequestCount");if(badge){badge.hidden=!n;badge.textContent=n>99?"99+":String(n)}}catch{}}
+ async function showSearchResults(q){
+  if(!q||q.trim().length<2){searchResults.innerHTML='<div class="connect-hint">Type at least 2 characters to search members.</div>';return}
+  searchResults.innerHTML='<div class="empty">Searching members…</div>';
+  try{const data=await apiRequest("/v1/users/search?q="+encodeURIComponent(q.trim()));const items=data.items||[];searchResults.innerHTML=items.length?items.map(p=>personRow(p,'<button type="button" class="connect-action" data-friend="'+esc(p.username)+'">Add friend</button><button type="button" class="connect-action secondary" data-message="'+esc(p.username)+'">Message</button>')).join(""):'<div class="empty">No members found.</div>'}
+  catch(error){searchResults.innerHTML='<div class="empty">'+esc(error.message)+'</div>'}
+ }
+ async function showTab(tab){
+  activeTab=tab;document.querySelectorAll("[data-connect-tab]").forEach(x=>x.classList.toggle("active",x.dataset.connectTab===tab));
+  searchBox.hidden=tab!=="friends";
+  content.innerHTML='<div class="empty">Loading…</div>';
+  try{
+   if(tab==="friends"){
+    const data=await apiRequest("/v1/friends"),items=data.items||[];
+    content.innerHTML=items.length?items.map(p=>personRow(p,'<button type="button" class="connect-action" data-message="'+esc(p.username)+'">Message</button><button type="button" class="connect-more" data-unfriend="'+esc(p.username)+'">⋯</button>')).join(""):'<div class="connect-empty"><strong>No friends yet</strong><span>Search for GomoGie members and send a friend request.</span></div>';
+   }else if(tab==="requests"){
+    const [friends,messages]=await Promise.all([apiRequest("/v1/friend-requests"),apiRequest("/v1/message-requests")]);
+    const fr=friends.items||[],mr=messages.items||[];
+    const incomingF=fr.filter(x=>x.direction==="incoming"),outgoingF=fr.filter(x=>x.direction==="outgoing"),incomingM=mr.filter(x=>x.direction==="incoming"),outgoingM=mr.filter(x=>x.direction==="outgoing");
+    const section=(title,items,kind)=>items.length?'<h4 class="connect-subheading">'+title+'</h4>'+items.map(x=>personRow(x.person,(kind==="friend"?'<button class="connect-action" data-accept-friend="'+esc(x.id)+'">Accept</button><button class="connect-action secondary" data-decline-friend="'+esc(x.id)+'">Delete</button>':kind==="message"?'<button class="connect-action" data-accept-message="'+esc(x.id)+'">Accept</button><button class="connect-action secondary" data-decline-message="'+esc(x.id)+'">Delete</button>':'<span class="connect-pending">Pending</span>'))+(kind==="message"&&x.firstMessage?'<p class="connect-request-preview">'+esc(x.firstMessage)+'</p>':"")).join(""):'';
+    content.innerHTML=section("Friend requests",incomingF,"friend")+section("Sent friend requests",outgoingF,"sent")+section("Message requests",incomingM,"message")+section("Sent message requests",outgoingM,"sent")||'<div class="connect-empty"><strong>No requests</strong><span>Friend and message requests will appear here.</span></div>';
+   }else{
+    const data=await apiRequest("/v1/conversations"),items=data.items||[];
+    content.innerHTML=items.length?items.map(x=>personRow(x.participant,'<button type="button" class="connect-action" data-open-chat="'+esc(x.id)+'" data-title="'+esc(x.participant.displayName||x.participant.username)+'">Open</button>')+'<div class="connect-last-message">'+esc(x.lastMessage||"No messages yet")+' <time>'+esc(x.lastMessageAt?new Date(x.lastMessageAt).toLocaleString():"")+'</time>'+(x.unreadCount?'<b>'+Number(x.unreadCount)+'</b>':"")+'</div>').join(""):'<div class="connect-empty"><strong>No conversations yet</strong><span>Start a conversation with a friend, or send a message request to another member.</span></div>';
+   }
+  }catch(error){content.innerHTML='<div class="empty">'+esc(error.message)+'</div>'}
+  await updateRequestCount();
+ }
+ document.querySelectorAll("[data-connect-tab]").forEach(x=>x.onclick=()=>showTab(x.dataset.connectTab));
+ document.getElementById("connectSearchForm").onsubmit=e=>{e.preventDefault();showSearchResults(new FormData(e.currentTarget).get("q")||"")};
+ document.getElementById("connectNewMessage").onclick=()=>{searchBox.hidden=false;searchBox.scrollIntoView({behavior:"smooth",block:"nearest"});searchBox.querySelector("input").focus()};
+ searchResults.onclick=async e=>{
+  const friend=e.target.closest("[data-friend]"),message=e.target.closest("[data-message]");
+  if(friend){const b=friend;b.disabled=true;try{const r=await apiRequest("/v1/users/"+encodeURIComponent(b.dataset.friend)+"/friend-request",{method:"POST"});b.textContent=r.alreadyFriends?"Friends":r.accepted?"Friends":"Request sent";await updateRequestCount()}catch(error){alert(error.message)}finally{b.disabled=false}}
+  if(message){const b=message;b.disabled=true;try{const r=await apiRequest("/v1/conversations",{method:"POST",body:JSON.stringify({username:b.dataset.message})});await showTab("messages");await openConversation(r.conversation.id,b.dataset.message);if(r.status==="pending")alert("Message request created. You can send one introductory message; the recipient must accept before further messages.")}catch(error){alert(error.message)}finally{b.disabled=false}}
+ };
+ content.onclick=async e=>{
+  const b=e.target.closest("button");if(!b)return;b.disabled=true;
+  try{
+   if(b.dataset.acceptFriend)await apiRequest("/v1/friend-requests/"+b.dataset.acceptFriend+"/accept",{method:"POST"});
+   else if(b.dataset.declineFriend)await apiRequest("/v1/friend-requests/"+b.dataset.declineFriend+"/decline",{method:"POST"});
+   else if(b.dataset.acceptMessage){await apiRequest("/v1/conversations/"+b.dataset.acceptMessage+"/accept",{method:"POST"});await showTab("messages");await openConversation(b.dataset.acceptMessage,"Conversation");return}
+   else if(b.dataset.declineMessage)await apiRequest("/v1/conversations/"+b.dataset.declineMessage+"/decline",{method:"POST"});
+   else if(b.dataset.unfriend){if(!confirm("Remove "+b.dataset.unfriend+" from your friends?"))return;await apiRequest("/v1/friends/"+encodeURIComponent(b.dataset.unfriend),{method:"DELETE"})}
+   else if(b.dataset.message){const r=await apiRequest("/v1/conversations",{method:"POST",body:JSON.stringify({username:b.dataset.message})});await showTab("messages");await openConversation(r.conversation.id,b.dataset.message);return}
+   else if(b.dataset.openChat){await openConversation(b.dataset.openChat,b.dataset.title||"Conversation");return}
+   await showTab(activeTab);
+  }catch(error){alert(error.message)}finally{b.disabled=false}
+ };
+ showTab("friends");
 }
 function studio(){const mine=currentUser?posts.filter(p=>p.authorId===currentUser.id):[];view.innerHTML='<h2 class="section-title">Studio</h2><section class="panel"><h3>Creator Studio</h3><p>Only verified live data is shown here. Reach, views and engagement analytics will appear when those metrics are supported by the API.</p><div class="directory"><div class="person-card"><strong>'+mine.length+'</strong><small>Loaded posts</small></div></div></section>'}
 function discoverProfiles(){const people=accounts.filter(a=>a&&a.id);view.innerHTML='<h2 class="section-title">Discover members</h2>'+(people.length?'<div class="directory">'+people.map(a=>'<button class="person-card" data-open-profile="'+esc(a.id)+'"><img class="avatar" src="'+esc(a.avatarUrl||"") +'" alt=""><strong>'+esc(a.displayName||a.handle||"GomoGie member")+'</strong><small>@'+esc(a.handle||"member")+'</small></button>').join("")+'</div>':'<div class="empty">No live member profiles are available yet.</div>')}

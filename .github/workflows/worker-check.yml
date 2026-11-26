@@ -8,8 +8,8 @@ on:
       - ".github/workflows/worker-check.yml"
   workflow_dispatch:
     inputs:
-      apply_migrations:
-        description: "Apply the legacy SQL migration batch (only when explicitly required)"
+      apply_query_indexes:
+        description: "Apply the additive D1 query-efficiency indexes after quota reset or plan upgrade"
         required: false
         default: false
         type: boolean
@@ -46,42 +46,9 @@ jobs:
       - run: npm run typecheck
       - run: npx wrangler deploy --dry-run
 
-      - name: Apply additive video and poll D1 migration
-        if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' && github.event_name == 'workflow_dispatch' && inputs.apply_migrations == true }}
-        run: npx wrangler d1 execute gomogie-db --remote --file=sql/0003_video_polls.sql
-
-      - name: Apply additive Viral News D1 migration
-        if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' && github.event_name == 'workflow_dispatch' && inputs.apply_migrations == true }}
-        run: npx wrangler d1 execute gomogie-db --remote --file=sql/0004_viral_news.sql
-
-
-
-
-      - name: Add The Sun Malaysia news source
-        if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' && github.event_name == 'workflow_dispatch' && inputs.apply_migrations == true }}
-        run: npx wrangler d1 execute gomogie-db --remote --file=sql/0007_viral_news_sources.sql
-
-
-      - name: Backfill verified BERNAMA article photo
-        if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' && github.event_name == 'workflow_dispatch' && inputs.apply_migrations == true }}
-        run: npx wrangler d1 execute gomogie-db --remote --file=sql/0008_bernama_photo_backfill.sql
-
-
-      - name: Add Bahasa Melayu news source and verified BERNAMA image
-        if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' && github.event_name == 'workflow_dispatch' && inputs.apply_migrations == true }}
-        run: npx wrangler d1 execute gomogie-db --remote --file=sql/0009_malay_news_and_bernama_image.sql
-
-      - name: Add global and trending content sources
-        if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' && github.event_name == 'workflow_dispatch' && inputs.apply_migrations == true }}
-        run: npx wrangler d1 execute gomogie-db --remote --file=sql/0011_global_trending_sources.sql
-
-      - name: Add reliable publisher feeds and pause blocked sources
-        if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' && github.event_name == 'workflow_dispatch' && inputs.apply_migrations == true }}
-        run: npx wrangler d1 execute gomogie-db --remote --file=sql/0012_reliable_publisher_feeds.sql
-
-      - name: Apply Communities D1 migration
-        if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' && github.event_name == 'workflow_dispatch' && inputs.apply_migrations == true }}
-        run: npx wrangler d1 execute gomogie-db --remote --file=sql/0013_communities.sql
+      - name: Apply additive D1 query-efficiency indexes
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' && github.event_name == 'workflow_dispatch' && inputs.apply_query_indexes == true }}
+        run: npx wrangler d1 execute gomogie-db --remote --file=sql/0014_query_efficiency.sql
 
       - name: Deploy Worker to Cloudflare
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
@@ -90,11 +57,6 @@ jobs:
           apiToken: ${{ env.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ env.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: workers/api
-
-      - name: Diagnose live D1 feed query without modifying data
-        if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
-        run: |
-          npx wrangler d1 execute gomogie-db --remote --command="SELECT p.id,p.user_id,p.content,p.visibility,p.created_at,p.comments_enabled,u.username,pr.display_name,pr.avatar_url,pr.cover_url,(SELECT COUNT(*) FROM reactions r WHERE r.post_id=p.id) AS reaction_count,(SELECT COUNT(*) FROM comments c WHERE c.post_id=p.id AND c.status='published') AS comment_count,ma.id AS media_id,va.id AS video_id,gp.id AS poll_id,gp.closes_at AS poll_closes_at FROM posts p JOIN users u ON u.id=p.user_id LEFT JOIN profiles pr ON pr.user_id=p.user_id LEFT JOIN gomogie_post_media pm ON pm.post_id=p.id LEFT JOIN gomogie_media_assets ma ON ma.id=pm.media_id AND ma.status='ready' LEFT JOIN gomogie_post_videos pv ON pv.post_id=p.id LEFT JOIN gomogie_video_assets va ON va.id=pv.video_id AND va.status='ready' LEFT JOIN gomogie_polls gp ON gp.post_id=p.id WHERE p.status='published' AND p.visibility='public' LIMIT 1"
 
       - name: Smoke-test deployed Worker and storage dependencies
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
@@ -112,17 +74,20 @@ jobs:
               }
             });
           '
-          feed="$(curl --silent --show-error --fail --retry 3 --retry-delay 2 https://gomogie-api.terajuciptabina.workers.dev/v1/feed?limit=1)"
-          news="$(curl --silent --show-error --fail --retry 3 --retry-delay 2 'https://gomogie-api.terajuciptabina.workers.dev/v1/news?mode=for-you&limit=1')"
-          FEED_JSON="$feed" NEWS_JSON="$news" node -e '
-            const feed = JSON.parse(process.env.FEED_JSON);
-            const news = JSON.parse(process.env.NEWS_JSON);
-            if (!Array.isArray(feed.items)) throw new Error("Public feed response is invalid");
-            if (!Array.isArray(news.items)) throw new Error("Pulse news response is invalid");
-            console.log("Public feed items:", feed.items.length);
-            console.log("Pulse news items:", news.items.length);
-            if (!news.items.length) console.log("::warning::Pulse API is responding, but currently has no published news items.");
-          '
+          feed_status="$(curl --silent --show-error --retry 2 --retry-delay 2 -o /tmp/gomogie-feed.json -w '%{http_code}' 'https://gomogie-api.terajuciptabina.workers.dev/v1/feed?limit=1')"
+          news_status="$(curl --silent --show-error --retry 2 --retry-delay 2 -o /tmp/gomogie-news.json -w '%{http_code}' 'https://gomogie-api.terajuciptabina.workers.dev/v1/news?mode=for-you&limit=1')"
+          if [ "$feed_status" = "200" ]; then
+            FEED_JSON="$(cat /tmp/gomogie-feed.json)" node -e 'const x=JSON.parse(process.env.FEED_JSON);if(!Array.isArray(x.items))process.exit(1);console.log("Public feed items:",x.items.length)'
+          else
+            echo "::warning::Public feed returned HTTP $feed_status; inspect D1 daily quota and Worker logs."
+            cat /tmp/gomogie-feed.json
+          fi
+          if [ "$news_status" = "200" ]; then
+            NEWS_JSON="$(cat /tmp/gomogie-news.json)" node -e 'const x=JSON.parse(process.env.NEWS_JSON);if(!Array.isArray(x.items))process.exit(1);console.log("Pulse news items:",x.items.length);if(!x.items.length)console.log("::warning::Pulse currently has no published news items.")'
+          else
+            echo "::warning::Pulse API returned HTTP $news_status; inspect D1 daily quota and Worker logs."
+            cat /tmp/gomogie-news.json
+          fi
 
       - name: Report missing Cloudflare deployment credentials
         if: ${{ env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == '' }}

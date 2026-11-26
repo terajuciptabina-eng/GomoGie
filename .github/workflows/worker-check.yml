@@ -91,6 +91,11 @@ jobs:
           accountId: ${{ env.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: workers/api
 
+      - name: Diagnose live D1 feed query without modifying data
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
+        run: |
+          npx wrangler d1 execute gomogie-db --remote --command="SELECT p.id,p.user_id,p.content,p.visibility,p.created_at,p.comments_enabled,u.username,pr.display_name,pr.avatar_url,pr.cover_url,(SELECT COUNT(*) FROM reactions r WHERE r.post_id=p.id) AS reaction_count,(SELECT COUNT(*) FROM comments c WHERE c.post_id=p.id AND c.status='published') AS comment_count,ma.id AS media_id,va.id AS video_id,gp.id AS poll_id,gp.closes_at AS poll_closes_at FROM posts p JOIN users u ON u.id=p.user_id LEFT JOIN profiles pr ON pr.user_id=p.user_id LEFT JOIN gomogie_post_media pm ON pm.post_id=p.id LEFT JOIN gomogie_media_assets ma ON ma.id=pm.media_id AND ma.status='ready' LEFT JOIN gomogie_post_videos pv ON pv.post_id=p.id LEFT JOIN gomogie_video_assets va ON va.id=pv.video_id AND va.status='ready' LEFT JOIN gomogie_polls gp ON gp.post_id=p.id WHERE p.status='published' AND p.visibility='public' LIMIT 1"
+
       - name: Smoke-test deployed Worker and storage dependencies
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
         run: |

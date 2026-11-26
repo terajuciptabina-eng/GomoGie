@@ -1313,7 +1313,7 @@ async function route(request, env) {
       const recipient=await env.DB.prepare("SELECT user_id FROM conversation_members WHERE conversation_id=? AND user_id<>? LIMIT 1").bind(conversationId,auth.sub).first();
       if(recipient){
         const isPendingRequest=requestRow?.status==="pending";
-        const preview=input.content.trim().replace(/\\s+/g," ").slice(0,120);
+        const preview=input.content.trim().replace(/\s+/g," ").slice(0,120);
         const title=isPendingRequest?"New message request":"New message";
         const body=isPendingRequest?"Message request: "+preview:preview;
         try{await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),recipient.user_id,auth.sub,isPendingRequest?"message_request":"message",conversationId,now).run();}catch(error){console.error("New message in-app notification failed",conversationId,error);}

@@ -274,12 +274,19 @@ async function route(request, env) {
 
   if (path === "/v1/health" && method === "GET") {
     let database = "unavailable";
+    let databaseReads = "unavailable";
     let mediaStorage = env.MEDIA_BUCKET ? "unavailable" : "not_configured";
     try {
       await env.DB.prepare("SELECT 1 AS ok").first();
       database = "available";
     } catch (error) {
-      console.error("GomoGie health check: D1 unavailable", error);
+      console.error("GomoGie health check: D1 connection unavailable", error);
+    }
+    try {
+      await env.DB.prepare("SELECT id FROM users LIMIT 1").first();
+      databaseReads = "available";
+    } catch (error) {
+      console.error("GomoGie health check: D1 read query unavailable", error);
     }
     if (env.MEDIA_BUCKET) {
       try {
@@ -289,12 +296,13 @@ async function route(request, env) {
         console.error("GomoGie health check: R2 unavailable", error);
       }
     }
-    const healthy = database === "available";
+    const connected = database === "available";
+    const healthy = connected && databaseReads === "available" && mediaStorage === "available";
     return json({
-      status: healthy && mediaStorage === "available" ? "ok" : "degraded",
-      checks: { database, mediaStorage },
+      status: healthy ? "ok" : "degraded",
+      checks: { database, databaseReads, mediaStorage },
       checkedAt: new Date().toISOString()
-    }, healthy ? 200 : 503);
+    }, connected ? 200 : 503);
   }
 
   if (path === "/v1/link-preview" && method === "GET") {
@@ -1127,6 +1135,17 @@ export default {
       return new Response(response.body, { status: response.status, statusText: response.statusText, headers: resultHeaders });
     } catch (error) {
       console.error("GomoGie API error", error);
+      const detail = String(error?.message || "");
+      if (/D1's free tier daily row read limit/i.test(detail)) {
+        return json({ error: "d1_daily_read_limit", message: "Had bacaan harian D1 pelan percuma telah dicapai. Data tidak dipadam; kandungan akan pulih selepas had ditetapkan semula pada 00:00 UTC." }, 503, {
+          "retry-after": "3600"
+        });
+      }
+      if (/D1's free tier daily row write limit/i.test(detail)) {
+        return json({ error: "d1_daily_write_limit", message: "Had penulisan harian D1 pelan percuma telah dicapai. Data tidak dipadam; fungsi tulis akan pulih selepas had ditetapkan semula pada 00:00 UTC." }, 503, {
+          "retry-after": "3600"
+        });
+      }
       return json({ error: "internal_error", message: "Ralat pelayan. Cuba lagi." }, 500, {
         ...headers,
         "x-content-type-options": "nosniff",

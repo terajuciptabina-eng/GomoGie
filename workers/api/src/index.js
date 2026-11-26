@@ -1150,7 +1150,7 @@ async function processAccountDeletionQueue(env) {
     try {
       const images = await env.DB.prepare("SELECT object_key FROM gomogie_media_assets WHERE owner_id=?").bind(userId).all();
       const videos = await env.DB.prepare("SELECT object_key FROM gomogie_video_assets WHERE owner_id=?").bind(userId).all();
-      if (env.MEDIA_BUCKET) for (const asset of [...(images.results || []), ...(videos.results || [])]) { try { await env.MEDIA_BUCKET.delete(asset.object_key); } catch (error) { console.warn("Media cleanup deferred", userId, error); } }
+      if (env.MEDIA_BUCKET) for (const asset of [...(images.results || []), ...(videos.results || [])]) await env.MEDIA_BUCKET.delete(asset.object_key);
       await env.DB.batch([
         env.DB.prepare("DELETE FROM posts WHERE user_id=?").bind(userId),
         env.DB.prepare("DELETE FROM comments WHERE user_id=?").bind(userId),
@@ -1178,7 +1178,7 @@ async function processAccountDeletionQueue(env) {
 }
 
 export default {
-  async scheduled(controller, env, ctx) { ctx.waitUntil((async()=>{const sync=await syncNewsFeeds(env);console.log("GomoGie scheduled news sync",sync);const images=await hydrateRecentNewsImages(env,12);console.log("GomoGie scheduled news image hydration",images);const deletions=await processAccountDeletionQueue(env);console.log("GomoGie account deletion processing",deletions)})().catch(error=>console.error("GomoGie scheduled cycle failed",error))); },
+  async scheduled(controller, env, ctx) { ctx.waitUntil((async()=>{try{const sync=await syncNewsFeeds(env);console.log("GomoGie scheduled news sync",sync)}catch(error){console.error("GomoGie news sync failed",error)}try{const images=await hydrateRecentNewsImages(env,12);console.log("GomoGie scheduled news image hydration",images)}catch(error){console.error("GomoGie news image hydration failed",error)}try{const deletions=await processAccountDeletionQueue(env);console.log("GomoGie account deletion processing",deletions)}catch(error){console.error("GomoGie account deletion processing failed",error)}})()); },
   async fetch(request, env) {
     const headers = corsHeaders(request, env);
     if (request.method === "OPTIONS") {

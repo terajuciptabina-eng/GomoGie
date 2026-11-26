@@ -1564,6 +1564,7 @@ if("serviceWorker" in navigator){
    window.addEventListener("focus",checkForAppUpdate);
    window.addEventListener("pageshow",checkForAppUpdate);
    window.addEventListener("online",checkForAppUpdate);
+   window.setInterval(checkForAppUpdate,5*60*1000);
   }catch(error){console.warn("GomoGie update check unavailable:",error)}
  });
 }

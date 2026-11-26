@@ -849,22 +849,22 @@ body{background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;te
 
 .profile-actions [data-profile-message]{min-height:40px;padding:9px 14px;border-radius:999px;border:1px solid #d8e3e7;background:#f1f5f6;color:#20313a;font-weight:750}
 
-/* Shared responsive page heading: Pulse aligns with Watch on desktop, stacks on mobile */
-.pulse-page-header{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"title tabs" "description description";align-items:center;column-gap:18px;row-gap:8px}
-.pulse-page-heading-row{display:contents}
-.pulse-page-title{grid-area:title;margin:0}
-.pulse-page-heading-row .news-mode-tabs{grid-area:tabs;display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:0;min-width:0}
-.pulse-page-description{grid-area:description;margin:0}
+/* Shared responsive page heading: Pulse and Watch use the same heading row */
+.pulse-page-header{display:block;margin:8px 0 18px;padding:0;min-width:0}
+.pulse-page-heading-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0}
+.pulse-page-title{flex:0 0 auto;margin:0}
+.pulse-page-heading-row .news-mode-tabs{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:0 1 auto;min-width:0;max-width:100%;margin:0;overflow-x:auto;overflow-y:hidden;flex-wrap:nowrap;white-space:nowrap;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.pulse-page-heading-row .news-mode-tabs::-webkit-scrollbar{display:none}
+.pulse-page-heading-row .news-mode-tabs button{flex:0 0 auto;white-space:nowrap}
+.pulse-page-description{margin:8px 0 0;max-width:680px}
 @media(max-width:600px){
- /* Match Watch: heading and tabs share one row on mobile */
- .pulse-page-header{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"title tabs" "description description";column-gap:8px;row-gap:8px;align-items:center}
- .pulse-page-heading-row .news-mode-tabs{justify-content:flex-end;min-width:0;max-width:100%;width:auto;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;white-space:nowrap;scrollbar-width:none;-webkit-overflow-scrolling:touch;margin:0;padding:2px 0}
- .pulse-page-heading-row .news-mode-tabs::-webkit-scrollbar{display:none}
- .pulse-page-heading-row .news-mode-tabs button{flex:0 0 auto;min-height:38px;padding:7px 9px;font-size:11px;white-space:nowrap}
- .pulse-page-description{font-size:14px;line-height:1.5}
-}
-
-</style>
+ .pulse-page-header{margin:4px 0 14px}
+ .pulse-page-heading-row{gap:6px}
+ .pulse-page-title{font-size:26px;letter-spacing:-.04em}
+ .pulse-page-heading-row .news-mode-tabs{gap:5px;flex:0 1 auto}
+ .pulse-page-heading-row .news-mode-tabs button{min-height:38px;padding:7px 9px;font-size:11px}
+ .pulse-page-description{font-size:14px;line-height:1.5;margin-top:8px}
+}</style>
 <section class="install-guide-layer" id="installGuideLayer" hidden role="dialog" aria-modal="true" aria-labelledby="installGuideTitle">
  <div class="install-guide-card">
   <div class="install-guide-brand"><img src="assets/brand/icon-192.png" alt=""><strong>GomoGie</strong></div>

@@ -11,17 +11,20 @@ if (!process.env.CLOUDFLARE_API_TOKEN || !process.env.CLOUDFLARE_ACCOUNT_ID) {
 
 // Keep the same VAPID identity across deployments so existing browser
 // subscriptions remain valid. Only create a key pair when Push is unconfigured.
-try {
-  const response = await fetch(apiUrl, { headers: { accept: "application/json" }, signal: AbortSignal.timeout(10000) });
-  if (response.ok) {
-    const current = await response.json();
-    if (current?.configured === true && typeof current.publicKey === "string" && current.publicKey.length > 40) {
-      console.log("VAPID is already configured. Existing keys are preserved.");
-      process.exit(0);
-    }
-  }
-} catch {
-  console.log("Could not confirm existing VAPID configuration; proceeding with first-time setup.");
+const response = await fetch(apiUrl, {
+  headers: { accept: "application/json" },
+  signal: AbortSignal.timeout(10000)
+});
+if (!response.ok) {
+  throw new Error("Cannot verify the live Push configuration (HTTP " + response.status + "). Refusing to rotate VAPID keys.");
+}
+const current = await response.json();
+if (current?.configured === true && typeof current.publicKey === "string" && current.publicKey.length > 40) {
+  console.log("VAPID is already configured. Existing keys are preserved.");
+  process.exit(0);
+}
+if (current?.configured !== false) {
+  throw new Error("The live Push configuration response is invalid. Refusing to rotate VAPID keys.");
 }
 
 const { publicKey, privateKey } = generateKeyPairSync("ec", {

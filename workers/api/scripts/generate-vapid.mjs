@@ -1,6 +1,6 @@
 import { generateKeyPairSync } from "node:crypto";
 
-const suppliedSubject = process.argv[2] || process.env.VAPID_SUBJECT || "";
+const suppliedSubject = process.argv[2] || process.env.VAPID_SUBJECT || "mailto:terajuciptabina@gmail.com";
 const contactEmail = suppliedSubject.replace(/^mailto:/i, "").trim().toLowerCase();
 if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
   console.error("Usage: node scripts/generate-vapid.mjs <monitored-email>");

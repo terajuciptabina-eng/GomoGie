@@ -1,6 +1,7 @@
 name = "gomogie-api"
 main = "src/index.js"
 compatibility_date = "2026-11-25"
+migrations_dir = "sql"
 
 [[r2_buckets]]
 binding = "MEDIA_BUCKET"

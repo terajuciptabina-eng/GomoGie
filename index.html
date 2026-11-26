@@ -966,7 +966,7 @@ async function loadConversations(){
  }catch(error){list.innerHTML='<div class="empty">'+esc(error.message)+'</div>'}
 }
 async function openConversation(id,title){
- const panel=document.getElementById("messageThread");if(!panel)return;
+ const panel=document.getElementById("messageThread");if(!panel)return;panel.hidden=false;
  panel.innerHTML='<h3>'+esc(title)+'</h3><div class="empty">Loading messages…</div>';
  try{
   const data=await apiRequest("/v1/conversations/"+encodeURIComponent(id)+"/messages");
@@ -979,7 +979,7 @@ async function openConversation(id,title){
 function connect(){
  const tabs=["friends","requests","messages"];
  let activeTab="friends";
- view.innerHTML='<h2 class="section-title">Connect</h2><section class="panel connect-shell"><div class="connect-heading"><div><h3>Connect with people</h3><p>Friends, requests and private conversations in one place.</p></div><button type="button" class="primary" id="connectNewMessage">New message</button></div><nav class="connect-tabs" aria-label="Connect categories"><button type="button" data-connect-tab="friends" class="active">Friends</button><button type="button" data-connect-tab="requests">Requests <span id="connectRequestCount" hidden></span></button><button type="button" data-connect-tab="messages">Messages</button></nav><div id="connectSearch" class="connect-search"><form id="connectSearchForm"><input name="q" maxlength="24" placeholder="Search people by name or username" autocomplete="off"><button class="primary" type="submit">Search</button></form><div id="connectSearchResults"></div></div><div id="connectContent"><div class="empty">Loading friends…</div></div></section><section class="panel connect-thread" id="messageThread"><div class="empty">Choose a conversation or start a new one.</div></section>';
+ view.innerHTML='<h2 class="section-title">Connect</h2><section class="panel connect-shell"><div class="connect-heading"><div><h3>Connect with people</h3><p>Friends, requests and private conversations in one place.</p></div><button type="button" class="primary" id="connectNewMessage">New message</button></div><nav class="connect-tabs" aria-label="Connect categories"><button type="button" data-connect-tab="friends" class="active">Friends</button><button type="button" data-connect-tab="requests">Requests <span id="connectRequestCount" hidden></span></button><button type="button" data-connect-tab="messages">Messages</button></nav><div id="connectSearch" class="connect-search"><form id="connectSearchForm"><input name="q" maxlength="24" placeholder="Search people by name or username" autocomplete="off"><button class="primary" type="submit">Search</button></form><div id="connectSearchResults"></div></div><div id="connectContent"><div class="empty">Loading friends…</div></div></section><section class="panel connect-thread" id="messageThread" hidden><div class="empty">Choose a conversation or start a new one.</div></section>';
  const content=document.getElementById("connectContent"),searchBox=document.getElementById("connectSearch"),searchResults=document.getElementById("connectSearchResults");
  if(!currentUser){content.innerHTML='<div class="empty">Sign in to connect with other GomoGie members.</div>';searchBox.hidden=true;return}
  const personRow=(p,actions)=>'<div class="connect-person"><img class="avatar" src="'+esc(p.avatarUrl||"")+'" alt=""><div class="connect-person-meta"><strong>'+esc(p.displayName||p.username)+'</strong><small>@'+esc(p.username||"member")+'</small></div><div class="connect-person-actions">'+actions+'</div></div>';
@@ -991,7 +991,7 @@ function connect(){
   catch(error){searchResults.innerHTML='<div class="empty">'+esc(error.message)+'</div>'}
  }
  async function showTab(tab){
-  activeTab=tab;document.querySelectorAll("[data-connect-tab]").forEach(x=>x.classList.toggle("active",x.dataset.connectTab===tab));
+  activeTab=tab;const thread=document.getElementById("messageThread");if(thread)thread.hidden=true;document.querySelectorAll("[data-connect-tab]").forEach(x=>x.classList.toggle("active",x.dataset.connectTab===tab));
   searchBox.hidden=tab!=="friends";
   content.innerHTML='<div class="empty">Loading…</div>';
   try{

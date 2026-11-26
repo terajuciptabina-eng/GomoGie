@@ -601,6 +601,91 @@ body.pull-releasing .top,body.pull-releasing .layout{transform:translate3d(0,0,0
  .watch-tabs{flex:0 0 auto}
 }
 @media(max-width:390px){.community-demo-grid{grid-template-columns:1fr}.community-demo-card .community-card-bottom{flex-direction:row;align-items:center}.community-demo-card .community-card-bottom button{width:auto}}
+
+/* Visual QA refinements — consistent English UI and balanced mobile layouts */
+:root{--gg-card-radius:20px;--gg-control-radius:14px;--gg-section-gap:16px}
+@media(max-width:700px){
+ .layout{margin:10px auto;padding:0 12px}
+ .pulse-page-header{margin:4px 0 14px}
+ .pulse-page-title{font-size:26px;letter-spacing:-.04em}
+ .pulse-page-description{font-size:14px;line-height:1.5;margin:6px 0 0}
+ .news-mode-tabs{gap:8px;margin:0 0 12px}
+ .news-mode-tabs button,.news-content-tabs button{min-height:40px;padding:9px 15px;font-size:13px}
+ .news-content-tabs{gap:8px;margin:12px 0 18px}
+ .news-content-tabs button{flex:0 0 auto}
+ .viral-news-heading{margin:0 0 10px}
+ .viral-news-kicker{font-size:10px;letter-spacing:.14em}
+ .viral-news-card{margin:10px 0 14px;padding:13px;border-radius:20px}
+ .viral-news-card .viral-news-image-link{border-radius:15px;overflow:hidden}
+ .viral-news-title{font-size:17px;line-height:1.38}
+ .watch-page{gap:12px}
+ .watch-top{gap:10px;padding:2px 0 4px}
+ .watch-top h2{font-size:25px;letter-spacing:-.04em}
+ .watch-tabs{gap:7px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+ .watch-tabs::-webkit-scrollbar{display:none}
+ .watch-tabs button{min-height:40px;padding:9px 15px;font-size:13px;flex:0 0 auto}
+ .watch-discovery{gap:10px}
+ .watch-discovery .viral-news-heading{margin:0 0 2px}
+ .watch-stream{margin-top:2px}
+ .music-page{padding:2px 0 150px}
+ .music-hero{padding:18px 19px;border-radius:20px;margin-bottom:14px;min-height:0}
+ .music-hero h1{font-size:23px;line-height:1.2;margin:0 0 5px}
+ .music-hero p{font-size:13px;line-height:1.45}
+ .music-search{gap:8px;margin:12px 0}
+ .music-search input{min-height:48px;padding:11px 13px;font-size:14px}
+ .music-search button{min-height:48px;padding:0 16px;font-size:14px}
+ .music-genres{gap:7px;padding:3px 0 10px}
+ .music-chip{min-height:40px;padding:9px 14px;font-size:12px}
+ .music-sort-row{margin:10px 0 16px;font-size:13px}
+ .music-sort-row select{padding:9px 11px;font-size:13px}
+ .music-section-title{font-size:18px;margin:16px 0 7px;letter-spacing:-.02em}
+ .music-list{gap:8px}
+ .music-track{padding:9px;gap:10px;border-radius:16px}
+ .music-art{width:48px;height:48px;flex-basis:48px;border-radius:11px;background-color:#e3efed;background-image:linear-gradient(135deg,#dcece9,#f2f7f6)}
+ .music-track-copy strong{font-size:13px}
+ .music-track-copy small{font-size:10px;line-height:1.35}
+ .music-play{width:38px;height:38px;flex-basis:38px}
+ .community-head{margin:4px 0 14px;gap:10px}
+ .community-head .section-title{font-size:25px;letter-spacing:-.04em}
+ .community-head .pulse-intro{font-size:14px;line-height:1.45}
+ .community-head>.primary{min-height:46px;border-radius:14px;font-size:14px}
+ .community-search{margin:12px 0;gap:8px}
+ .community-search input{min-height:48px;padding:11px 13px;font-size:14px}
+ .community-search button{min-height:48px;padding:0 16px;border-radius:14px;font-size:13px}
+ .community-demo-grid{gap:10px;margin:12px 0 18px}
+ .community-demo-card{position:relative;padding:14px;border-radius:18px;gap:9px;box-shadow:0 4px 16px rgba(20,45,52,.035)}
+ .community-demo-card:before{content:"";position:absolute;left:0;top:16px;bottom:16px;width:3px;border-radius:0 4px 4px 0;background:var(--teal);opacity:.7}
+ .community-demo-card .community-card-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+ .community-demo-card .community-card-top small{font-size:11px;white-space:nowrap}
+ .community-demo-card h3{font-size:16px;line-height:1.28;margin:3px 0}
+ .community-demo-card p{font-size:12px;line-height:1.45;margin:0;min-height:34px}
+ .community-demo-card .community-card-bottom{display:flex;flex-direction:column;align-items:stretch;gap:10px;margin-top:auto}
+ .community-demo-card .community-card-bottom span{font-size:11px}
+ .community-demo-card .community-card-bottom button{width:100%;min-height:40px;border-radius:999px;font-size:12px}
+ .connect-shell{padding:15px;border-radius:20px}
+ .connect-heading{gap:10px;padding-bottom:14px}
+ .connect-heading h3{font-size:19px;letter-spacing:-.025em}
+ .connect-heading p{font-size:13px;line-height:1.45}
+ .connect-heading>.primary{min-height:44px;border-radius:14px}
+ .connect-tabs{gap:4px;margin:12px 0 14px}
+ .connect-tabs button{min-height:42px;font-size:12px;padding:8px 5px}
+ .connect-search form{gap:8px}
+ .connect-search input{min-height:48px;padding:10px 12px;font-size:13px}
+ .connect-search form button{min-height:48px;padding:0 15px;border-radius:13px;font-size:13px}
+ .connect-person{padding:12px 0;gap:10px}
+ .connect-person .avatar{width:42px;height:42px;flex-basis:42px}
+ .connect-person-meta strong{font-size:13px}
+ .connect-person-meta small{font-size:11px}
+ .connect-person-actions{gap:6px}
+ .connect-action,.connect-more{min-height:36px;padding:7px 11px;font-size:11px;border-radius:11px}
+ .connect-empty{margin-top:8px}
+}
+@media(min-width:701px){
+ .music-page{padding-top:0}
+ .community-demo-card{min-height:190px}
+ .connect-person{min-height:72px}
+}
+
 </style>
 </head>
 <body>
@@ -950,12 +1035,12 @@ function pulse(){
  const q=searchQuery.toLowerCase().replace(/^#/,"");
  const newsSourceList=newsMode==="global"?viralNewsGlobalItems:newsMode==="archive"?viralNewsArchiveItems:viralNewsItems;
  const newsList=filterUnreadNews(newsSourceList.filter(item=>newsContentFilter==="all"||(newsContentFilter==="article"&&(item.content_type||"article")==="article")||(newsContentFilter==="video"&&item.content_type==="video")||(newsContentFilter==="documentary"&&item.content_type==="documentary")||(newsContentFilter==="entertainment"&&item.category==="entertainment")).filter(item=>!q||String(item.title+" "+item.summary).toLowerCase().includes(q)));
- view.innerHTML='<header class="pulse-page-header"><h1 class="pulse-page-title">Pulse</h1><p class="pulse-page-description">Discover articles, videos, documentaries and more from publishers and creators.</p></header><div class="news-mode-tabs"><button type="button" data-news-mode="for-you" class="'+(newsMode==="for-you"?"selected":"")+'">For You</button><button type="button" data-news-mode="global" class="'+(newsMode==="global"?"selected":"")+'">Global Trending</button><button type="button" data-news-mode="archive" class="'+(newsMode==="archive"?"selected":"")+'">Arkib</button></div>'+(currentUser?newsPreferencesPanel():'<p class="pulse-intro">Log in to personalise news by region and interests.</p>')+'<div class="news-content-tabs"><button data-content-filter="all" class="'+(newsContentFilter==="all"?"selected":"")+'">Semua</button><button data-content-filter="article" class="'+(newsContentFilter==="article"?"selected":"")+'">Artikel</button><button data-content-filter="video" class="'+(newsContentFilter==="video"?"selected":"")+'">Video</button><button data-content-filter="documentary" class="'+(newsContentFilter==="documentary"?"selected":"")+'">Dokumentari</button><button data-content-filter="entertainment" class="'+(newsContentFilter==="entertainment"?"selected":"")+'">Hiburan</button></div>'+viralNewsBlock(newsList,false);
+ view.innerHTML='<header class="pulse-page-header"><h1 class="pulse-page-title">Pulse</h1><p class="pulse-page-description">Discover articles, videos, documentaries and more from publishers and creators.</p></header><div class="news-mode-tabs"><button type="button" data-news-mode="for-you" class="'+(newsMode==="for-you"?"selected":"")+'">For You</button><button type="button" data-news-mode="global" class="'+(newsMode==="global"?"selected":"")+'">Global Trending</button><button type="button" data-news-mode="archive" class="'+(newsMode==="archive"?"selected":"")+'">Archive</button></div>'+(currentUser?newsPreferencesPanel():'<p class="pulse-intro">Log in to personalise news by region and interests.</p>')+'<div class="news-content-tabs"><button data-content-filter="all" class="'+(newsContentFilter==="all"?"selected":"")+'">All</button><button data-content-filter="article" class="'+(newsContentFilter==="article"?"selected":"")+'">Articles</button><button data-content-filter="video" class="'+(newsContentFilter==="video"?"selected":"")+'">Video</button><button data-content-filter="documentary" class="'+(newsContentFilter==="documentary"?"selected":"")+'">Documentaries</button><button data-content-filter="entertainment" class="'+(newsContentFilter==="entertainment"?"selected":"")+'">Entertainment</button></div>'+viralNewsBlock(newsList,false);
 }
 function watch(){
  const readVideoNewsIds=getReadNewsIds();
  const videoDiscoveryItems=[...new Map(viralVideoItems.filter(item=>item&&(item.content_type==="video"||item.content_type==="documentary"||!!item.embed_url)&&!readVideoNewsIds.has(String(item.id))).map(item=>[String(item.id),item])).values()];
- const videoDiscovery=watchMode==="for-you"&&videoDiscoveryItems.length?'<section class="watch-discovery"><div class="viral-news-heading"><div><span class="viral-news-kicker">CONTENT DISCOVERY</span><h3>▶ Video untuk anda</h3><p class="pulse-intro">Terus tonton video daripada penerbit dan pencipta kandungan.</p></div></div>'+videoDiscoveryItems.map(viralNewsCard).join("")+'</section>':"";
+ const videoDiscovery=watchMode==="for-you"&&videoDiscoveryItems.length?'<section class="watch-discovery"><div class="viral-news-heading"><div><span class="viral-news-kicker">CONTENT DISCOVERY</span><h3>▶ Videos for you</h3><p class="pulse-intro">Keep watching videos from publishers and creators.</p></div></div>'+videoDiscoveryItems.map(viralNewsCard).join("")+'</section>':"";
  const seenMedia=new Set();
  const vids=posts.filter(p=>p.type==="video"&&!p.isWatchDuplicate&&(watchMode==="for-you"||followed.has(p.authorId))&&p.mediaUrl&&!seenMedia.has(p.mediaUrl)&&seenMedia.add(p.mediaUrl));
  const safePoster="https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg?auto=compress&cs=tinysrgb&w=1200";
@@ -1098,7 +1183,7 @@ async function openConversation(id,title){
 function connect(initialTab="friends",initialConversationId="",initialTitle="",initialScrollTarget=""){
  const tabs=["friends","requests","messages"];
  let activeTab="friends";
- view.innerHTML='<h2 class="section-title">Connect</h2><section class="panel connect-shell"><div class="connect-heading"><div><h3>Connect with people</h3><p>Friends, requests and private conversations in one place.</p></div><button type="button" class="primary" id="connectNewMessage">New message</button></div><nav class="connect-tabs" aria-label="Connect categories"><button type="button" data-connect-tab="friends" class="active">Friends</button><button type="button" data-connect-tab="requests">Requests <span id="connectRequestCount" hidden></span></button><button type="button" data-connect-tab="messages">Messages</button></nav><div id="connectSearch" class="connect-search"><form id="connectSearchForm"><input name="q" maxlength="24" placeholder="Search people by name or username" autocomplete="off"><button class="primary" type="submit">Search</button></form><div id="connectSearchResults"></div></div><div id="connectContent"><div class="empty">Loading friends…</div></div></section><section class="panel connect-thread" id="messageThread" hidden><div class="empty">Choose a conversation or start a new one.</div></section>';
+ view.innerHTML='<h2 class="section-title">Connect</h2><section class="panel connect-shell"><div class="connect-heading"><div><h3>Your people</h3><p>Friends, requests and private conversations in one place.</p></div><button type="button" class="primary" id="connectNewMessage">New message</button></div><nav class="connect-tabs" aria-label="Connect categories"><button type="button" data-connect-tab="friends" class="active">Friends</button><button type="button" data-connect-tab="requests">Requests <span id="connectRequestCount" hidden></span></button><button type="button" data-connect-tab="messages">Messages</button></nav><div id="connectSearch" class="connect-search"><form id="connectSearchForm"><input name="q" maxlength="24" placeholder="Search people by name or username" autocomplete="off"><button class="primary" type="submit">Search</button></form><div id="connectSearchResults"></div></div><div id="connectContent"><div class="empty">Loading friends…</div></div></section><section class="panel connect-thread" id="messageThread" hidden><div class="empty">Choose a conversation or start a new one.</div></section>';
  const content=document.getElementById("connectContent"),searchBox=document.getElementById("connectSearch"),searchResults=document.getElementById("connectSearchResults");
  if(!currentUser){content.innerHTML='<div class="empty">Sign in to connect with other GomoGie members.</div>';searchBox.hidden=true;return}
  const personRow=(p,actions)=>'<div class="connect-person"><img class="avatar" src="'+esc(p.avatarUrl||"")+'" alt=""><div class="connect-person-meta"><strong>'+esc(p.displayName||p.username)+'</strong><small>@'+esc(p.username||"member")+'</small></div><div class="connect-person-actions">'+actions+'</div></div>';

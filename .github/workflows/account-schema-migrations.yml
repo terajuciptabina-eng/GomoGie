@@ -1,0 +1,55 @@
+name: Apply GomoGie account schema migrations
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/account-schema-migrations.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gomogie-account-schema-migrations
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    defaults:
+      run:
+        working-directory: workers/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: workers/api/package.json
+      - run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Apply additive account deletion table
+        run: npx wrangler d1 execute gomogie-db --remote --file=sql/0015_account_management.sql
+      - name: Add session version only when missing
+        shell: bash
+        run: |
+          set -euo pipefail
+          schema="$(npx wrangler d1 execute gomogie-db --remote --command='PRAGMA table_info(users)' --json)"
+          if printf '%s' "$schema" | grep -Eq '"name"[[:space:]]*:[[:space:]]*"session_version"'; then
+            echo "users.session_version already exists; skipping ALTER TABLE."
+          else
+            echo "users.session_version is missing; applying additive migration 0016."
+            npx wrangler d1 execute gomogie-db --remote --file=sql/0016_session_revocation.sql
+          fi
+      - name: Verify account schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          schema="$(npx wrangler d1 execute gomogie-db --remote --command='PRAGMA table_info(users)' --json)"
+          printf '%s' "$schema" | grep -Eq '"name"[[:space:]]*:[[:space:]]*"session_version"'
+          deletion="$(npx wrangler d1 execute gomogie-db --remote --command="SELECT name FROM sqlite_master WHERE type='table' AND name='gomogie_account_deletion_requests'" --json)"
+          printf '%s' "$deletion" | grep -q 'gomogie_account_deletion_requests'
+          echo "Verified users.session_version and gomogie_account_deletion_requests."

@@ -264,6 +264,31 @@ async function route(request, env) {
   const method = request.method;
   const path = url.pathname;
 
+  if (path === "/v1/health" && method === "GET") {
+    let database = "unavailable";
+    let mediaStorage = env.MEDIA_BUCKET ? "unavailable" : "not_configured";
+    try {
+      await env.DB.prepare("SELECT 1 AS ok").first();
+      database = "available";
+    } catch (error) {
+      console.error("GomoGie health check: D1 unavailable", error);
+    }
+    if (env.MEDIA_BUCKET) {
+      try {
+        await env.MEDIA_BUCKET.list({ limit: 1 });
+        mediaStorage = "available";
+      } catch (error) {
+        console.error("GomoGie health check: R2 unavailable", error);
+      }
+    }
+    const healthy = database === "available";
+    return json({
+      status: healthy && mediaStorage === "available" ? "ok" : "degraded",
+      checks: { database, mediaStorage },
+      checkedAt: new Date().toISOString()
+    }, healthy ? 200 : 503);
+  }
+
   if (path === "/v1/link-preview" && method === "GET") {
     const requested = url.searchParams.get("url") || "";
     const validateTarget = value => {

@@ -115,6 +115,8 @@ const VIDEO_LIMIT = 50 * 1024 * 1024;
 
 
 
+let newsSyncPromise = null;
+
 const NEWS_FEEDS=[
 {id:"bernama-en",name:"BERNAMA",url:"https://www.bernama.com/en/rssfeed.php/",language:"en",contentType:"article"},
 {id:"thesun-my",name:"The Sun Malaysia",url:"https://thesun.my/feed/",language:"en",contentType:"article"},
@@ -211,6 +213,12 @@ async function fetchNewsArticleContent(articleUrl){
   return{summary:(description||body).slice(0,700),body};
  }catch{return null}
 }
+async function syncNewsFeedsSingleFlight(env) {
+  if (newsSyncPromise) return newsSyncPromise;
+  newsSyncPromise = syncNewsFeeds(env).finally(() => { newsSyncPromise = null; });
+  return newsSyncPromise;
+}
+
 async function syncNewsFeeds(env){
  const now=new Date().toISOString();let inserted=0,checked=0,errors=0;
  for(const feed of NEWS_FEEDS){
@@ -782,22 +790,30 @@ async function route(request, env) {
     };
     let rows=await readItems();
     let refreshed=false;
-    if(mode!=="archive"&&!(rows.results||[]).length){
+    // Only the primary For You request may trigger an on-demand feed sync.
+    // The frontend requests several modes in parallel; letting each empty mode sync
+    // independently multiplies D1 reads and writes during an empty catalogue.
+    if(mode==="for-you"&&!(rows.results||[]).length){
       const last=await env.DB.prepare("SELECT last_checked_at FROM gomogie_news_sources WHERE id='bernama-en' AND active=1").first();
       const lastAt=last?.last_checked_at?Date.parse(last.last_checked_at):0;
       if(!lastAt||Date.now()-lastAt>120000){
         refreshed=true;
-        await syncNewsFeeds(env);
+        await syncNewsFeedsSingleFlight(env);
         rows=await readItems();
       }
     }
     const currentItems=(rows.results||[]);
-    const missingImages=currentItems.filter(item=>!item.image_url&&item.canonical_url).slice(0,12);
-    const needArticle=currentItems.filter(item=>(item.content_type||"article")==="article"&&item.canonical_url&&(!item.body_text||String(item.body_text).trim().length<180||String(item.body_text).trim()===String(item.summary||"").trim())).slice(0,8);
-    await Promise.all([
-      ...missingImages.map(async item=>{const image=await fetchNewsOgImage(item.canonical_url);if(image){item.image_url=image;await env.DB.prepare("UPDATE gomogie_news_items SET image_url=? WHERE id=? AND (image_url IS NULL OR image_url='')").bind(image,item.id).run()}}),
-      ...needArticle.map(async item=>{const article=await fetchNewsArticleContent(item.canonical_url);if(article){if(article.body)item.body_text=article.body;if(!item.summary||String(item.summary).trim()===String(item.body_text||"").trim())item.summary=article.summary||String(article.body||"").slice(0,700);await env.DB.prepare("UPDATE gomogie_news_items SET summary=CASE WHEN ?<>'' THEN ? ELSE summary END,body_text=CASE WHEN ?<>'' THEN ? ELSE body_text END WHERE id=?").bind(article.summary||"",article.summary||"",article.body||"",article.body||"",item.id).run()}})
-    ]);
+    // Article and image hydration is deliberately limited to For You. Global,
+    // Archive and Videos are read-only discovery queries and must not fan out
+    // into dozens of extra publisher fetches and D1 updates.
+    if(mode==="for-you"){
+      const missingImages=currentItems.filter(item=>!item.image_url&&item.canonical_url).slice(0,6);
+      const needArticle=currentItems.filter(item=>(item.content_type||"article")==="article"&&item.canonical_url&&(!item.body_text||String(item.body_text).trim().length<180||String(item.body_text).trim()===String(item.summary||"").trim())).slice(0,4);
+      await Promise.all([
+        ...missingImages.map(async item=>{const image=await fetchNewsOgImage(item.canonical_url);if(image){item.image_url=image;await env.DB.prepare("UPDATE gomogie_news_items SET image_url=? WHERE id=? AND (image_url IS NULL OR image_url='')").bind(image,item.id).run()}}),
+        ...needArticle.map(async item=>{const article=await fetchNewsArticleContent(item.canonical_url);if(article){if(article.body)item.body_text=article.body;if(!item.summary||String(item.summary).trim()===String(item.body_text||"").trim())item.summary=article.summary||String(article.body||"").slice(0,700);await env.DB.prepare("UPDATE gomogie_news_items SET summary=CASE WHEN ?<>'' THEN ? ELSE summary END,body_text=CASE WHEN ?<>'' THEN ? ELSE body_text END WHERE id=?").bind(article.summary||"",article.summary||"",article.body||"",article.body||"",item.id).run()}})
+      ]);
+    }
     const source=await env.DB.prepare("SELECT name,last_checked_at,last_error FROM gomogie_news_sources WHERE id='bernama-en'").first();
     return json({mode,region,interests,refreshed,sourceStatus:{name:source?.name||"BERNAMA",lastCheckedAt:source?.last_checked_at||null,lastError:source?.last_error||null},items:(rows.results||[]).map(x=>({...x,title:decodeNewsXml(x.title).replace(/Â/g,""),summary:(x.content_type==="video"||x.content_type==="documentary")?"":decodeNewsXml(x.summary).replace(/Â/g,""),body_text:(x.content_type==="video"||x.content_type==="documentary")?"":decodeNewsXml(x.body_text).replace(/Â/g,""),trendScore:Number(x.trend_score||0)}))});
   }
@@ -1072,8 +1088,33 @@ export default {
       return new Response(null, { status: 204, headers });
     }
     try {
+      const requestUrl = new URL(request.url);
+      const isPublicFeed = request.method === "GET" && requestUrl.pathname === "/v1/feed" &&
+        requestUrl.searchParams.get("scope") !== "following" && !request.headers.get("Authorization");
+      const isPublicNews = request.method === "GET" && requestUrl.pathname === "/v1/news" &&
+        !request.headers.get("Authorization");
+      const cacheable = isPublicFeed || isPublicNews;
+      const cacheKey = cacheable ? new Request(requestUrl.toString(), { method: "GET" }) : null;
+      if (cacheable) {
+        const cached = await caches.default.match(cacheKey);
+        if (cached) {
+          const cachedHeaders = new Headers(cached.headers);
+          cachedHeaders.set("x-gomogie-edge-cache", "HIT");
+          for (const [key, value] of Object.entries(headers)) cachedHeaders.set(key, value);
+          return new Response(cached.body, { status: cached.status, statusText: cached.statusText, headers: cachedHeaders });
+        }
+      }
       const response = await route(request, env);
+      if (cacheable && response.ok) {
+        const cacheHeaders = new Headers(response.headers);
+        cacheHeaders.set("cache-control", isPublicFeed ? "public, max-age=30" : "public, max-age=120");
+        const cacheResponse = new Response(response.clone().body, {
+          status: response.status, statusText: response.statusText, headers: cacheHeaders
+        });
+        await caches.default.put(cacheKey, cacheResponse);
+      }
       const resultHeaders = new Headers(response.headers);
+      if (cacheable) resultHeaders.set("x-gomogie-edge-cache", "MISS");
       for (const [key, value] of Object.entries(headers)) resultHeaders.set(key, value);
       resultHeaders.set("x-content-type-options", "nosniff");
       resultHeaders.set("referrer-policy", "no-referrer");

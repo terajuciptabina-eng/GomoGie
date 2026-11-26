@@ -110,5 +110,9 @@ jobs:
           assert 'parent_comment_not_found' in worker, 'Nested reply parent ownership check missing'
           assert 'WHERE id=? AND post_id=? AND status=\'published\'' in worker, 'Nested reply must be scoped to the same post'
           assert 'const recipients = new Set([owner?.user_id, parent?.user_id]' in worker, 'Nested reply notifications missing'
+          assert 'isPendingRequest?"message_request":"message"' in worker, 'New direct-message in-app notification missing'
+          assert 'New message request' in worker and 'New message' in worker, 'Direct-message push notifications missing'
+          assert 'message_request_accepted' in worker, 'Message-request acceptance notification missing'
+          assert 'if(type==="message_request")' in frontend and 'if(type==="message")' in frontend, 'Frontend message notification labels missing'
           print('Verified Worker origin, authenticated Following feed, visibility filter and follow-state restoration.')
           PY

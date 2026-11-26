@@ -1116,6 +1116,8 @@ async function route(request, env) {
     const now=new Date().toISOString();
     if(pair?.status==="pending"&&pair.recipient_id===auth.sub){
       await env.DB.prepare("UPDATE friend_requests SET status='accepted',updated_at=? WHERE id=?").bind(now,pair.id).run();
+      await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),pair.requester_id,auth.sub,"friend_accepted",pair.id,now).run();
+      await notifyPushDevices(env,pair.requester_id,{id:pair.id,title:"Friend request accepted",body:"Your friend request was accepted."});
       return json({friend:true,accepted:true});
     }
     if(pair?.status==="pending")return json({requestSent:true,pending:true});

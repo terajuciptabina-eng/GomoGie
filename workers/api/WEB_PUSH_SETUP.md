@@ -7,10 +7,10 @@ GomoGie supports browser push notifications for signed-in accounts. The feature 
 From `workers/api`, run the command with a real, monitored contact email address:
 
 ```sh
-node scripts/generate-vapid.mjs your-monitored-email@example.com
+node scripts/generate-vapid.mjs
 ```
 
-The helper refuses to generate keys if no valid contact email is supplied. It prints a public key, a private JWK, and the `mailto:` subject. Generate the pair once and keep the private JWK secret.
+The helper now uses `mailto:terajuciptabina@gmail.com` as the default VAPID contact. You can override it by passing another email address. It prints a public key, a private JWK, and the `mailto:` subject. Generate the pair once and keep the private JWK secret.
 
 Keep the private JWK secret. Never commit it or share it publicly. Use a real monitored contact address for `VAPID_SUBJECT`.
 

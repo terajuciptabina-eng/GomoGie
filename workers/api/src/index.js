@@ -821,6 +821,22 @@ async function route(request, env) {
         coverUrl: row.cover_url, website: row.website, location: row.location, isPrivate: Boolean(row.is_private) } });
   }
 
+  if(path==="/v1/push/public-key"&&method==="GET")return json({publicKey:env.VAPID_PUBLIC_KEY||null,configured:!!(env.VAPID_PUBLIC_KEY&&env.VAPID_PRIVATE_JWK&&env.VAPID_SUBJECT)});
+  if(path==="/v1/push/subscribe"&&method==="POST"){
+    const input=await readJson(request),sub=input?.subscription;
+    if(!sub?.endpoint||!sub?.keys?.p256dh||!sub?.keys?.auth)return json({error:"invalid_subscription"},400);
+    let endpoint;try{endpoint=new URL(sub.endpoint);if(endpoint.protocol!=="https:")throw new Error()}catch{return json({error:"invalid_endpoint"},400)}
+    const now=new Date().toISOString(),id=uuid();
+    await env.DB.prepare("INSERT INTO gomogie_push_subscriptions (id,user_id,endpoint,p256dh,auth_secret,created_at,updated_at) VALUES (?,?,?,?,?,?,?) ON CONFLICT(endpoint) DO UPDATE SET user_id=excluded.user_id,p256dh=excluded.p256dh,auth_secret=excluded.auth_secret,updated_at=excluded.updated_at")
+      .bind(id,auth.sub,endpoint.href,sub.keys.p256dh,sub.keys.auth,now,now).run();
+    return json({subscribed:true});
+  }
+  if(path==="/v1/push/subscribe"&&method==="DELETE"){
+    const input=await readJson(request),endpoint=typeof input?.endpoint==="string"?input.endpoint:"";
+    if(!endpoint)return json({error:"endpoint_required"},400);
+    await env.DB.prepare("DELETE FROM gomogie_push_subscriptions WHERE user_id=? AND endpoint=?").bind(auth.sub,endpoint).run();
+    return json({subscribed:false});
+  }
   if (path === "/v1/notifications" && method === "GET") {
     const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit") || 30)));
     const rows = await env.DB.prepare(
@@ -1031,6 +1047,7 @@ async function route(request, env) {
     if (!previous && post.user_id !== auth.sub) {
       await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)")
         .bind(uuid(), post.user_id, auth.sub, "reaction", reactionMatch[1], new Date().toISOString()).run();
+      await notifyPushDevices(env,post.user_id,{id:reactionMatch[1],title:"New reaction on GomoGie",body:"Someone reacted to your post."});
     }
     return json({ reaction: { postId: reactionMatch[1], type } });
   }
@@ -1069,6 +1086,7 @@ async function route(request, env) {
     for (const recipientId of recipients) {
       await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)")
         .bind(uuid(), recipientId, auth.sub, "comment", commentMatch[1], now).run();
+      await notifyPushDevices(env,recipientId,{id:commentMatch[1],title:"New reply on GomoGie",body:"Someone replied to a post you’re part of."});
     }
     return json({ comment: { id, postId: commentMatch[1], userId: auth.sub, parentId: parent?.id || null, content: input.content.trim(), createdAt: now } }, 201);
   }
@@ -1116,6 +1134,7 @@ async function route(request, env) {
     if (!existingFollow && status === "accepted") {
       await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)")
         .bind(uuid(), target.id, auth.sub, "follow", auth.sub, new Date().toISOString()).run();
+      await notifyPushDevices(env,target.id,{id:auth.sub,title:"New follower on GomoGie",body:"Someone started following you."});
     }
     return json({ following: true, status });
   }
@@ -1250,6 +1269,51 @@ async function processAccountDeletionQueue(env) {
     } catch (error) { failed++; console.error("Account deletion failed", userId, error); }
   }
   return { checked:(due.results||[]).length, completed, failed };
+}
+
+
+function pushB64(bytes){return b64url(bytes)}
+function pushUnb64(value){return fromB64url(value)}
+async function hkdfBits(ikm,salt,info,length){
+ const key=await crypto.subtle.importKey("raw",ikm,"HKDF",false,["deriveBits"]);
+ return new Uint8Array(await crypto.subtle.deriveBits({name:"HKDF",hash:"SHA-256",salt,info},key,length*8));
+}
+async function sendWebPush(subscription,payload,env){
+ if(!env.VAPID_PRIVATE_JWK||!env.VAPID_PUBLIC_KEY||!env.VAPID_SUBJECT)return false;
+ const endpoint=new URL(subscription.endpoint),audience=endpoint.origin,now=Math.floor(Date.now()/1000);
+ const header=pushB64(encoder.encode(JSON.stringify({typ:"JWT",alg:"ES256"})));
+ const claims=pushB64(encoder.encode(JSON.stringify({aud:audience,exp:now+43200,sub:env.VAPID_SUBJECT})));
+ const signingInput=header+"."+claims;
+ const vapidKey=await crypto.subtle.importKey("jwk",JSON.parse(env.VAPID_PRIVATE_JWK),{name:"ECDSA",namedCurve:"P-256"},false,["sign"]);
+ const signature=new Uint8Array(await crypto.subtle.sign({name:"ECDSA",hash:"SHA-256"},vapidKey,encoder.encode(signingInput)));
+ const receiver=pushUnb64(subscription.p256dh),auth=pushUnb64(subscription.auth_secret);
+ const serverPair=await crypto.subtle.generateKey({name:"ECDH",namedCurve:"P-256"},true,["deriveBits"]);
+ const serverPublic=new Uint8Array(await crypto.subtle.exportKey("raw",serverPair.publicKey));
+ const receiverKey=await crypto.subtle.importKey("raw",receiver,{name:"ECDH",namedCurve:"P-256"},false,[]);
+ const shared=new Uint8Array(await crypto.subtle.deriveBits({name:"ECDH",public:receiverKey},serverPair.privateKey,256));
+ const keyInfo=new Uint8Array([...encoder.encode("WebPush: info\0"),...receiver,...serverPublic]);
+ const ikm=await hkdfBits(shared,auth,keyInfo,32);
+ const salt=crypto.getRandomValues(new Uint8Array(16));
+ const cek=await hkdfBits(ikm,salt,encoder.encode("Content-Encoding: aes128gcm\0"),16);
+ const nonce=await hkdfBits(ikm,salt,encoder.encode("Content-Encoding: nonce\0"),12);
+ const plain=encoder.encode(JSON.stringify(payload));
+ const record=new Uint8Array(plain.length+1);record.set(plain);record[plain.length]=2;
+ const aes=await crypto.subtle.importKey("raw",cek,{name:"AES-GCM"},false,["encrypt"]);
+ const encrypted=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv:nonce,tagLength:128},aes,record));
+ const body=new Uint8Array(16+4+1+serverPublic.length+encrypted.length),view=new DataView(body.buffer);
+ body.set(salt,0);view.setUint32(16,4096);body[20]=serverPublic.length;body.set(serverPublic,21);body.set(encrypted,21+serverPublic.length);
+ const response=await fetch(subscription.endpoint,{method:"POST",headers:{
+  "TTL":"86400","Urgency":"normal","Content-Encoding":"aes128gcm","Content-Type":"application/octet-stream",
+  "Authorization":"vapid t="+signingInput+"."+pushB64(signature)+", k="+env.VAPID_PUBLIC_KEY
+ },body});
+ if(response.status===404||response.status===410)return "expired";
+ if(!response.ok)throw new Error("Web Push endpoint returned "+response.status);
+ return true;
+}
+async function notifyPushDevices(env,userId,notification){
+ if(!env.VAPID_PRIVATE_JWK||!env.VAPID_PUBLIC_KEY||!env.VAPID_SUBJECT)return;
+ const rows=await env.DB.prepare("SELECT id,endpoint,p256dh,auth_secret FROM gomogie_push_subscriptions WHERE user_id=?").bind(userId).all();
+ for(const row of rows.results||[]){try{const result=await sendWebPush(row,{title:notification.title||"GomoGie",body:notification.body||"You have a new notification.",url:"./",tag:notification.id||"gomogie"},env);if(result==="expired")await env.DB.prepare("DELETE FROM gomogie_push_subscriptions WHERE id=?").bind(row.id).run()}catch(error){console.error("Push delivery failed",row.id,error)}}
 }
 
 export default {

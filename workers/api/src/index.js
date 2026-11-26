@@ -472,12 +472,12 @@ async function route(request, env) {
   if (path === "/v1/account/username" && method === "PUT") {
     const input = await readJson(request), username = typeof input?.username === "string" ? input.username.trim() : "";
     if (!/^[a-zA-Z0-9_]{3,24}$/.test(username) || typeof input?.password !== "string") return json({ error: "validation_error", message: "Username mesti 3–24 aksara, menggunakan huruf, nombor atau underscore." }, 400);
-    const account = await env.DB.prepare("SELECT password_hash FROM users WHERE id=? AND status='active'").bind(auth.sub).first();
+    const account = await env.DB.prepare("SELECT password_hash,session_version FROM users WHERE id=? AND status='active'").bind(auth.sub).first();
     if (!account || !(await passwordVerify(input.password, account.password_hash))) return json({ error: "password_incorrect", message: "Kata laluan semasa tidak tepat." }, 403);
     const duplicate = await env.DB.prepare("SELECT id FROM users WHERE username=? COLLATE NOCASE AND id<>?").bind(username, auth.sub).first();
     if (duplicate) return json({ error: "username_taken", message: "Username ini sudah digunakan." }, 409);
     await env.DB.prepare("UPDATE users SET username=?,updated_at=? WHERE id=?").bind(username, new Date().toISOString(), auth.sub).run();
-    const user = { id: auth.sub, username };
+    const user = { id: auth.sub, username, session_version: account.session_version };
     return json({ user, accessToken: await signToken(user, env, 2592000) });
   }
 

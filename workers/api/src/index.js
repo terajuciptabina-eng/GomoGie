@@ -1301,3 +1301,5 @@ export default {
     }
   }
 };
+
+// Saved posts are account-scoped in D1; no browser-local persistence is used.

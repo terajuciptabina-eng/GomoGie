@@ -24,6 +24,15 @@ This Worker targets the existing `gomogie-db` D1 schema. It does not create, dro
 - `POST /v1/conversations/:conversationId/messages` — send a text message.
 - `PATCH /v1/notifications/:notificationId/read` and `PATCH /v1/notifications/read-all` — mark notifications as read.
 - `POST /v1/users/:username/follow` and `DELETE` — follow/unfollow.
+- `GET /v1/users/search?q=` — authenticated member search by username or display name.
+- `GET /v1/friends` — list accepted two-way friendships.
+- `GET /v1/friend-requests` — list incoming and outgoing friend requests.
+- `POST /v1/users/:username/friend-request` — send a friend request; a reciprocal pending request is accepted.
+- `POST /v1/friend-requests/:requestId/accept` and `/decline` — accept or decline an incoming request.
+- `DELETE /v1/friends/:username` — remove an accepted friendship without changing follow relationships.
+- `GET /v1/message-requests` — list incoming and outgoing non-friend message requests.
+- `POST /v1/conversations/:conversationId/accept` and `/decline` — accept or delete a message request.
+
 
 New reactions, comments and accepted public follows create persistent notifications for the affected user. Self-actions do not create notifications.
 
@@ -43,6 +52,17 @@ The API uses the existing table/column names:
 - `media_assets`, `post_media`, `notifications`, `reports`
 
 The D1 screenshots show these are SQLite/D1 tables. The PostgreSQL migration under `backend/migrations` is a separate, unused alternative and must not be applied to this D1 database.
+
+## Friends, followers and message requests (migration 0019)
+
+Apply `sql/0019_relationships_and_message_requests.sql` to the existing `gomogie-db` D1 database before using the relationship endpoints. This migration is additive and safe to re-run.
+
+- Friendships are explicit two-way relationships: a request becomes a friendship only after the recipient accepts it (or reciprocates an existing pending request).
+- Follows remain independent one-way relationships. Mutual follows do not automatically create friendships, and removing a friend does not silently change either follow.
+- Non-friends may start a direct conversation as a Message Request. The sender can send one introductory message; the recipient must accept before either side can continue.
+- Existing direct conversations are treated as accepted and remain in the Messages inbox.
+- Friends can start accepted direct conversations immediately.
+- Connect UI groups Friends, Requests and Messages; friend requests and message requests are kept separate from the normal inbox.
 
 ## Communities
 

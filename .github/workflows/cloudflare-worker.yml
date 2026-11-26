@@ -25,6 +25,7 @@ jobs:
         run: |
           node --check workers/api/src/index.js
           node --check workers/api/scripts/generate-vapid.mjs
+          node --check workers/api/scripts/configure-vapid.mjs
       - name: Validate push implementation and migration
         run: |
           python - <<'PY'
@@ -71,15 +72,9 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
-          VAPID_PRIVATE_JWK: ${{ secrets.VAPID_PRIVATE_JWK }}
-          VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
         run: |
           test -n "$CLOUDFLARE_API_TOKEN" || { echo "::error::Missing CLOUDFLARE_API_TOKEN repository/environment secret."; exit 1; }
           test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "::error::Missing CLOUDFLARE_ACCOUNT_ID repository/environment secret."; exit 1; }
-          test -n "$VAPID_PUBLIC_KEY" || { echo "::error::Missing VAPID_PUBLIC_KEY repository/environment secret."; exit 1; }
-          test -n "$VAPID_PRIVATE_JWK" || { echo "::error::Missing VAPID_PRIVATE_JWK repository/environment secret."; exit 1; }
-          test -n "$VAPID_SUBJECT" || { echo "::error::Missing VAPID_SUBJECT repository/environment secret."; exit 1; }
       - name: Install Wrangler
         run: npm install --global wrangler@4
       - name: Apply remote D1 migrations
@@ -88,19 +83,20 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx wrangler d1 migrations apply gomogie-db --remote
-      - name: Configure Web Push secrets
+      - name: Deploy Worker before checking existing Push keys
         working-directory: workers/api
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
-          VAPID_PRIVATE_JWK: ${{ secrets.VAPID_PRIVATE_JWK }}
-          VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
-        run: |
-          printf '%s' "$VAPID_PUBLIC_KEY" | npx wrangler secret put VAPID_PUBLIC_KEY
-          printf '%s' "$VAPID_PRIVATE_JWK" | npx wrangler secret put VAPID_PRIVATE_JWK
-          printf '%s' "$VAPID_SUBJECT" | npx wrangler secret put VAPID_SUBJECT
-      - name: Deploy Worker
+        run: npx wrangler deploy
+      - name: Generate VAPID keys once and configure Worker secrets
+        working-directory: workers/api
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node scripts/configure-vapid.mjs
+      - name: Deploy Worker with Push configuration
+
         working-directory: workers/api
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

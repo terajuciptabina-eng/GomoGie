@@ -1471,10 +1471,10 @@ async function searchPublicMusic(term="",genre="all",append=false){
  musicSearchBusy=true;if(!append){musicResults=[];musicPageNumber=1;musicSeenIds=new Set()}renderMusicResults();musicPlayerMessage("Searching a wider licensed music catalogue…");
  const clean=String(term||"").replace(/[^\p{L}\p{N}\s-]/gu," ").trim().replace(/\s+/g," ").slice(0,80);
  const genreTerms={pop:["pop"],rock:["rock"],jazz:["jazz"],electronic:["electronic","electronica","techno","house"],classical:["classical","orchestra","symphony"],"hip-hop":["hip-hop","hip hop","rap"],ambient:["ambient"],instrumental:["instrumental"]};
- const clauses=["mediatype:audio",'(collection:netlabels OR collection:opensource_audio OR collection:audio_music OR subject:music)'];
+ const clauses=["mediatype:audio",'(collection:netlabels OR subject:music OR subject:song OR subject:instrumental)'];
  if(clean)clauses.push('(title:"'+clean.replace(/"/g,"")+'" OR creator:"'+clean.replace(/"/g,"")+'" OR subject:"'+clean.replace(/"/g,"")+'")');
  const params=new URLSearchParams();params.set("q",clauses.join(" AND "));
- ["identifier","title","creator","year","licenseurl"].forEach(f=>params.append("fl[]",f));
+ ["identifier","title","creator","year","licenseurl","collection","subject"].forEach(f=>params.append("fl[]",f));
  params.set("rows","100");params.set("page",String(musicPageNumber));params.set("output","json");params.append("sort[]","downloads desc");
  try{
   const res=await fetch("https://archive.org/advancedsearch.php?"+params.toString(),{headers:{accept:"application/json"}});
@@ -1496,10 +1496,15 @@ async function searchPublicMusic(term="",genre="all",append=false){
     const file=files.find(f=>/\.mp3$/i.test(f.name))||files.find(f=>/\.(m4a|mp4|aac)$/i.test(f.name))||files.find(f=>/\.wav$/i.test(f.name))||files.find(f=>/\.(ogg|opus)$/i.test(f.name));
     if(!file)return null;
     const subjects=Array.isArray(md.subject)?md.subject.join(" ").toLowerCase():String(md.subject||"").toLowerCase();
-    if(genre!=="all"&&!(genreTerms[genre]||[genre]).some(x=>subjects.includes(x)))return null;
+    const collections=Array.isArray(md.collection)?md.collection.join(" ").toLowerCase():String(md.collection||"").toLowerCase();
+    const title=String(md.title||d.title||"").trim(),titleLower=title.toLowerCase();
+    const musicSignals=/\\b(music|song|songs|musical|album|band|pop|rock|jazz|folk|classical|electronic|techno|house|hip.?hop|rap|instrumental|ambient|soundtrack|devotional|bhajan|kirtan|dangdut|koplo)\\b/.test(subjects+" "+collections+" "+titleLower);
+    const nonMusic=/\\b(audiobook|audio book|sermon|lecture|speech|interview|quran|koran|recitation|spoken word|radio drama|story reading|sound effect|field recording)\\b/.test(subjects+" "+titleLower);
+    if(title.length<4||!musicSignals||nonMusic)return null;
+    if(genre!=="all"&&!(genreTerms[genre]||[genre]).some(x=>(subjects+" "+titleLower).includes(x)))return null;
     const creator=md.creator||d.creator||"Independent artist";
-    const licenseLabel=/publicdomain\/(?:zero|mark)/.test(lic)?"Public domain":/by-sa/.test(lic)?"CC BY-SA":"CC BY";
-    return {id:d.identifier,title:String(md.title||d.title||d.identifier),artist:String(Array.isArray(creator)?creator.join(", "):creator),year:d.year||md.year||"",license:licenseLabel,stream:"https://archive.org/download/"+encodeURIComponent(d.identifier)+"/"+file.name.split("/").map(encodeURIComponent).join("/"),art:"https://archive.org/services/img/"+encodeURIComponent(d.identifier)};
+    const licenseLabel=/publicdomain\\/(?:zero|mark)/.test(lic)?"Public domain":/by-sa/.test(lic)?"CC BY-SA":"CC BY";
+    return {id:d.identifier,title,artist:String(Array.isArray(creator)?creator.join(", "):creator),year:d.year||md.year||"",license:licenseLabel,stream:"https://archive.org/download/"+encodeURIComponent(d.identifier)+"/"+file.name.split("/").map(encodeURIComponent).join("/"),art:"https://archive.org/services/img/"+encodeURIComponent(d.identifier)};
    }catch(error){console.warn("Skipping unavailable IA item",d.identifier,error);return null}
   }));
   const valid=found.filter(Boolean);musicResults=append?musicResults.concat(valid):valid;musicQueue=musicResults;musicQueueIndex=-1;musicSearchBusy=false;renderMusicResults();

@@ -1,12 +1,13 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#10202d"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="description" content="GomoGie — Connect. Share. Discover.">
 <link rel="icon" type="image/svg+xml" href="assets/brand/favicon.svg">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/brand/apple-touch-icon.png?v=4">
 <meta name="apple-mobile-web-app-title" content="GomoGie">
 <link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="assets/brand/brand-tokens.css?v=2">
 <title>GomoGie — Connect. Share. Discover.</title>
 <style>
 :root{--navy:#10202d;--teal:#00ae9c;--ink:#17232d;--muted:#71808c;--line:#e8edf0;--bg:#f5f7f8;--white:#fff;--shadow:0 8px 28px #10202d0d}
@@ -684,6 +685,58 @@ body.pull-releasing .top,body.pull-releasing .layout{transform:translate3d(0,0,0
  .music-page{padding-top:0}
  .community-demo-card{min-height:190px}
  .connect-person{min-height:72px}
+}
+
+
+/* GomoGie global design system — shared across every product area */
+:root{
+ --navy:#10202d;--teal:#00ae9c;--ink:#17232d;--muted:#71808c;--line:#e5ebee;--bg:#f5f7f8;--white:#fff;
+ --gg-radius-sm:10px;--gg-radius-md:14px;--gg-radius-lg:18px;--gg-radius-xl:22px;
+ --gg-space-1:4px;--gg-space-2:8px;--gg-space-3:12px;--gg-space-4:16px;--gg-space-5:20px;--gg-space-6:24px;
+ --gg-focus: #087f73;
+}
+html{scroll-behavior:smooth;scroll-padding-top:78px}
+body{background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+:where(button,a,input,textarea,select,[tabindex]):focus-visible{outline:3px solid var(--gg-focus);outline-offset:3px}
+:where(button,a,input,textarea,select){-webkit-tap-highlight-color:transparent}
+:where(.panel,.card,.composer,.profile-page,.connect-shell,.community-demo-card,.music-track,.music-playlist-card){border-color:var(--line)}
+:where(.panel,.card,.composer,.profile-page,.connect-shell){border-radius:var(--gg-radius-lg)}
+:where(.primary,.soft,.connect-action,.connect-more,.music-search button,.music-chip,.community-demo-card button){transition:background-color .16s ease,border-color .16s ease,color .16s ease,transform .16s ease}
+.primary{background:var(--navy);border-radius:var(--gg-radius-md);min-height:42px}
+.primary:hover{background:#203b4c}
+.soft{border-radius:var(--gg-radius-md)}
+.top{border-bottom-color:var(--line)}
+.search{background:#f0f3f4}
+.mobile-nav{border-top-color:var(--line);box-shadow:0 -6px 24px rgba(16,32,45,.045)}
+.mobile-nav button{min-width:0;min-height:48px;flex:1 1 0;align-content:center;gap:3px;padding:5px 2px;border-radius:12px;font-size:10px;line-height:1.2;white-space:nowrap}
+.mobile-nav button.active{background:#e8f7f4;color:#008f80;font-weight:700}
+.mobile-nav button span{font-size:20px;line-height:1.15}
+@media(max-width:700px){
+ html{scroll-padding-top:68px}
+ .layout{padding-bottom:calc(94px + env(safe-area-inset-bottom))}
+ .mobile-nav{padding:7px 3px calc(7px + env(safe-area-inset-bottom))}
+ .top{position:sticky;top:0;z-index:30}
+ .news-mode-tabs,.news-content-tabs,.watch-tabs,.music-genres{scrollbar-width:none;-webkit-overflow-scrolling:touch}
+ .news-mode-tabs::-webkit-scrollbar,.news-content-tabs::-webkit-scrollbar,.watch-tabs::-webkit-scrollbar,.music-genres::-webkit-scrollbar{display:none}
+ .community-demo-card{display:flex;flex-direction:column;min-height:204px}
+ .community-card-mark{width:38px;height:38px;display:grid;place-items:center;border-radius:12px;background:#e7f6f3;color:#008f80;font-size:18px;font-weight:800;letter-spacing:-.04em}
+ .community-demo-card .community-card-top{align-items:center}
+ .community-demo-card h3{overflow-wrap:anywhere}
+ .connect-empty{min-height:156px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:22px;border:1px dashed #d7e2e5;border-radius:16px;background:#fbfdfd;text-align:center}
+ .connect-empty strong{font-size:15px;color:var(--ink)}
+ .connect-empty span{max-width:300px;font-size:13px;line-height:1.5;color:var(--muted)}
+}
+.music-hero{background:var(--navy);color:#fff}
+.music-hero p{color:#dce7eb}
+.music-search button,.music-chip.active{background:var(--teal);border-color:var(--teal);color:#fff}
+.music-play{background:var(--teal);border-color:var(--teal)}
+.music-play.is-playing{background:var(--navy)}
+.community-demo-card{border-radius:var(--gg-radius-lg);box-shadow:0 4px 18px rgba(16,32,45,.035)}
+.community-demo-card .badge{letter-spacing:.07em}
+.connect-tabs button.active{color:#008f80}
+@media(prefers-reduced-motion:reduce){
+ html{scroll-behavior:auto}
+ *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
 
 </style>
@@ -1952,7 +2005,7 @@ function showFirstVisitInstallGuide(){
 }
 updateConnectionState();
 loadGomoGieData().then(()=>{showFirstVisitInstallGuide();startGuestAccessTimer()}).catch(()=>{view.innerHTML='<div class="empty">Unable to load GomoGie content. Please check your connection and refresh.</div>'});
-if("ontouchstart" in window){document.addEventListener("gesturestart",e=>e.preventDefault(),{passive:false});document.addEventListener("gesturechange",e=>e.preventDefault(),{passive:false});document.addEventListener("gestureend",e=>e.preventDefault(),{passive:false})};
+
 
 const aboutLayer=document.getElementById("aboutLayer");
 function openAbout(){if(aboutLayer){aboutLayer.hidden=false;document.getElementById("aboutClose")?.focus()}}

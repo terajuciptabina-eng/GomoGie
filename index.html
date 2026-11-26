@@ -120,10 +120,16 @@ body.pull-releasing .top,body.pull-releasing .layout{transform:translate3d(0,0,0
 .notification-header{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"heading close" "actions actions";align-items:center;gap:14px;padding:20px 20px 16px;border-bottom:1px solid #edf0f1}
 .notification-heading{grid-area:heading;display:flex;align-items:center;gap:10px;min-width:0}.notification-heading h2{font-size:20px;letter-spacing:-.5px;margin:0;color:#142329;white-space:nowrap}
 .notification-count{font-size:12px;font-weight:750;color:#087f72;background:#e7f6f2;border-radius:999px;padding:7px 11px;white-space:nowrap}
-.notification-header-actions{grid-area:actions;display:grid;grid-template-columns:1fr 1fr;gap:10px;min-width:0}
+.notification-header-actions{grid-area:actions;display:grid;grid-template-columns:1fr 1fr;gap:10px;min-width:0;align-items:center}
 .notification-push-enable,.notification-mark-all{min-width:0;min-height:42px;display:inline-flex;align-items:center;justify-content:center;text-align:center;border:1px solid #cfe9e3;border-radius:12px;background:#f0faf7;color:#087f72;font-size:13px;line-height:1.25;font-weight:700;padding:9px 12px;white-space:normal}
-.notification-push-enable[data-enabled="1"]{background:#e7f6f2;border-color:#b9e5db;color:#087f72}
 .notification-push-enable:disabled,.notification-mark-all:disabled{opacity:.55;cursor:wait}
+.notification-push-status{grid-column:1/-1;display:flex;align-items:center;gap:9px;min-width:0;padding:5px 2px;color:#087f72;font-size:13px;font-weight:700}
+.notification-push-status[hidden],.notification-push-enable[hidden],.notification-mark-all[hidden]{display:none!important}
+.notification-push-status-icon{width:30px;height:30px;flex:0 0 30px;border-radius:50%;display:grid;place-items:center;background:#e7f6f2;color:#087f72}
+.notification-push-status-copy{flex:1;min-width:0}
+.notification-push-status-copy small{display:block;margin-top:2px;color:#819095;font-size:11px;font-weight:500}
+.notification-push-disable{border:0;background:transparent;color:#647277;font-size:12px;font-weight:700;padding:8px 4px;white-space:nowrap}
+.notification-push-disable:disabled{opacity:.5}
 .notification-close{grid-area:close;width:40px;height:40px;display:grid;place-items:center;border:1px solid #e8eeee;border-radius:50%;background:#f4f7f7;color:#35464b;font-size:23px;line-height:1;flex:0 0 40px}
 .notification-tabs{display:flex;gap:7px;padding:13px 20px;border-bottom:1px solid #edf0f1}
 .notification-tab{border:0;border-radius:99px;padding:8px 14px;background:#f2f5f5;color:#647277;font-size:12px;font-weight:700}
@@ -1279,7 +1285,7 @@ function notificationAction(type){
 async function openNotificationCenter(){
  if(!currentUser){openAuth();return}
  const layer=document.createElement("div");layer.className="notification-layer";
- layer.innerHTML='<section class="notification-panel" role="dialog" aria-modal="true" aria-label="Notifications"><header class="notification-header"><div class="notification-heading"><h2>Notifications</h2><span class="notification-count" id="notificationCount">…</span></div><button class="notification-close" id="notificationClose" type="button" aria-label="Close">×</button><div class="notification-header-actions"><button class="notification-push-enable" id="notificationPushEnable" type="button">Enable push</button><button class="notification-mark-all" id="notificationMarkAll" type="button">Mark all read</button></div></header><div class="notification-tabs"><button type="button" class="notification-tab active" data-notification-filter="all">All</button><button type="button" class="notification-tab" data-notification-filter="unread">Unread</button></div><div class="notification-list" id="notificationList"><div class="notification-loading">Loading notifications…</div></div></section>';
+ layer.innerHTML='<section class="notification-panel" role="dialog" aria-modal="true" aria-label="Notifications"><header class="notification-header"><div class="notification-heading"><h2>Notifications</h2><span class="notification-count" id="notificationCount">…</span></div><button class="notification-close" id="notificationClose" type="button" aria-label="Close">×</button><div class="notification-header-actions"><div class="notification-push-status" id="notificationPushStatus" hidden><span class="notification-push-status-icon" aria-hidden="true">✓</span><span class="notification-push-status-copy">Push notifications on<small>This device can receive alerts</small></span><button class="notification-push-disable" id="notificationPushDisable" type="button">Turn off</button></div><button class="notification-push-enable" id="notificationPushEnable" type="button">Enable push</button><button class="notification-mark-all" id="notificationMarkAll" type="button" hidden>Mark all read</button></div></header><div class="notification-tabs"><button type="button" class="notification-tab active" data-notification-filter="all">All</button><button type="button" class="notification-tab" data-notification-filter="unread">Unread</button></div><div class="notification-list" id="notificationList"><div class="notification-loading">Loading notifications…</div></div></section>';
  document.body.appendChild(layer);
  let items=[],filter="all",unreadCount=0;
  const list=layer.querySelector("#notificationList"),count=layer.querySelector("#notificationCount"),markAll=layer.querySelector("#notificationMarkAll");
@@ -1288,33 +1294,52 @@ async function openNotificationCenter(){
  layer.addEventListener("click",e=>{if(e.target===layer)close()});
  const onKey=e=>{if(e.key==="Escape"){close();document.removeEventListener("keydown",onKey)}};
  document.addEventListener("keydown",onKey);
- async function setPushButton(){
-  const button=layer.querySelector("#notificationPushEnable");if(!button)return;
-  try{const registration=await navigator.serviceWorker?.getRegistration();const subscription=registration&&await registration.pushManager.getSubscription();button.textContent=subscription?"Push enabled":"Enable push";button.dataset.enabled=subscription?"1":"0"}catch{button.textContent="Enable push"}
+ async function getPushSubscription(){
+  if(!("serviceWorker"in navigator)||!("PushManager"in window))return {registration:null,subscription:null};
+  const scope=new URL("./",document.baseURI).href;
+  const registration=await navigator.serviceWorker.getRegistration(scope);
+  const activeRegistration=registration||await navigator.serviceWorker.register("./sw.js");
+  await activeRegistration.update().catch(()=>{});
+  return {registration:activeRegistration,subscription:await activeRegistration.pushManager.getSubscription()};
  }
- async function togglePush(){
-  const button=layer.querySelector("#notificationPushEnable");if(!button)return;
-  if(!("serviceWorker"in navigator)||!("PushManager"in window)||!("Notification"in window)){alert("Push notifications are not supported in this browser.");return}
-  button.disabled=true;
+ async function setPushButton(){
+  const button=layer.querySelector("#notificationPushEnable"),status=layer.querySelector("#notificationPushStatus");
+  if(!button||!status)return;
   try{
-   const config=await apiRequest("/v1/push/public-key");
-   if(!config.publicKey||!config.configured)throw new Error("Push service is not configured on the server yet.");
-   const permission=Notification.permission==="granted"?"granted":await Notification.requestPermission();
-   if(permission!=="granted")throw new Error("Notification permission was not granted.");
-   const registration=await navigator.serviceWorker.register("./sw.js");
-   await navigator.serviceWorker.ready;
-   let subscription=await registration.pushManager.getSubscription();
-   if(button.dataset.enabled==="1"&&subscription){
-    await apiRequest("/v1/push/subscribe",{method:"DELETE",body:JSON.stringify({endpoint:subscription.endpoint})});
-    await subscription.unsubscribe();button.dataset.enabled="0";
+   const {subscription}=await getPushSubscription(),enabled=!!subscription;
+   button.hidden=enabled;status.hidden=!enabled;
+   button.dataset.enabled=enabled?"1":"0";
+   status.dataset.enabled=enabled?"1":"0";
+  }catch{
+   button.hidden=false;status.hidden=true;button.dataset.enabled="0";
+  }
+ }
+ async function togglePush(disable=false){
+  const button=layer.querySelector("#notificationPushEnable"),disableButton=layer.querySelector("#notificationPushDisable");
+  if(!("serviceWorker"in navigator)||!("PushManager"in window)||!("Notification"in window)){alert("Push notifications are not supported in this browser.");return}
+  if(button)button.disabled=true;if(disableButton)disableButton.disabled=true;
+  try{
+   const {registration,subscription}=await getPushSubscription();
+   if(disable){
+    if(subscription){
+     await apiRequest("/v1/push/subscribe",{method:"DELETE",body:JSON.stringify({endpoint:subscription.endpoint})});
+     await subscription.unsubscribe();
+    }
    }else{
-    const key=Uint8Array.from(atob(config.publicKey.replace(/-/g,"+").replace(/_/g,"/")+"=".repeat((4-config.publicKey.length%4)%4)),c=>c.charCodeAt(0));
-    if(!subscription)subscription=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:key});
-    await apiRequest("/v1/push/subscribe",{method:"POST",body:JSON.stringify({subscription:subscription.toJSON()})});
-    button.dataset.enabled="1";
+    const config=await apiRequest("/v1/push/public-key");
+    if(!config.publicKey||!config.configured)throw new Error("Push service is not configured on the server yet.");
+    const permission=Notification.permission==="granted"?"granted":await Notification.requestPermission();
+    if(permission!=="granted")throw new Error("Notification permission was not granted.");
+    let activeSubscription=subscription;
+    if(!activeSubscription){
+     const key=Uint8Array.from(atob(config.publicKey.replace(/-/g,"+").replace(/_/g,"/")+"=".repeat((4-config.publicKey.length%4)%4)),c=>c.charCodeAt(0));
+     activeSubscription=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:key});
+    }
+    await apiRequest("/v1/push/subscribe",{method:"POST",body:JSON.stringify({subscription:activeSubscription.toJSON()})});
    }
    await setPushButton();
-  }catch(error){alert(error.message||"Unable to update push notification settings.")}finally{button.disabled=false}
+  }catch(error){alert(error.message||"Unable to update push notification settings.")}
+  finally{if(button)button.disabled=false;if(disableButton)disableButton.disabled=false}
  }
  const renderList=()=>{
   const visible=filter==="unread"?items.filter(n=>!n.isRead):items;
@@ -1326,7 +1351,7 @@ async function openNotificationCenter(){
  };
  const load=async()=>{const data=await apiRequest("/v1/notifications?limit=50");items=data.items||[];unreadCount=Number(data.unreadCount||0);notificationUnreadCount=unreadCount;paintNotificationBadge();renderList()};
  layer.querySelectorAll("[data-notification-filter]").forEach(b=>b.onclick=()=>{filter=b.dataset.notificationFilter;renderList()});
- layer.querySelector("#notificationPushEnable").onclick=togglePush;setPushButton();
+ layer.querySelector("#notificationPushEnable").onclick=()=>togglePush(false);layer.querySelector("#notificationPushDisable").onclick=()=>togglePush(true);setPushButton();
  markAll.onclick=async()=>{if(!unreadCount)return;markAll.disabled=true;try{await apiRequest("/v1/notifications/read-all",{method:"PATCH"});items=items.map(n=>({...n,isRead:true}));unreadCount=0;notificationUnreadCount=0;paintNotificationBadge();renderList();}catch(error){alert(error.message)}finally{markAll.disabled=false}};
  list.onclick=async e=>{const row=e.target.closest("[data-notification-id]");if(!row)return;const id=row.dataset.notificationId,type=row.dataset.notificationType,entity=row.dataset.notificationEntity,actor=row.dataset.notificationActor,n=items.find(x=>x.id===id);if(n&&!n.isRead){try{await apiRequest("/v1/notifications/"+encodeURIComponent(id)+"/read",{method:"PATCH"});n.isRead=true;unreadCount=Math.max(0,unreadCount-1);notificationUnreadCount=unreadCount;paintNotificationBadge();renderList();}catch(error){alert(error.message);return}}close();if(type==="follow"&&actor){active="profile";selectedProfileId=actor;profileTab="posts";render();return}if(entity){active="home";render();requestAnimationFrame(()=>{const target=document.getElementById("post-"+entity);if(target)target.scrollIntoView({behavior:"smooth",block:"center"})})}};
  try{await load()}catch(error){list.innerHTML='<div class="notification-empty"><strong>Couldn’t load notifications</strong><span>'+esc(error.message)+'</span></div>'}

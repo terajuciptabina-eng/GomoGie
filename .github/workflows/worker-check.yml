@@ -81,6 +81,23 @@ jobs:
           accountId: ${{ env.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: workers/api
 
+      - name: Smoke-test deployed Worker and storage dependencies
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
+        run: |
+          response="$(curl --silent --show-error --fail --retry 5 --retry-delay 3 --retry-all-errors https://gomogie-api.terajuciptabina.workers.dev/v1/health)"
+          echo "$response" | node -e '
+            let raw = "";
+            process.stdin.on("data", chunk => raw += chunk);
+            process.stdin.on("end", () => {
+              const health = JSON.parse(raw);
+              console.log("Worker health:", JSON.stringify(health));
+              if (health.checks?.database !== "available") process.exit(1);
+              if (health.checks?.mediaStorage !== "available") {
+                console.log("::warning::R2 media storage is degraded; Worker and D1 are responding.");
+              }
+            });
+          '
+
       - name: Report missing Cloudflare deployment credentials
         if: ${{ env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == '' }}
         run: |
@@ -100,6 +117,7 @@ jobs:
           assert frontend_match.group(1) == media_match.group(1), (
               f'Frontend API origin {frontend_match.group(1)} differs from media origin {media_match.group(1)}'
           )
+          assert 'if (path === "/v1/health" && method === "GET")' in worker, 'Production health endpoint missing'
           assert 'const followingFeedRequest = path === "/v1/feed" && url.searchParams.get("scope") === "following"' in worker, 'Authenticated Following feed route missing'
           assert "p.visibility IN ('public','followers')" in worker, 'Following feed visibility filter missing'
           assert 'if (path === "/v1/users/me/following" && method === "GET")' in worker, 'Following relationship restore route missing'

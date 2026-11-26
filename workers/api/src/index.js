@@ -465,7 +465,7 @@ async function route(request, env) {
   const newsPreferencesRequest = path === "/v1/news/preferences";
   const communityRequest = path === "/v1/communities" || path.startsWith("/v1/communities/");
   const publicRelationshipRead = method === "GET" && /^\/v1\/users\/[a-zA-Z0-9_]{3,24}\/(relationships|followers|following)$/.test(path);
-  const needsAuth = !publicRelationshipRead && (communityRequest || newsPreferencesRequest || followingFeedRequest || optionalFeedAuth || optionalNewsAuth || path === "/v1/auth/me" || (path === "/v1/auth/remember" && method === "POST") || ((path.startsWith("/v1/posts") && !publicCommentsRead) || path.startsWith("/v1/saved")) || (path.startsWith("/v1/media") && !publicMediaRead) || (path.startsWith("/v1/videos") && !publicVideoRead) || path.startsWith("/v1/users/") || path.startsWith("/v1/account/") || path.startsWith("/v1/notifications") || (path.startsWith("/v1/push/") && !(path === "/v1/push/public-key" && method === "GET")) || path.startsWith("/v1/conversations") || path === "/v1/friends" || path === "/v1/friend-requests" || path === "/v1/message-requests");
+  const needsAuth = !publicRelationshipRead && (communityRequest || newsPreferencesRequest || followingFeedRequest || optionalFeedAuth || optionalNewsAuth || path === "/v1/auth/me" || (path === "/v1/auth/remember" && method === "POST") || ((path.startsWith("/v1/posts") && !publicCommentsRead) || path.startsWith("/v1/saved")) || (path.startsWith("/v1/media") && !publicMediaRead) || (path.startsWith("/v1/videos") && !publicVideoRead) || path.startsWith("/v1/users/") || path.startsWith("/v1/account/") || path.startsWith("/v1/notifications") || (path.startsWith("/v1/push/") && !(path === "/v1/push/public-key" && method === "GET")) || path.startsWith("/v1/conversations") || path === "/v1/friends" || path === "/v1/friend-requests" || path.startsWith("/v1/friend-requests/") || path === "/v1/message-requests");
   const authDiagnostic = {};
   const auth = needsAuth ? await authenticate(request, env, authDiagnostic) : null;
   if (needsAuth && !auth) return json({ error: "unauthorized", code: authDiagnostic.reason || "authentication_failed", message: "Sesi tidak dapat disahkan." }, 401);
@@ -1116,8 +1116,8 @@ async function route(request, env) {
     const now=new Date().toISOString();
     if(pair?.status==="pending"&&pair.recipient_id===auth.sub){
       await env.DB.prepare("UPDATE friend_requests SET status='accepted',updated_at=? WHERE id=?").bind(now,pair.id).run();
-      await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),pair.requester_id,auth.sub,"friend_accepted",pair.id,now).run();
-      await notifyPushDevices(env,pair.requester_id,{id:pair.id,title:"Friend request accepted",body:"Your friend request was accepted."});
+      try{await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),pair.requester_id,auth.sub,"friend_accepted",pair.id,now).run();}catch(error){console.error("Reciprocal friend acceptance notification failed",pair.id,error);}
+      try{await notifyPushDevices(env,pair.requester_id,{id:pair.id,title:"Friend request accepted",body:"Your friend request was accepted."});}catch(error){console.error("Reciprocal friend acceptance push failed",pair.id,error);}
       return json({friend:true,accepted:true});
     }
     if(pair?.status==="pending")return json({requestSent:true,pending:true});

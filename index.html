@@ -1011,7 +1011,36 @@ async function openThread(postId){
  const renderComments=(parentId=null,depth=0)=>items.filter(c=>(c.parentId||null)===parentId).map(c=>'<article class="thread-item '+(depth?'reply':'')+'"><div class="thread-author">'+esc(c.author?.displayName||c.author?.username||"Member")+'</div><div class="thread-handle">@'+esc(c.author?.username||"member")+'</div><div class="thread-content">'+esc(c.content)+'</div><button class="thread-reply" type="button" data-thread-reply="'+esc(c.id)+'">Reply</button>'+renderComments(c.id,depth+1)+'</article>').join("");
  const load=async()=>{const data=await apiRequest("/v1/posts/"+encodeURIComponent(postId)+"/comments?limit=50");items=data.items||[];list.innerHTML=items.length?renderComments():'<div class="empty">No replies yet. Start the conversation.</div>'};
  list.addEventListener("click",e=>{const b=e.target.closest("[data-thread-reply]");if(!b)return;replyTo=b.dataset.threadReply;const target=items.find(c=>c.id===replyTo);replying.textContent="Replying to "+(target?.author?.displayName||target?.author?.username||"member");input.focus()});
- form.onsubmit=async e=>{e.preventDefault();if(!currentUser){close();openAuth();return}const content=input.value.trim();if(!content)return;const submit=form.querySelector("button[type=submit]");submit.disabled=true;try{await apiRequest("/v1/posts/"+encodeURIComponent(postId)+"/comments",{method:"POST",body:JSON.stringify({content,parentId:replyTo})});input.value="";replyTo=null;replying.textContent="Reply to this conversation";post.comments=Number(post.comments||0)+1;await load()}catch(error){alert(error.message)}finally{submit.disabled=false}};
+ form.onsubmit=async e=>{
+  e.preventDefault();
+  if(!currentUser){close();openAuth();return}
+  const content=input.value.trim();if(!content)return;
+  const parentId=replyTo,submit=form.querySelector("button[type=submit]");
+  submit.disabled=true;submit.textContent="Sending…";
+  try{
+   const result=await apiRequest("/v1/posts/"+encodeURIComponent(postId)+"/comments",{
+    method:"POST",body:JSON.stringify({content,parentId})
+   });
+   if(!result?.comment?.id)throw new Error("Reply was not confirmed by the server.");
+   const created=result.comment;
+   // Render the server-confirmed reply immediately; do not wait for a second GET
+   // request, which could otherwise make the new reply appear only after refresh.
+   if(!items.some(item=>item.id===created.id)){
+    items.push({...created,author:{
+     username:currentUser.username||"member",
+     displayName:currentUser.displayName||currentUser.username||"Member",
+     avatarUrl:currentUser.avatarUrl||""
+    }});
+   }
+   list.innerHTML=items.length?renderComments():'<div class="empty">No replies yet. Start the conversation.</div>';
+   const newReply=list.querySelector('[data-thread-reply="'+CSS.escape(created.id)+'"]');
+   const newItem=newReply?.closest(".thread-item");
+   newItem?.scrollIntoView({block:"nearest",behavior:"smooth"});
+   input.value="";replyTo=null;replying.textContent="Reply to this conversation";
+   post.comments=Number(post.comments||0)+1;
+  }catch(error){alert(error.message)}
+  finally{submit.disabled=false;submit.textContent="Reply"}
+ };
  try{await load()}catch(error){list.innerHTML='<div class="empty">'+esc(error.message)+'</div>'}
 }
 function bindComposer(){

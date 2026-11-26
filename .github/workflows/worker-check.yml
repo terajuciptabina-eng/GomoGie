@@ -14,7 +14,7 @@ on:
       - ".github/workflows/worker-check.yml"
 
 concurrency:
-  group: gomogie-worker-${{ github.ref }}
+  group: gomogie-worker-paid-verification-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:

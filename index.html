@@ -552,6 +552,17 @@ body.pull-releasing .top,body.pull-releasing .layout{transform:translate3d(0,0,0
 .install-guide-steps{display:grid;gap:12px;margin:0 0 20px}.install-guide-step{display:grid;grid-template-columns:34px 1fr;gap:11px;align-items:start;padding:12px;border:1px solid #e7eeee;border-radius:14px;background:#fbfdfd}.install-guide-number{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:#e5f6f2;color:#008b7c;font-weight:800}.install-guide-step strong{display:block;font-size:14px;margin-bottom:3px}.install-guide-step p{margin:0;color:#687981;font-size:12px;line-height:1.45}
 .install-guide-actions{display:grid;gap:9px}.install-guide-primary{width:100%;border:0;border-radius:13px;background:#008f80;color:white;font-weight:750;padding:14px}.install-guide-secondary{width:100%;border:1px solid #e4ebeb;border-radius:13px;background:#fff;color:#52636a;font-weight:650;padding:12px}
 @media(min-width:600px){.install-guide-card{padding:28px}}
+
+/* Keep profile and push notification accordions aligned with the other account settings. */
+.settings-feature-detail{display:block!important;width:calc(100% - 40px)!important;margin:0 20px 10px!important;padding:0!important;border:1px solid var(--line)!important;border-radius:16px!important;background:#fff!important;overflow:hidden!important;}
+.settings-feature-summary{display:flex!important;justify-content:flex-start!important;align-items:center!important;gap:13px!important;width:100%!important;padding:16px 20px!important;border:0!important;background:transparent!important;}
+.settings-feature-summary:before{content:none!important;display:none!important;}
+.settings-feature-summary:after{content:none!important;display:none!important;}
+.settings-feature-summary>span:nth-child(2){display:grid!important;gap:3px!important;flex:1 1 auto!important;min-width:0!important;}
+.settings-feature-summary .settings-chevron{display:grid!important;place-items:center!important;width:27px!important;height:27px!important;flex:0 0 27px!important;margin-left:auto!important;border-radius:9px!important;background:#eff7f5!important;color:#008f80!important;font-size:17px!important;line-height:1!important;transition:transform .18s ease!important;}
+.settings-feature-detail[open] .settings-feature-summary .settings-chevron{transform:rotate(45deg)!important;background:#dff3ee!important;}
+.settings-feature-content{padding:0 20px 18px 71px!important;border-top:1px solid #edf2f1!important;background:#fbfdfd!important;}
+@media(max-width:520px){.settings-feature-detail{width:calc(100% - 40px)!important;margin:0 20px 10px!important;}}
 </style>
 <section class="install-guide-layer" id="installGuideLayer" hidden role="dialog" aria-modal="true" aria-labelledby="installGuideTitle">
  <div class="install-guide-card">

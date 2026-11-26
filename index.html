@@ -117,12 +117,14 @@ body.pull-releasing .top,body.pull-releasing .layout{transform:translate3d(0,0,0
 .notification-layer{position:fixed;inset:0;z-index:90;background:rgba(13,24,29,.46);display:flex;justify-content:flex-end;align-items:stretch;padding:0}
 .notification-panel{width:min(440px,100%);height:100%;background:#fff;box-shadow:-18px 0 55px rgba(12,25,30,.18);display:flex;flex-direction:column;animation:notificationIn .2s ease-out}
 @keyframes notificationIn{from{transform:translateX(18px);opacity:.7}to{transform:translateX(0);opacity:1}}
-.notification-header{display:flex;align-items:center;justify-content:space-between;padding:22px 22px 16px;border-bottom:1px solid #edf0f1}
-.notification-heading{display:flex;align-items:center;gap:10px}.notification-heading h2{font-size:20px;letter-spacing:-.5px;margin:0;color:#142329}
-.notification-count{font-size:11px;font-weight:750;color:#087f72;background:#e7f6f2;border-radius:99px;padding:5px 9px}
-.notification-header-actions{display:flex;align-items:center;gap:8px}
-.notification-mark-all{border:0;background:transparent;color:#078879;font-size:12px;font-weight:700;padding:9px 7px}
-.notification-close{width:36px;height:36px;border:0;border-radius:50%;background:#f1f4f4;color:#35464b;font-size:22px;line-height:1}
+.notification-header{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"heading close" "actions actions";align-items:center;gap:14px;padding:20px 20px 16px;border-bottom:1px solid #edf0f1}
+.notification-heading{grid-area:heading;display:flex;align-items:center;gap:10px;min-width:0}.notification-heading h2{font-size:20px;letter-spacing:-.5px;margin:0;color:#142329;white-space:nowrap}
+.notification-count{font-size:12px;font-weight:750;color:#087f72;background:#e7f6f2;border-radius:999px;padding:7px 11px;white-space:nowrap}
+.notification-header-actions{grid-area:actions;display:grid;grid-template-columns:1fr 1fr;gap:10px;min-width:0}
+.notification-push-enable,.notification-mark-all{min-width:0;min-height:42px;display:inline-flex;align-items:center;justify-content:center;text-align:center;border:1px solid #cfe9e3;border-radius:12px;background:#f0faf7;color:#087f72;font-size:13px;line-height:1.25;font-weight:700;padding:9px 12px;white-space:normal}
+.notification-push-enable[data-enabled="1"]{background:#e7f6f2;border-color:#b9e5db;color:#087f72}
+.notification-push-enable:disabled,.notification-mark-all:disabled{opacity:.55;cursor:wait}
+.notification-close{grid-area:close;width:40px;height:40px;display:grid;place-items:center;border:1px solid #e8eeee;border-radius:50%;background:#f4f7f7;color:#35464b;font-size:23px;line-height:1;flex:0 0 40px}
 .notification-tabs{display:flex;gap:7px;padding:13px 20px;border-bottom:1px solid #edf0f1}
 .notification-tab{border:0;border-radius:99px;padding:8px 14px;background:#f2f5f5;color:#647277;font-size:12px;font-weight:700}
 .notification-tab.active{background:#e5f5f1;color:#087f72}
@@ -143,7 +145,7 @@ body.pull-releasing .top,body.pull-releasing .layout{transform:translate3d(0,0,0
 .notification-empty strong{font-size:15px;color:#34464b;margin-bottom:5px}
 .notification-empty span{font-size:12px;line-height:1.5;max-width:250px}
 .notification-loading{padding:30px 16px;text-align:center;color:#7a898d;font-size:13px}
-@media(max-width:600px){.notification-layer{align-items:flex-end}.notification-panel{width:100%;height:min(88dvh,780px);border-radius:22px 22px 0 0;box-shadow:0 -16px 45px rgba(12,25,30,.18);padding-bottom:env(safe-area-inset-bottom)}.notification-header{padding:18px 17px 13px}.notification-list{padding-left:8px;padding-right:8px}}
+@media(max-width:600px){.notification-layer{align-items:flex-end}.notification-panel{width:100%;height:min(88dvh,780px);border-radius:22px 22px 0 0;box-shadow:0 -16px 45px rgba(12,25,30,.18);padding-bottom:env(safe-area-inset-bottom)}.notification-header{padding:17px 16px 14px;gap:12px}.notification-header-actions{gap:8px}.notification-push-enable,.notification-mark-all{min-height:44px;font-size:13px;padding:9px 10px}.notification-heading h2{font-size:19px}.notification-count{font-size:12px;padding:7px 10px}.notification-close{width:38px;height:38px;flex-basis:38px}.notification-list{padding-left:8px;padding-right:8px}}
 
 .account-avatar-button{border:0;background:transparent;padding:0;border-radius:50%;display:grid;place-items:center;cursor:pointer}
 .account-avatar-button:focus-visible{outline:3px solid #80d8ca;outline-offset:3px}
@@ -1277,7 +1279,7 @@ function notificationAction(type){
 async function openNotificationCenter(){
  if(!currentUser){openAuth();return}
  const layer=document.createElement("div");layer.className="notification-layer";
- layer.innerHTML='<section class="notification-panel" role="dialog" aria-modal="true" aria-label="Notifications"><header class="notification-header"><div class="notification-heading"><h2>Notifications</h2><span class="notification-count" id="notificationCount">…</span></div><div class="notification-header-actions"><button class="notification-push-enable" id="notificationPushEnable" type="button">Enable push</button><button class="notification-mark-all" id="notificationMarkAll" type="button">Mark all read</button><button class="notification-close" id="notificationClose" type="button" aria-label="Close">×</button></div></header><div class="notification-tabs"><button type="button" class="notification-tab active" data-notification-filter="all">All</button><button type="button" class="notification-tab" data-notification-filter="unread">Unread</button></div><div class="notification-list" id="notificationList"><div class="notification-loading">Loading notifications…</div></div></section>';
+ layer.innerHTML='<section class="notification-panel" role="dialog" aria-modal="true" aria-label="Notifications"><header class="notification-header"><div class="notification-heading"><h2>Notifications</h2><span class="notification-count" id="notificationCount">…</span></div><button class="notification-close" id="notificationClose" type="button" aria-label="Close">×</button><div class="notification-header-actions"><button class="notification-push-enable" id="notificationPushEnable" type="button">Enable push</button><button class="notification-mark-all" id="notificationMarkAll" type="button">Mark all read</button></div></header><div class="notification-tabs"><button type="button" class="notification-tab active" data-notification-filter="all">All</button><button type="button" class="notification-tab" data-notification-filter="unread">Unread</button></div><div class="notification-list" id="notificationList"><div class="notification-loading">Loading notifications…</div></div></section>';
  document.body.appendChild(layer);
  let items=[],filter="all",unreadCount=0;
  const list=layer.querySelector("#notificationList"),count=layer.querySelector("#notificationCount"),markAll=layer.querySelector("#notificationMarkAll");

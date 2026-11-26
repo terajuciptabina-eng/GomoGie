@@ -54,7 +54,7 @@ async function signToken(user, env, lifetimeSeconds = 2592000) {
   const now = Math.floor(Date.now() / 1000);
   const subject = typeof user?.id === "string" ? user.id : user?.sub;
   if (typeof subject !== "string" || !subject) throw new Error("JWT subject is required");
-  const payload = b64url(encoder.encode(JSON.stringify({ sub: subject, username: user.username || "", iat: now, exp: now + lifetimeSeconds })));
+  const payload = b64url(encoder.encode(JSON.stringify({ sub: subject, username: user.username || "", ver: Number(user.session_version || 0), iat: now, exp: now + lifetimeSeconds })));
   const input = header + "." + payload;
   const key = await crypto.subtle.importKey("raw", encoder.encode(env.JWT_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(input));
@@ -82,9 +82,10 @@ async function authenticate(request, env, diagnostic = null) {
         !Number.isInteger(payload.iat) || payload.iat > now + 60 ||
         payload.exp - payload.iat > 2592000) return reject("invalid_claims");
     if (payload.exp <= now) return reject("token_expired");
-    const account = await env.DB.prepare("SELECT status FROM users WHERE id = ?").bind(payload.sub).first();
+    const account = await env.DB.prepare("SELECT status,session_version FROM users WHERE id = ?").bind(payload.sub).first();
     if (!account) return reject("account_not_found");
     if (account.status !== "active") return reject("account_inactive");
+    if (Number(payload.ver || 0) !== Number(account.session_version || 0)) return reject("session_revoked");
     return payload;
   } catch { return reject("token_parse_or_verification_error"); }
 }
@@ -437,7 +438,7 @@ async function route(request, env) {
     if (!input || !text(input.login, 254) || typeof input.password !== "string" || input.password.length > 128) {
       return json({ error: "validation_error" }, 400);
     }
-    const user = await env.DB.prepare("SELECT id,email,username,password_hash,status FROM users WHERE email = ? COLLATE NOCASE OR username = ? COLLATE NOCASE")
+    const user = await env.DB.prepare("SELECT id,email,username,password_hash,status,session_version FROM users WHERE email = ? COLLATE NOCASE OR username = ? COLLATE NOCASE")
       .bind(input.login.trim(), input.login.trim()).first();
     if (!user || user.status === "deleted" || !(await passwordVerify(input.password, user.password_hash))) {
       return json({ error: "invalid_credentials", message: "Maklumat log masuk tidak tepat." }, 401);
@@ -485,8 +486,19 @@ async function route(request, env) {
     if (!input || typeof input.currentPassword !== "string" || typeof input.newPassword !== "string" || input.newPassword.length < 9 || input.newPassword.length > 128) return json({ error: "validation_error", message: "Kata laluan baharu mesti 9–128 aksara." }, 400);
     const account = await env.DB.prepare("SELECT password_hash FROM users WHERE id=? AND status='active'").bind(auth.sub).first();
     if (!account || !(await passwordVerify(input.currentPassword, account.password_hash))) return json({ error: "password_incorrect", message: "Kata laluan semasa tidak tepat." }, 403);
-    await env.DB.prepare("UPDATE users SET password_hash=?,updated_at=? WHERE id=?").bind(await passwordHash(input.newPassword), new Date().toISOString(), auth.sub).run();
-    return json({ updated: true });
+    await env.DB.prepare("UPDATE users SET password_hash=?,session_version=session_version+1,updated_at=? WHERE id=?").bind(await passwordHash(input.newPassword), new Date().toISOString(), auth.sub).run();
+    const updated = await env.DB.prepare("SELECT id,username,session_version FROM users WHERE id=?").bind(auth.sub).first();
+    return json({ updated: true, accessToken: await signToken(updated, env, 2592000) });
+  }
+
+  if (path === "/v1/account/logout-all" && method === "POST") {
+    const input = await readJson(request);
+    if (typeof input?.password !== "string") return json({ error: "validation_error", message: "Masukkan kata laluan untuk mengesahkan tindakan." }, 400);
+    const account = await env.DB.prepare("SELECT password_hash FROM users WHERE id=? AND status='active'").bind(auth.sub).first();
+    if (!account || !(await passwordVerify(input.password, account.password_hash))) return json({ error: "password_incorrect", message: "Kata laluan semasa tidak tepat." }, 403);
+    await env.DB.prepare("UPDATE users SET session_version=session_version+1,updated_at=? WHERE id=?").bind(new Date().toISOString(),auth.sub).run();
+    const updated = await env.DB.prepare("SELECT id,username,session_version FROM users WHERE id=?").bind(auth.sub).first();
+    return json({ revokedOtherSessions: true, accessToken: await signToken(updated,env,2592000) });
   }
 
   if (path === "/v1/account/deactivate" && method === "POST") {
@@ -494,7 +506,7 @@ async function route(request, env) {
     if (typeof input?.password !== "string") return json({ error: "validation_error", message: "Masukkan kata laluan untuk mengesahkan tindakan." }, 400);
     const account = await env.DB.prepare("SELECT password_hash FROM users WHERE id=? AND status='active'").bind(auth.sub).first();
     if (!account || !(await passwordVerify(input.password, account.password_hash))) return json({ error: "password_incorrect", message: "Kata laluan semasa tidak tepat." }, 403);
-    await env.DB.prepare("UPDATE users SET status='deactivated',updated_at=? WHERE id=?").bind(new Date().toISOString(), auth.sub).run();
+    await env.DB.prepare("UPDATE users SET status='deactivated',session_version=session_version+1,updated_at=? WHERE id=?").bind(new Date().toISOString(), auth.sub).run();
     return json({ deactivated: true, message: "Akaun dinyahaktifkan. Log masuk semula untuk mengaktifkannya." });
   }
 
@@ -505,7 +517,7 @@ async function route(request, env) {
     if (!account || !(await passwordVerify(input.password, account.password_hash))) return json({ error: "password_incorrect", message: "Kata laluan semasa tidak tepat." }, 403);
     const now = new Date(), scheduled = new Date(now.getTime() + 30 * 86400000);
     await env.DB.batch([
-      env.DB.prepare("UPDATE users SET status='pending_deletion',updated_at=? WHERE id=?").bind(now.toISOString(), auth.sub),
+      env.DB.prepare("UPDATE users SET status='pending_deletion',session_version=session_version+1,updated_at=? WHERE id=?").bind(now.toISOString(), auth.sub),
       env.DB.prepare("INSERT INTO gomogie_account_deletion_requests (user_id,requested_at,scheduled_for,status) VALUES (?,?,?,'pending') ON CONFLICT(user_id) DO UPDATE SET requested_at=excluded.requested_at,scheduled_for=excluded.scheduled_for,status='pending'").bind(auth.sub, now.toISOString(), scheduled.toISOString())
     ]);
     return json({ deletionScheduled: true, scheduledFor: scheduled.toISOString(), recoveryDays: 30, message: "Permintaan pemadaman dijadualkan selepas 30 hari. Log masuk semula dalam tempoh ini untuk membatalkannya." });

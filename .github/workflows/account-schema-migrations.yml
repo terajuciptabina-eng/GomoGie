@@ -44,6 +44,15 @@ jobs:
             echo "users.session_version is missing; applying additive migration 0016."
             npx wrangler d1 execute gomogie-db --remote --file=sql/0016_session_revocation.sql
           fi
+      - name: Apply saved posts D1 table
+        run: npx wrangler d1 execute gomogie-db --remote --file=sql/0017_saved_posts.sql
+      - name: Verify saved posts schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          saved="$(npx wrangler d1 execute gomogie-db --remote --command="SELECT name FROM sqlite_master WHERE type='table' AND name='gomogie_saved_posts'" --json)"
+          printf '%s' "$saved" | grep -q 'gomogie_saved_posts'
+          echo "Verified gomogie_saved_posts."
       - name: Verify account schema
         shell: bash
         run: |

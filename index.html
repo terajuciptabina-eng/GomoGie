@@ -1468,37 +1468,45 @@ function musicPlayerMessage(message){const el=document.getElementById("musicStat
 async function playMusic(index){ensureMusicPlayer();const track=musicQueue[index];if(!track?.stream){musicPlayerMessage("This track has no playable stream.");return}musicQueueIndex=index;musicCurrent=track;musicAudio.pause();musicAudio.src=track.stream;musicAudio.load();updateMusicDock();musicPlayerMessage("Loading "+track.title+"…");try{await musicAudio.play();musicPlayerMessage("Playing "+track.title);updateMusicDock()}catch{musicPlayerMessage("Tap Play again to allow streaming on this device.")}}
 function playNextMusic(step=1){if(!musicQueue.length)return;let next=musicQueueIndex+step;if(next<0)next=musicQueue.length-1;if(next>=musicQueue.length)next=0;playMusic(next)}
 async function searchPublicMusic(term="",genre="all"){
- musicSearchBusy=true;musicPlayerMessage("Searching the public music catalogue…");
- const clean=String(term||"").replace(/[^\p{L}\p{N}\s-]/gu," ").trim().replace(/\s+/g," ").slice(0,80);
- const q=["mediatype:audio"];
- if(clean)q.push('(title:"'+clean.replace(/"/g,"")+'" OR creator:"'+clean.replace(/"/g,"")+'")');
- const params=new URLSearchParams({q:q.join(" AND "), "fl[]":"identifier,title,creator,year",rows:"80",page:"1",output:"json"});
- params.delete("fl[]");["identifier","title","creator","year"].forEach(f=>params.append("fl[]",f));
- const url="https://archive.org/advancedsearch.php?"+params.toString()+"&sort[]=downloads desc";
+ musicSearchBusy=true;musicResults=[];musicQueue=[];renderMusicResults();musicPlayerMessage("Searching licensed audio catalogue…");
+ const clean=String(term||"").replace(/[^\\p{L}\\p{N}\\s-]/gu," ").trim().replace(/\\s+/g," ").slice(0,80);
+ // Search by IA's indexed licenseurl patterns first. Do not scan the first
+ // popular audio items and hope that they happen to carry reusable rights.
+ const clauses=["mediatype:audio","(licenseurl:http*by* OR licenseurl:http*publicdomain*)"];
+ if(clean)clauses.push('(title:('+clean.replace(/"/g,"")+') OR creator:('+clean.replace(/"/g,"")+'))');
+ const params=new URLSearchParams();
+ params.set("q",clauses.join(" AND "));
+ ["identifier","title","creator","year","licenseurl"].forEach(f=>params.append("fl[]",f));
+ params.set("rows","100");params.set("page","1");params.set("output","json");params.append("sort[]","downloads desc");
  try{
-  const res=await fetch(url,{headers:{accept:"application/json"}});
-  if(!res.ok)throw new Error("Music catalogue returned HTTP "+res.status);
+  const res=await fetch("https://archive.org/advancedsearch.php?"+params.toString(),{headers:{accept:"application/json"}});
+  if(!res.ok)throw new Error("Internet Archive search returned HTTP "+res.status);
   const data=await res.json(),docs=data.response?.docs||[];
-  const found=await Promise.all(docs.slice(0,60).map(async d=>{
+  const candidates=docs.slice(0,80);
+  const found=await Promise.all(candidates.map(async d=>{
    try{
     const mr=await fetch("https://archive.org/metadata/"+encodeURIComponent(d.identifier),{headers:{accept:"application/json"}});
     if(!mr.ok)return null;
     const meta=await mr.json(),md=meta.metadata||{};
-    const files=(meta.files||[]).filter(f=>f.name&&!f.source&&/\.(mp3|ogg|opus)$/i.test(f.name)&&(!f.size||Number(f.size)>0));
-    const file=files.find(f=>/\.mp3$/i.test(f.name))||files[0];
-    if(!file)return null;
-    const lic=String(md.licenseurl||d.licenseurl||"").toLowerCase();
-    const allowed=lic.includes("creativecommons.org/licenses/by/")||lic.includes("creativecommons.org/licenses/by-sa/")||lic.includes("creativecommons.org/publicdomain/zero/")||lic.includes("creativecommons.org/publicdomain/mark/");
+    const rawLicense=md.licenseurl||d.licenseurl||"";
+    const lic=String(Array.isArray(rawLicense)?rawLicense[0]||"":rawLicense).toLowerCase();
+    // Exclude NonCommercial and NoDerivatives: GomoGie is a public platform.
+    const allowed=(lic.includes("creativecommons.org/licenses/by/")||lic.includes("creativecommons.org/licenses/by-sa/")||lic.includes("creativecommons.org/publicdomain/zero/")||lic.includes("creativecommons.org/publicdomain/mark/"))&&!/by-nc|by-nd/.test(lic);
     if(!allowed)return null;
+    const files=(meta.files||[]).filter(f=>f.name&&/\\.(mp3|ogg|opus)$/i.test(f.name)&&(!f.size||Number(f.size)>0)&&!f.name.includes("__ia_thumb"));
+    const file=files.find(f=>/\\.mp3$/i.test(f.name))||files.find(f=>/\\.ogg$/i.test(f.name))||files[0];
+    if(!file)return null;
     const subjects=Array.isArray(md.subject)?md.subject.join(" ").toLowerCase():String(md.subject||"").toLowerCase();
-    if(genre!=="all"&&!subjects.includes(genre.toLowerCase()))return null;
-    return {id:d.identifier,title:String(md.title||d.title||d.identifier),artist:String(Array.isArray(md.creator||d.creator)?(md.creator||d.creator).join(", "):(md.creator||d.creator||"Independent artist")),year:d.year||md.year||"",license:lic,stream:"https://archive.org/download/"+encodeURIComponent(d.identifier)+"/"+file.name.split("/").map(encodeURIComponent).join("/"),art:"https://archive.org/services/img/"+encodeURIComponent(d.identifier)};
-   }catch{return null}
+    const genreTerms={pop:["pop"],rock:["rock"],jazz:["jazz"],electronic:["electronic","electronica","techno","house"],classical:["classical","orchestra","symphony"],"hip-hop":["hip-hop","hip hop","rap"],ambient:["ambient"],instrumental:["instrumental"]};
+    if(genre!=="all"&&!(genreTerms[genre]||[genre]).some(x=>subjects.includes(x)))return null;
+    const creator=md.creator||d.creator||"Independent artist";
+    return {id:d.identifier,title:String(md.title||d.title||d.identifier),artist:String(Array.isArray(creator)?creator.join(", "):creator),year:d.year||md.year||"",license:lic,stream:"https://archive.org/download/"+encodeURIComponent(d.identifier)+"/"+file.name.split("/").map(encodeURIComponent).join("/"),art:"https://archive.org/services/img/"+encodeURIComponent(d.identifier)};
+   }catch(error){console.warn("Skipping unavailable IA item",d.identifier,error);return null}
   }));
   musicResults=found.filter(Boolean);musicQueue=musicResults;musicQueueIndex=-1;musicSearchBusy=false;renderMusicResults();
-  musicPlayerMessage(musicResults.length?musicResults.length+" playable tracks found · Rights checked":"No playable tracks found for this filter. Try All or a different search.");
+  musicPlayerMessage(musicResults.length?musicResults.length+" playable tracks found · Licence verified":"No verified playable tracks matched. Try All or a broader search.");
  }catch(error){
-  musicSearchBusy=false;musicResults=[];musicQueue=[];renderMusicResults();musicPlayerMessage("Music catalogue connection failed. Please try again.");
+  musicSearchBusy=false;musicResults=[];musicQueue=[];renderMusicResults();musicPlayerMessage("Music catalogue could not be reached. Please try again.");
   console.error("GomoGie Music search:",error);
  }
 }

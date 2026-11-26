@@ -338,8 +338,9 @@ async function restoreSession(){
   console.warn("Session verification failed; diagnostic retained:",error);
   if(error.status===401){
    // Do not keep a cached identity looking signed in after the API rejects its token.
-   await clearToken();currentUser=null;followed.clear();followingFeedPosts=[];feedMode="for-you";
+   await clearToken();currentUser=null;selectedProfileId=null;editingProfile=false;profileDraft={};followed.clear();followingFeedPosts=[];feedMode="for-you";
    saveAuthDiagnostic({stage:"stale_session_cleared",status:401,code:error.code||"unauthorized",rememberedUserPresent:!!remembered});
+   if(active==="profile")openAuth("login");
   }else{
    if(!currentUser)currentUser=remembered;
    saveAuthDiagnostic({stage:"auth_check_failed",status:error.status||0,hasToken:true,rememberedUserPresent:!!remembered,code:error.code||"unknown",message:String(error.message||error)});

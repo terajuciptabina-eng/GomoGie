@@ -1,5 +1,5 @@
 const CACHE_PREFIX="gomogie-shell-";
-const CACHE_NAME=CACHE_PREFIX+"v32";
+const CACHE_NAME=CACHE_PREFIX+"v33";
 const APP_SHELL=["./","./index.html","./manifest.webmanifest","./assets/brand/favicon.svg","./assets/brand/apple-touch-icon.png","./assets/brand/icon-192.png","./assets/brand/icon-512.png","./assets/brand/GomoGie-wordmark-transparent.svg","./assets/brand/brand-tokens.css","./data/demo-accounts.json","./data/demo-posts.json"];
 const scopedURL=path=>new URL(path,self.registration.scope).href;
 const normalizedDataURL=value=>{const clean=new URL(value);clean.search="";clean.hash="";return clean.href};
@@ -29,4 +29,4 @@ self.addEventListener("fetch",event=>{
 });
 
 self.addEventListener("push",event=>{let data={title:"GomoGie",body:"You have a new notification.",url:"./"};try{if(event.data)data={...data,...event.data.json()}}catch{}event.waitUntil(self.registration.showNotification(data.title||"GomoGie",{body:data.body||"You have a new notification.",icon:"./assets/brand/icon-192.png",badge:"./assets/brand/icon-192.png",data:{url:data.url||"./"},tag:data.tag||"gomogie-notification"}))});
-self.addEventListener("notificationclick",event=>{event.notification.close();const target=new URL(event.notification.data?.url||"./",self.location.origin).href;event.waitUntil(self.clients.matchAll({type:"window",includeUncontrolled:true}).then(clients=>{for(const client of clients){if(client.url.startsWith(self.location.origin)&&"focus"in client)return client.focus().then(()=>client.navigate?client.navigate(target):client)}return self.clients.openWindow(target)}))});
+self.addEventListener("notificationclick",event=>{event.notification.close();const target=new URL(event.notification.data?.url||"./",self.registration.scope).href;event.waitUntil(self.clients.matchAll({type:"window",includeUncontrolled:true}).then(clients=>{for(const client of clients){if(client.url.startsWith(self.location.origin)&&"focus"in client)return client.focus().then(()=>client.navigate?client.navigate(target):client)}return self.clients.openWindow(target)}))});

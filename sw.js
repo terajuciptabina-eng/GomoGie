@@ -27,3 +27,6 @@ self.addEventListener("fetch",event=>{
   event.respondWith((async()=>{const cache=await caches.open(CACHE_NAME);try{const fresh=await fetch(request,{cache:"no-store"});if(fresh.ok)await cache.put(request,fresh.clone());return fresh}catch(error){return (await cache.match(request))||Response.error()}})())
  }
 });
+
+self.addEventListener("push",event=>{let data={title:"GomoGie",body:"You have a new notification.",url:"./"};try{if(event.data)data={...data,...event.data.json()}}catch{}event.waitUntil(self.registration.showNotification(data.title||"GomoGie",{body:data.body||"You have a new notification.",icon:"./assets/brand/icon-192.png",badge:"./assets/brand/icon-192.png",data:{url:data.url||"./"},tag:data.tag||"gomogie-notification"}))});
+self.addEventListener("notificationclick",event=>{event.notification.close();const target=new URL(event.notification.data?.url||"./",self.location.origin).href;event.waitUntil(self.clients.matchAll({type:"window",includeUncontrolled:true}).then(clients=>{for(const client of clients){if(client.url.startsWith(self.location.origin)&&"focus"in client)return client.focus().then(()=>client.navigate?client.navigate(target):client)}return self.clients.openWindow(target)}))});

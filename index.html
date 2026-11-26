@@ -128,6 +128,9 @@ body.pull-releasing .top,body.pull-releasing .layout{transform:translate3d(0,0,0
 .notification-push-status-icon{width:30px;height:30px;flex:0 0 30px;border-radius:50%;display:grid;place-items:center;background:#e7f6f2;color:#087f72}
 .notification-push-status-copy{flex:1;min-width:0}
 .notification-push-status-copy small{display:block;margin-top:2px;color:#819095;font-size:11px;font-weight:500}
+.notification-push-status[data-install-required="1"]{color:#53656b}
+.notification-push-status[data-install-required="1"] .notification-push-status-icon{background:#f0f4f4;color:#60747a}
+.notification-push-status[data-install-required="1"] .notification-push-status-copy small{line-height:1.4}
 .notification-push-disable{border:0;background:transparent;color:#647277;font-size:12px;font-weight:700;padding:8px 4px;white-space:nowrap}
 .notification-push-disable:disabled{opacity:.5}
 .notification-close{grid-area:close;width:40px;height:40px;display:grid;place-items:center;border:1px solid #e8eeee;border-radius:50%;background:#f4f7f7;color:#35464b;font-size:23px;line-height:1;flex:0 0 40px}
@@ -1294,14 +1297,17 @@ async function openNotificationCenter(){
  layer.addEventListener("click",e=>{if(e.target===layer)close()});
  const onKey=e=>{if(e.key==="Escape"){close();document.removeEventListener("keydown",onKey)}};
  document.addEventListener("keydown",onKey);
+ function isIOSHomeScreenApp(){
+  const ios=/iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+  const standalone=window.matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+  return ios&&!standalone;
+ }
  async function getPushSubscription(){
   if(!("serviceWorker"in navigator)||!("PushManager"in window))return {registration:null,subscription:null};
   const scope=new URL("./",document.baseURI).href;
   let registration=await navigator.serviceWorker.getRegistration();
   if(!registration||registration.scope!==scope)registration=await navigator.serviceWorker.getRegistration(scope);
   if(!registration)registration=await navigator.serviceWorker.register("./sw.js",{scope});
-  // Prefer the registration controlling this GomoGie page, then verify the
-  // exact project scope. This avoids Safari/PWA scope mismatches.
   const ready=await navigator.serviceWorker.ready.catch(()=>null);
   if(ready&&ready.scope===scope)registration=ready;
   await registration.update().catch(()=>{});
@@ -1309,12 +1315,22 @@ async function openNotificationCenter(){
  }
  async function setPushButton(){
   const button=layer.querySelector("#notificationPushEnable"),status=layer.querySelector("#notificationPushStatus");
-  if(!button||!status)return;
+  const copy=status?.querySelector(".notification-push-status-copy"),disable=layer.querySelector("#notificationPushDisable");
+  if(!button||!status||!copy)return;
+  if(isIOSHomeScreenApp()){
+   button.hidden=true;status.hidden=false;status.dataset.installRequired="1";
+   copy.innerHTML='Add GomoGie to Home Screen<small>On iPhone, push notifications work from the Home Screen app. Tap Share in Safari, choose Add to Home Screen, then open GomoGie from its icon.</small>';
+   if(disable)disable.hidden=true;
+   return;
+  }
+  status.dataset.installRequired="0";
+  if(disable)disable.hidden=false;
   try{
    const {subscription}=await getPushSubscription(),enabled=!!subscription;
    button.hidden=enabled;status.hidden=!enabled;button.textContent="Enable push";
    button.dataset.enabled=enabled?"1":"0";
    status.dataset.enabled=enabled?"1":"0";
+   copy.innerHTML='Push notifications on<small>This device can receive alerts</small>';
   }catch{
    button.hidden=false;status.hidden=true;button.dataset.enabled="0";
   }

@@ -1227,7 +1227,7 @@ async function route(request, env) {
     for (const recipientId of recipients) {
       await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)")
         .bind(uuid(), recipientId, auth.sub, "comment", id, now).run();
-      await notifyPushDevices(env,recipientId,{id:commentMatch[1],actorId:auth.sub,type:"comment",preview:input.content.trim().slice(0,120)});
+      await notifyPushDevices(env,recipientId,{id:commentMatch[1],actorId:auth.sub,type:"comment",isReply:!!parent?.id,preview:input.content.trim().slice(0,120)});
     }
     for(const recipient of mentionRecipients){
       await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),recipient.id,auth.sub,"mention",id,now).run();
@@ -1583,7 +1583,7 @@ async function notifyPushDevices(env,userId,notification){
  const name=actor?.display_name||actor?.username||"Someone",preview=String(notification.preview||"").replace(/\\s+/g," ").trim().slice(0,110);
  const messages={
   reaction:{title:"New reaction",body:name+" reacted to your post."},
-  comment:{title:"New comment",body:name+" commented: "+(preview||"Open the post to see the comment.")},
+  comment:{title:notification.isReply?"New reply":"New comment",body:notification.isReply?name+" replied to your comment: "+(preview||"Open the conversation to see the reply."):name+" commented: "+(preview||"Open the post to see the comment.")},
   mention:{title:"You were mentioned",body:name+" mentioned you"+(preview?": "+preview:" in a post.")},
   follow:{title:"New follower",body:name+" started following you."},
   friend_request:{title:"Friend request",body:name+" sent you a friend request."},

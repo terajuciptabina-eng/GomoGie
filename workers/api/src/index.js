@@ -1119,6 +1119,14 @@ async function route(request, env) {
     let pollId=null;
     if(hasPoll){pollId=uuid();statements.push(env.DB.prepare("INSERT INTO gomogie_polls (id,post_id,closes_at,created_at) VALUES (?,?,?,?)").bind(pollId,id,closesAt,now));pollOptions.forEach((label,index)=>statements.push(env.DB.prepare("INSERT INTO gomogie_poll_options (id,poll_id,label,position) VALUES (?,?,?,?)").bind(uuid(),pollId,label,index)))}
     await env.DB.batch(statements);
+    if(visibility!=="private"){
+      const followers=await env.DB.prepare("SELECT follower_id FROM follows WHERE following_id=? AND status='accepted' AND follower_id<>? ORDER BY follower_id LIMIT 200").bind(auth.sub,auth.sub).all();
+      const followerRows=(followers.results||[]);
+      for(const follower of followerRows){
+        await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),follower.follower_id,auth.sub,"new_post",id,now).run();
+        await notifyPushDevices(env,follower.follower_id,{id,actorId:auth.sub,type:"new_post",preview:input.content.trim().slice(0,120),url:"./"});
+      }
+    }
     for(const recipient of mentionRecipients){
       await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),recipient.id,auth.sub,"mention",id,now).run();
       await notifyPushDevices(env,recipient.id,{id,actorId:auth.sub,type:"mention",preview:input.content.trim().slice(0,120),url:"./"});
@@ -1567,6 +1575,7 @@ async function notifyPushDevices(env,userId,notification){
   follow:{title:"New follower",body:name+" started following you."},
   friend_request:{title:"Friend request",body:name+" sent you a friend request."},
   friend_accepted:{title:"Friend request accepted",body:name+" accepted your friend request."},
+  new_post:{title:"New post from "+name,body:preview||"Your followed account shared a new post."},
   message:{title:"New message from "+name,body:preview||"You received a new message."},
   message_request:{title:"Message request from "+name,body:preview||"You received a message request."},
   message_request_accepted:{title:"Message request accepted",body:name+" accepted your message request."}

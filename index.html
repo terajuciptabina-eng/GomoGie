@@ -1944,6 +1944,11 @@ function prepareYouTubePlayer(){
  ensureMusicPlayer();
  const frame=musicDock?.querySelector("#musicDockYoutube");
  if(!frame)return Promise.resolve(null);
+ // Initialise the YouTube iframe in a real 200px layout box. A parent with
+ // the hidden attribute (display:none) can prevent iOS Safari from completing
+ // the player handshake, leaving later Play taps waiting on an unready API.
+ musicDock.hidden=false;
+ musicDock.style.position="fixed";musicDock.style.left="-10000px";musicDock.style.top="0";musicDock.style.width="320px";musicDock.style.opacity="0";musicDock.style.pointerEvents="none";
  musicYouTubePlayerInitPromise=ensureYouTubeIframeApi().then(()=>new Promise(resolve=>{
   frame.hidden=false;
   frame.style.display="block";frame.style.width="min(100%,320px)";frame.style.height="200px";frame.style.minHeight="200px";frame.style.maxHeight="200px";frame.style.opacity="1";frame.style.pointerEvents="auto";frame.style.margin="0 auto";
@@ -1993,7 +1998,7 @@ async function playMusicVideo(track){
  if(!video||!ytFrame||!track)return;
  const index=musicQueue.findIndex(x=>x.id===track.id);if(index>=0)musicQueueIndex=index;
  if(musicAudio){musicAudio.pause();musicAudio.removeAttribute("src");musicAudio.load()}
- clearYouTubeResumeRetries();musicCurrent=track;musicDock.hidden=false;musicDock.classList.remove("video-mode");musicDock.classList.add("youtube-compact-mode");
+ clearYouTubeResumeRetries();musicCurrent=track;musicDock.hidden=false;musicDock.style.position="";musicDock.style.left="";musicDock.style.top="";musicDock.style.width="";musicDock.style.opacity="";musicDock.style.pointerEvents="";musicDock.classList.remove("video-mode");musicDock.classList.add("youtube-compact-mode");
  musicDock.querySelector("#musicDockTitle").textContent=track.title;
  musicDock.querySelector("#musicDockArtist").textContent=track.artist+" · Video · "+track.license;
  musicDock.querySelector("#musicDockArt").src=track.art||"";

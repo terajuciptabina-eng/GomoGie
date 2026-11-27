@@ -92,6 +92,28 @@ jobs:
           print("Validated 8 video sources, active-source refresh, per-source diagnostics and 15-minute Cron.")
           PY
 
+      - name: Validate contextual social notifications and privacy
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          worker = Path("workers/api/src/index.js").read_text()
+          page = Path("index.html").read_text()
+          sw = Path("sw.js").read_text()
+          for event in ["new_post", "reaction", "comment", "mention", "follow", "friend_request", "friend_accepted", "message", "message_request", "message_request_accepted"]:
+              assert event in worker, f"Missing notification event: {event}"
+          for field in ["AS post_id", "AS post_preview", "AS comment_preview", "AS message_preview", "AS reaction_type"]:
+              assert field in worker, f"Missing notification context: {field}"
+          assert "notification.actorId" in worker, "Push alerts must identify the actor."
+          assert "notificationDeepLink(notification)" in worker, "Push alerts must open the related destination."
+          assert "postAudienceIds.has(recipient.id)" in worker, "Mention alerts must respect post visibility."
+          assert '"comment", id, now' in worker, "Comment alerts must reference the exact comment."
+          assert "function handleNotificationDeepLink()" in page
+          assert "notificationAction(n.type,n)" in page
+          assert "n.messagePreview||n.commentPreview||n.postPreview" in page
+          assert "self.registration.showNotification" in sw and "notificationclick" in sw
+          print("Validated actor-aware push, contextual in-app alerts, deep links and visibility-aware post notifications.")
+          PY
+
   deploy:
     needs: validate
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'

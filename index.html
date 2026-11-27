@@ -2453,25 +2453,53 @@ async function searchPublicMusicVideos(term="",genre="all",page=1){
 }
 async function searchYouTubeMusic(term){
  const query=String(term||"").trim();if(!query)return [];
- let lastError=null;
+ const searchQuery=query+" music",collected=[],seen=new Set();let lastError=null;
+ const mapPipedItems=items=>(Array.isArray(items)?items:[]).map(item=>{
+  const videoId=String(item.url||"").match(/[?&]v=([^&]+)/)?.[1]||item.videoId||"";
+  if(!videoId)return null;
+  return {id:"youtube:"+videoId,videoId,title:String(item.title||"YouTube video"),artist:String(item.uploaderName||item.uploader||"YouTube channel"),year:String(item.uploadedDate||"").slice(0,4),license:"YouTube · official player",source:"YouTube",mediaType:"video",art:item.thumbnail||"",url:"https://www.youtube.com/watch?v="+encodeURIComponent(videoId)};
+ }).filter(Boolean);
  for(let attempt=0;attempt<MUSIC_YOUTUBE_APIS.length;attempt++){
   const base=MUSIC_YOUTUBE_APIS[(musicYoutubeApiCursor+attempt)%MUSIC_YOUTUBE_APIS.length];
   try{
-   const response=await fetchMusicWithTimeout(base+"/search?"+new URLSearchParams({q:query+" music",filter:"videos"}).toString(),{headers:{accept:"application/json"}},8000);
+   const params=new URLSearchParams({q:searchQuery,filter:"videos"});
+   const response=await fetchMusicWithTimeout(base+"/search?"+params.toString(),{headers:{accept:"application/json"}},8000);
    if(!response.ok)throw new Error("Piped HTTP "+response.status);
-   const data=await response.json(),items=Array.isArray(data.items)?data.items:[];
-   const tracks=items.map(item=>{const videoId=String(item.url||"").match(/[?&]v=([^&]+)/)?.[1]||item.videoId||"";if(!videoId)return null;return {id:"youtube:"+videoId,videoId,title:String(item.title||"YouTube video"),artist:String(item.uploaderName||item.uploader||"YouTube channel"),year:String(item.uploadedDate||"").slice(0,4),license:"YouTube · official player",source:"YouTube",mediaType:"video",art:item.thumbnail||"",url:"https://www.youtube.com/watch?v="+encodeURIComponent(videoId)}}).filter(Boolean);
-   if(!tracks.length)throw new Error("Piped returned no playable video IDs.");
-   musicYoutubeApiCursor=(musicYoutubeApiCursor+attempt)%MUSIC_YOUTUBE_APIS.length;return tracks;
+   let data=await response.json(),items=mapPipedItems(data.items);
+   if(!items.length)throw new Error("Piped returned no playable video IDs.");
+   items.forEach(track=>{if(!seen.has(track.videoId)){seen.add(track.videoId);collected.push(track)}});
+   // Piped exposes a nextpage token. Fetch one additional page per query so
+   // discovery is not restricted to the first small search-result batch.
+   const nextpage=String(data.nextpage||"");
+   if(nextpage){
+    try{
+     const nextParams=new URLSearchParams({nextpage,q:searchQuery,filter:"videos"});
+     const nextResponse=await fetchMusicWithTimeout(base+"/nextpage/search?"+nextParams.toString(),{headers:{accept:"application/json"}},8000);
+     if(nextResponse.ok){
+      const nextData=await nextResponse.json();
+      mapPipedItems(nextData.items).forEach(track=>{if(!seen.has(track.videoId)){seen.add(track.videoId);collected.push(track)}});
+     }
+    }catch(error){console.warn("Piped next-page search unavailable",base,error)}
+   }
+   musicYoutubeApiCursor=(musicYoutubeApiCursor+attempt)%MUSIC_YOUTUBE_APIS.length;
+   return collected;
   }catch(error){lastError=error;console.warn("Piped search unavailable",base,error)}
  }
  for(const base of MUSIC_INVIDIOUS_APIS){
   try{
-   const response=await fetchMusicWithTimeout(base+"/api/v1/search?"+new URLSearchParams({q:query+" music",type:"video"}).toString(),{headers:{accept:"application/json"}},8000);
-   if(!response.ok)throw new Error("Invidious HTTP "+response.status);
-   const items=await response.json();
-   const tracks=(Array.isArray(items)?items:[]).filter(item=>item.type==="video"&&item.videoId).map(item=>({id:"youtube:"+item.videoId,videoId:item.videoId,title:String(item.title||"YouTube video"),artist:String(item.author||"YouTube channel"),year:item.published?String(new Date(item.published*1000).getFullYear()):"",license:"YouTube · official player",source:"YouTube",mediaType:"video",art:item.videoThumbnails?.find(x=>x.quality==="medium")?.url||item.videoThumbnails?.[0]?.url||"",url:"https://www.youtube.com/watch?v="+encodeURIComponent(item.videoId)}));
-   if(!tracks.length)throw new Error("Invidious returned no playable videos.");return tracks;
+   const all=[];
+   for(let page=1;page<=2;page++){
+    const params=new URLSearchParams({q:searchQuery,type:"video",page:String(page)});
+    const response=await fetchMusicWithTimeout(base+"/api/v1/search?"+params.toString(),{headers:{accept:"application/json"}},8000);
+    if(!response.ok)throw new Error("Invidious HTTP "+response.status);
+    const items=await response.json();
+    const tracks=(Array.isArray(items)?items:[]).filter(item=>item.type==="video"&&item.videoId).map(item=>({id:"youtube:"+item.videoId,videoId:item.videoId,title:String(item.title||"YouTube video"),artist:String(item.author||"YouTube channel"),year:item.published?String(new Date(item.published*1000).getFullYear()):"",license:"YouTube · official player",source:"YouTube",mediaType:"video",art:item.videoThumbnails?.find(x=>x.quality==="medium")?.url||item.videoThumbnails?.[0]?.url||"",url:"https://www.youtube.com/watch?v="+encodeURIComponent(item.videoId)}));
+    all.push(...tracks);
+    if(!tracks.length)break;
+   }
+   all.forEach(track=>{if(!seen.has(track.videoId)){seen.add(track.videoId);collected.push(track)}});
+   if(collected.length)return collected;
+   throw new Error("Invidious returned no playable videos.");
   }catch(error){lastError=error;console.warn("Invidious search unavailable",base,error)}
  }
  throw new Error("Free YouTube search is temporarily unavailable. "+(lastError?.message||"All public endpoints failed."));

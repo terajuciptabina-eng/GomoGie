@@ -920,7 +920,7 @@ body{background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;te
 <section class="auth-layer" id="authLayer" hidden><form class="auth-dialog" id="loginForm"><button class="auth-close" type="button" id="closeAuth" aria-label="Close">×</button><h2 id="authTitle">Welcome back</h2><p id="authIntro">Log in to your GomoGie account.</p><div id="loginFields"><label>Email or username<input name="login" autocomplete="username" required maxlength="254"></label><label>Password<input name="password" type="password" autocomplete="current-password" required maxlength="128"></label><label class="remember-login"><input type="checkbox" id="rememberLogin" checked> Remember my username on this device</label></div><div id="registerFields" hidden><label>Display name<input name="displayName" autocomplete="name" maxlength="60"></label><label>Username<input name="username" autocomplete="username" minlength="3" maxlength="24" pattern="[A-Za-z0-9_]{3,24}"></label><label>Email<input name="email" type="email" autocomplete="email" maxlength="254"></label><label>Password (minimum 9 characters)<input name="registerPassword" type="password" autocomplete="new-password" minlength="9" maxlength="128"></label></div><p class="auth-error" id="authError" role="alert"></p><button class="primary" type="submit" id="loginSubmit">Log in</button><small id="authSwitchText">New to GomoGie? <button type="button" id="showRegister" class="auth-switch">Create account</button></small></form></section>
 <script>
 const labels={home:["⌂","Home"],pulse:["⌁","Pulse"],watch:["▷","Watch"],music:["♫","Music"],communities:["♧","Communities"],connect:["✉","Connect"],studio:["▤","Studio"],profile:["◉","Profile"]};
-let viralNewsItems=[],viralNewsGlobalItems=[],viralNewsArchiveItems=[],viralVideoItems=[],newsContentFilter="all",newsPreferences={region:"MY",interests:["national","politics","business","technology","sports","entertainment","world","lifestyle"]},newsMode="for-you",pulseVisibleCount=12,pulseLoadBusy=false,pulseHasMore=true,watchNewsVisibleCount=8,watchPostVisibleCount=8,watchLoadBusy=false,watchHasMore=true;
+let viralNewsItems=[],viralNewsGlobalItems=[],viralNewsArchiveItems=[],viralVideoItems=[],newsContentFilter="all",newsPreferences={region:"MY",interests:["national","politics","business","technology","sports","entertainment","world","lifestyle"]},newsMode="for-you",pulseVisibleCount=12,pulseLoadBusy=false,pulseHasMore=true,watchNewsVisibleCount=8,watchPostVisibleCount=8,watchLoadBusy=false,watchHasMore=true,watchNewsHasMore=true,watchPostsHasMore=true;
 let lastMobileNavTapAt=0,lastMobileNavTapPage="",accounts=[],posts=[],followingFeedPosts=[],feedMode="for-you",active="home",watchMode="for-you",watchAudioUnlocked=false,liked=new Set(),followed=new Set(),selectedProfileId=null,profileTab="posts",editingProfile=false,profileDraft={},savedPosts=new Set(),localPendingPosts=[],composerImageFile=null,composerImagePreview="",composerVideoFile=null,composerVideoPreview="",composerPollOpen=false,searchQuery="";
 const view=document.getElementById("view");
 const API_BASE="https://gomogie-api.terajuciptabina.workers.dev";
@@ -1227,7 +1227,7 @@ function watch(){
  view.innerHTML='<section class="watch-page">' + discoveryHeader("Watch","Discover videos from publishers and creators.",'<div class="watch-tabs discovery-tabs"><button id="forYouTab" class="'+(watchMode==="for-you"?"selected":"")+'">For You</button><button id="followingTab" class="'+(watchMode==="following"?"selected":"")+'">Following</button></div>') + videoDiscovery+(vids.length?'<div class="watch-stream" id="watchStream">'+vids.slice(0,watchPostVisibleCount).map(p=>{const a=account(p.authorId)||{id:p.authorId,displayName:"GomoGie member"};return '<article class="watch-slide" data-video-id="'+esc(p.id)+'" data-fallback-media-url="'+esc(p.fallbackMediaUrl||"")+'"><video class="watch-video" muted playsinline webkit-playsinline controls preload="auto" poster="'+esc(p.thumbnailUrl||safePoster)+'" src="'+esc(p.mediaUrl||"")+'" aria-label="Video by '+esc(a.displayName)+'"></video><button class="watch-play" aria-label="Play video and enable sound">▶</button><div class="watch-shade"></div><div class="watch-caption"><strong>'+esc(a.displayName)+' </strong><p>'+esc(p.text)+'</p><small class="watch-video-status" aria-live="polite">Loading video…</small></div><div class="watch-actions"><button data-watch-like="'+esc(p.id)+'">♡<small>'+(Number(p.likes||0)+(liked.has(p.id)?1:0)).toLocaleString()+'</small></button><button data-watch-comment="'+esc(p.id)+'">◯<small>'+Number(p.comments||0)+'</small></button><button data-watch-share="'+esc(p.id)+'">↗<small>Share</small></button><button data-watch-save="'+esc(p.id)+'">⌑<small>Save</small></button><button data-watch-follow="'+esc(a.id)+'">'+(followed.has(a.id)?"✓":"＋")+'<small>'+(followed.has(a.id)?"Following":"Follow")+'</small></button></div></article>'}).join("")+'</div>':'<div class="empty">Your Following video feed is empty. Follow creators from Profile to see their videos here.</div>')+'</section>';
  const watchSentinel=document.createElement("div");watchSentinel.id="watchLoadSentinel";watchSentinel.className="feed-load-sentinel";watchSentinel.setAttribute("aria-hidden","true");view.querySelector(".watch-page")?.append(watchSentinel);const watchStatus=document.createElement("p");watchStatus.id="watchLoadStatus";watchStatus.className="feed-load-status";watchStatus.setAttribute("aria-live","polite");watchStatus.textContent="";view.querySelector(".watch-page")?.append(watchStatus);setupWatchAutoLoad(videoDiscoveryItems.length,vids.length);
  const fy=document.getElementById("forYouTab"),ft=document.getElementById("followingTab");
- if(fy)fy.onclick=()=>{watchMode="for-you";watchNewsVisibleCount=8;watchPostVisibleCount=8;watchHasMore=true;render()};
+ if(fy)fy.onclick=()=>{watchMode="for-you";watchNewsVisibleCount=8;watchPostVisibleCount=8;watchHasMore=true;watchNewsHasMore=true;watchPostsHasMore=true;render()};
  if(ft)ft.onclick=()=>{watchMode="following";watchNewsVisibleCount=8;watchPostVisibleCount=8;watchHasMore=true;render()};
  const stream=document.getElementById("watchStream");
  const slides=[...document.querySelectorAll(".watch-slide")];
@@ -1345,24 +1345,24 @@ async function loadMoreWatch(){
  const status=document.getElementById("watchLoadStatus");if(status)status.textContent="Loading more videos…";
  try{
   let changed=false;
-  if(watchMode==="for-you"&&watchNewsVisibleCount>=viralVideoItems.length){
+  if(watchMode==="for-you"&&watchNewsHasMore&&watchNewsVisibleCount>=viralVideoItems.length){
    const response=await apiRequest("/v1/news?mode=videos&limit=30&offset="+viralVideoItems.length);
    const incoming=Array.isArray(response.items)?response.items:[];
    const seen=new Set(viralVideoItems.map(item=>String(item.id)));
    const fresh=incoming.filter(item=>item&&item.id&&!seen.has(String(item.id)));
    viralVideoItems.push(...fresh);changed=changed||fresh.length>0;
-   if(incoming.length<30)watchHasMore=false;
+   if(incoming.length<30||fresh.length===0)watchNewsHasMore=false;
   }
   const postList=watchMode==="following"?followingFeedPosts:posts;
   const visibleVideos=postList.filter(p=>p.type==="video"&&!p.isWatchDuplicate&&(watchMode==="for-you"||followed.has(p.authorId))&&p.mediaUrl);
-  if(watchPostVisibleCount>=visibleVideos.length){
+  if(watchPostsHasMore&&watchPostVisibleCount>=visibleVideos.length){
    const result=await fetchMoreWatchPosts();changed=changed||result.added>0;
-   if(result.received<30&&result.added===0)watchHasMore=false;
+   if(result.received<30||result.added===0)watchPostsHasMore=false;
   }
   watchNewsVisibleCount+=8;watchPostVisibleCount+=8;
   const allNews=watchMode==="for-you"?viralVideoItems.length:0;
   const allPosts=(watchMode==="following"?followingFeedPosts:posts).filter(p=>p.type==="video"&&!p.isWatchDuplicate&&(watchMode==="for-you"||followed.has(p.authorId))&&p.mediaUrl).length;
-  if(!changed&&watchNewsVisibleCount>=allNews&&watchPostVisibleCount>=allPosts)watchHasMore=false;
+  watchHasMore=(watchMode==="for-you"&&watchNewsHasMore)||watchPostsHasMore||watchNewsVisibleCount<allNews||watchPostVisibleCount<allPosts;
   renderKeepingFeedPosition();
   const nextStatus=document.getElementById("watchLoadStatus");if(nextStatus&&!watchHasMore)nextStatus.textContent="You're all caught up. New videos will appear as they're published.";
  }catch(error){console.warn("Watch auto-load failed:",error);if(status)status.textContent="Couldn't load more videos. Scroll again to retry."}

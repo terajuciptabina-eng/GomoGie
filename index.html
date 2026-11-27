@@ -1936,37 +1936,58 @@ function ensureYouTubeIframeApi(){
 }
 let musicYouTubeApiPromise=null;
 function onYouTubePlayerStateChange(event){
+ if(event.target!==musicYouTubePlayer||!musicCurrent||musicCurrent.id!==musicYouTubeCurrentTrackId)return;
  if(event.data===0){
-  if(musicRepeat==="one"){try{event.target.seekTo(0,true);event.target.playVideo()}catch{musicPlayerMessage("Video ended. Tap Play to replay.")};return}
+  if(musicRepeat==="one"){try{event.target.seekTo(0,true);event.target.playVideo()}catch{musicResumeNeeded=true;musicPlayerMessage("Video ended. Tap Resume Playback to replay.")};return}
   playNextMusic(1,true);
  }else if(event.data===1){musicYoutubeIsPlaying=true;musicResumeNeeded=false;const button=musicDock?.querySelector("#musicDockPlay");if(button)button.textContent="Ⅱ";musicPlayerMessage("Playing video: "+(musicCurrent?.title||""))}
  else if(event.data===2){musicYoutubeIsPlaying=false;const button=musicDock?.querySelector("#musicDockPlay");if(button)button.textContent="▶"}else if(event.data===5){musicPlayerMessage("Video ready. Press Play if playback does not start.")}
  else if(event.data===3){musicPlayerMessage("Buffering video…")}
 }
 async function playMusicVideo(track){
- ensureMusicPlayer();const video=musicDock.querySelector("#musicDockVideo"),ytFrame=musicDock.querySelector("#musicDockYoutube"),bottom=musicDock.querySelector(".music-dock-bottom");
- if(!video||!ytFrame)return;
+ ensureMusicPlayer();
+ const video=musicDock.querySelector("#musicDockVideo"),ytFrame=musicDock.querySelector("#musicDockYoutube"),bottom=musicDock.querySelector(".music-dock-bottom");
+ if(!video||!ytFrame||!track)return;
  const index=musicQueue.findIndex(x=>x.id===track.id);if(index>=0)musicQueueIndex=index;
  if(musicAudio){musicAudio.pause();musicAudio.removeAttribute("src");musicAudio.load()}
  musicCurrent=track;musicDock.hidden=false;musicDock.classList.remove("video-mode");musicDock.classList.add("youtube-compact-mode");
- musicDock.querySelector("#musicDockTitle").textContent=track.title;musicDock.querySelector("#musicDockArtist").textContent=track.artist+" · Video · "+track.license;
- musicDock.querySelector("#musicDockArt").src=track.art||"";const watchButton=musicDock.querySelector("#musicDockWatch");if(watchButton){watchButton.hidden=false;watchButton.textContent="⛶  Watch video";}if(bottom)bottom.hidden=true;
+ musicDock.querySelector("#musicDockTitle").textContent=track.title;
+ musicDock.querySelector("#musicDockArtist").textContent=track.artist+" · Video · "+track.license;
+ musicDock.querySelector("#musicDockArt").src=track.art||"";
+ const watchButton=musicDock.querySelector("#musicDockWatch");if(watchButton){watchButton.hidden=false;watchButton.textContent="⛶  Watch video";}
+ if(bottom)bottom.hidden=true;
  if(track.source==="YouTube"&&track.videoId){
-  video.pause();video.removeAttribute("src");video.load();video.hidden=true;ytFrame.hidden=false;musicYouTubeCurrentTrackId=track.id;musicYoutubeIsPlaying=false;musicDock.querySelector("#musicDockPlay").textContent="▶";
-  const embed="https://www.youtube.com/embed/"+encodeURIComponent(track.videoId)+"?playsinline=1&rel=0&enablejsapi=1&autoplay=1&origin="+encodeURIComponent(window.location.origin);
-  ytFrame.src=embed;musicPlayerMessage("Loading official YouTube player: "+track.title);
+  video.pause();video.removeAttribute("src");video.load();video.hidden=true;ytFrame.hidden=false;
+  musicYouTubeCurrentTrackId=track.id;musicYoutubeIsPlaying=false;musicResumeNeeded=false;
+  musicDock.querySelector("#musicDockPlay").textContent="▶";
+  musicPlayerMessage("Loading official YouTube player: "+track.title);
   try{
    await ensureYouTubeIframeApi();
-   if(musicCurrent?.id!==track.id)return;
-   if(musicYouTubePlayer&&typeof musicYouTubePlayer.destroy==="function"){try{musicYouTubePlayer.destroy()}catch{}musicYouTubePlayer=null}
-   musicYouTubePlayer=new YT.Player(ytFrame,{events:{onReady:event=>{if(musicCurrent?.id!==track.id)return;try{event.target.playVideo()}catch{musicResumeNeeded=true;musicPlayerMessage("Autoplay may be blocked. Tap Resume Playback.")}},onStateChange:onYouTubePlayerStateChange,onAutoplayBlocked:()=>{musicResumeNeeded=true;musicPlayerMessage("Autoplay was blocked by your browser. Tap Resume Playback to continue.")},onError:()=>{musicResumeNeeded=true;musicPlayerMessage("This YouTube video cannot be played here. Tap Resume Playback or use Next.")}}});
-  }catch(error){console.warn("YouTube iframe API unavailable",error);musicPlayerMessage("YouTube player loaded. If it does not start automatically, tap Play in the video. Use Next when it finishes.")}
+   if(musicCurrent?.id!==track.id||musicYouTubeCurrentTrackId!==track.id)return;
+   if(musicYouTubePlayer&&typeof musicYouTubePlayer.loadVideoById==="function"){
+    // Reuse the same YouTube player for Next/Previous. Replacing its iframe src
+    // would detach the IFrame API instance and prevent subsequent videos playing.
+    musicYouTubePlayer.loadVideoById({videoId:track.videoId,startSeconds:0});
+    musicYouTubePlayer.playVideo();
+    return;
+   }
+   ytFrame.src="https://www.youtube.com/embed/"+encodeURIComponent(track.videoId)+"?playsinline=1&rel=0&enablejsapi=1&autoplay=1&origin="+encodeURIComponent(window.location.origin);
+   musicYouTubePlayer=new YT.Player(ytFrame,{events:{
+    onReady:event=>{if(musicCurrent?.id!==track.id||musicYouTubeCurrentTrackId!==track.id)return;try{event.target.playVideo()}catch{musicResumeNeeded=true;musicPlayerMessage("Autoplay may be blocked. Tap Resume Playback.")}},
+    onStateChange:onYouTubePlayerStateChange,
+    onAutoplayBlocked:()=>{if(musicCurrent?.id!==track.id)return;musicResumeNeeded=true;musicPlayerMessage("Autoplay was blocked by your browser. Tap Resume Playback to continue.")},
+    onError:()=>{if(musicCurrent?.id!==track.id)return;musicResumeNeeded=true;musicPlayerMessage("This YouTube video cannot be played here. Tap Resume Playback or use Next.")}
+   }});
+  }catch(error){console.warn("YouTube player API unavailable",error);musicResumeNeeded=true;musicPlayerMessage("YouTube player could not start. Tap Resume Playback or Next.")}
   return;
  }
- musicYouTubeCurrentTrackId=null;if(musicYouTubePlayer&&typeof musicYouTubePlayer.destroy==="function"){try{musicYouTubePlayer.destroy()}catch{}musicYouTubePlayer=null}
- ytFrame.src="about:blank";ytFrame.hidden=true;video.hidden=false;video.src=track.stream;video.load();musicPlayerMessage("Loading video: "+track.title+"…");
- try{await video.play();musicDock.querySelector("#musicDockPlay").textContent="Ⅱ";musicPlayerMessage("Playing video: "+track.title)}catch{musicDock.querySelector("#musicDockPlay").textContent="▶";musicPlayerMessage("Tap play in the player to start video.")}
- video.onended=()=>{if(musicRepeat==="one"){video.currentTime=0;video.play().catch(()=>musicPlayerMessage("Tap Play to replay."))}else playNextMusic(1,true)};
+ musicYouTubeCurrentTrackId=null;
+ if(musicYouTubePlayer&&typeof musicYouTubePlayer.destroy==="function"){try{musicYouTubePlayer.destroy()}catch{}musicYouTubePlayer=null}
+ ytFrame.src="about:blank";ytFrame.hidden=true;video.hidden=false;video.src=track.stream;video.load();
+ musicPlayerMessage("Loading video: "+track.title+"…");
+ try{await video.play();musicDock.querySelector("#musicDockPlay").textContent="Ⅱ";musicPlayerMessage("Playing video: "+track.title)}
+ catch{musicResumeNeeded=true;musicDock.querySelector("#musicDockPlay").textContent="▶";musicPlayerMessage("Tap Resume Playback to start video.")}
+ video.onended=()=>{if(musicRepeat==="one"){video.currentTime=0;video.play().catch(()=>{musicResumeNeeded=true;musicPlayerMessage("Tap Resume Playback to replay.")})}else playNextMusic(1,true)};
 }
 async function searchPublicMusic(term="",genre="all",append=false,background=false){
  const backgroundSnapshot=background?{results:musicResults,queue:musicQueue,pageNumber:musicPageNumber,seenIds:musicSeenIds,commonsPage:musicCommonsPage,commonsHasMore:musicCommonsHasMore,hasMore:musicHasMore}:null;

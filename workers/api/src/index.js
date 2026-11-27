@@ -1227,7 +1227,7 @@ async function route(request, env) {
     for (const recipientId of recipients) {
       await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)")
         .bind(uuid(), recipientId, auth.sub, "comment", id, now).run();
-      await notifyPushDevices(env,recipientId,{id:commentMatch[1],actorId:auth.sub,type:"comment",isReply:!!parent?.id,preview:input.content.trim().slice(0,120)});
+      await notifyPushDevices(env,recipientId,{id:commentMatch[1],actorId:auth.sub,type:"comment",isReply:parent?.user_id===recipientId,preview:input.content.trim().slice(0,120)});
     }
     for(const recipient of mentionRecipients){
       await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),recipient.id,auth.sub,"mention",id,now).run();

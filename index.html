@@ -782,6 +782,24 @@ body{background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;te
  .watch-discovery .viral-news-card{margin-bottom:2px}
 }
 
+
+/* Mobile viewport lock: prevent iOS focus zoom and Music horizontal overflow */
+@media(max-width:700px){
+ html,body{width:100%;max-width:100%;overflow-x:hidden}
+ #view,.main,.music-page{width:100%;min-width:0;max-width:100%}
+ .music-page{overflow-x:clip}
+ .music-hero,.music-search,.music-search-memory,.music-sort-row,.music-list,.music-track,.music-playlists{width:100%;min-width:0;max-width:100%}
+ .music-hero p{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+ .music-search{display:flex;flex-wrap:nowrap;min-width:0}
+ .music-search input{display:block;flex:1 1 0;width:0;min-width:0;max-width:100%;font-size:16px!important}
+ .music-search button{flex:0 0 auto;white-space:nowrap}
+ .music-sort-row{min-width:0}
+ .music-sort-row select{max-width:min(190px,58vw);font-size:16px}
+ .music-track{min-width:0}
+ .music-track-copy{flex:1 1 0;width:0;min-width:0}
+ .music-genres{width:100%;max-width:100%;min-width:0}
+}
+
 </style>
 </head>
 <body>

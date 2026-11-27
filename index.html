@@ -2423,6 +2423,8 @@ async function searchPublicMusicVideos(term="",genre="all",page=1){
    const subjects=Array.isArray(md.subject)?md.subject.join(" ").toLowerCase():String(md.subject||"").toLowerCase();
    const description=String(md.description||"").toLowerCase();
    const title=String(md.title||d.title||"").trim(),hay=(title+" "+subjects+" "+description).toLowerCase();
+   const genreTerms={pop:["pop"],rock:["rock"],jazz:["jazz"],electronic:["electronic","electronica","techno","house"],classical:["classical","orchestra","symphony"],"hip-hop":["hip-hop","hip hop","rap"],"r&b":["r&b","rhythm and blues","soul"],country:["country","bluegrass"],folk:["folk","traditional"],metal:["metal","heavy metal"],reggae:["reggae","ska"],dangdut:["dangdut","koplo"],world:["world music","latin","african","indian"],ambient:["ambient"],instrumental:["instrumental"]};
+   if(genre!=="all"&&!(genreTerms[genre]||[genre]).some(word=>hay.includes(word)))return null;
    // Reject adult/sexual material before considering any music keywords.
    const adultContent=/(\btopless\b|\bnude\b|\bnudity\b|\bnaked\b|\bporn(?:ography)?\b|\bxxx\b|\berotic\b|\bsex(?:ual)?\b|\bstrip(?:per|tease)?\b|\bfetish\b|\badult content\b|\bexplicit\b|\bprovocative\b)/i;
    if(!title||adultContent.test(hay))return null;

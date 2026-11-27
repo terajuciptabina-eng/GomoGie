@@ -2367,17 +2367,21 @@ function playNextMusic(step=1,automatic=false){
  if(nextTrack.mediaType==="video")playMusicVideo(nextTrack,preserveMinimized);
  else playMusic(next,preserveMinimized);
 }
+async function fetchMusicWithTimeout(url,options={},timeoutMs=12000){
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
+ try{return await fetch(url,{...options,signal:controller.signal})}finally{clearTimeout(timer)}
+}
 async function searchCommonsMusic(term="",genre="all",append=false){
  const offset=append?musicCommonsPage*50:0;
  const genreSearch={pop:"pop music",rock:"rock music",jazz:"jazz music",electronic:"electronic music",classical:"classical music","hip-hop":"hip hop music","r&b":"R&B music",country:"country music",folk:"folk music",metal:"metal music",reggae:"reggae music",dangdut:"dangdut music",world:"world music",ambient:"ambient music",instrumental:"instrumental music"};const query=[(term||"").trim(),genreSearch[genre]||"music","filetype:audio"].filter(Boolean).join(" ");
  const params=new URLSearchParams({action:"query",list:"search",srsearch:query+" filetype:audio",srnamespace:"6",srlimit:"50",sroffset:String(offset),format:"json",origin:"*"});
- const response=await fetch("https://commons.wikimedia.org/w/api.php?"+params.toString(),{headers:{accept:"application/json"}});
+ const response=await fetchMusicWithTimeout("https://commons.wikimedia.org/w/api.php?"+params.toString(),{headers:{accept:"application/json"}});
  if(!response.ok)throw new Error("Commons search HTTP "+response.status);
  const data=await response.json(),hits=data.query?.search||[];
  const titles=hits.map(item=>item.title).filter(Boolean);
  if(!titles.length){musicCommonsHasMore=false;return []}
  const detailParams=new URLSearchParams({action:"query",titles:titles.join("|"),prop:"imageinfo",iiprop:"url|mime|extmetadata",format:"json",origin:"*"});
- const detailResponse=await fetch("https://commons.wikimedia.org/w/api.php?"+detailParams.toString(),{headers:{accept:"application/json"}});
+ const detailResponse=await fetchMusicWithTimeout("https://commons.wikimedia.org/w/api.php?"+detailParams.toString(),{headers:{accept:"application/json"}});
  if(!detailResponse.ok)throw new Error("Commons metadata HTTP "+detailResponse.status);
  const detail=await detailResponse.json(),pages=Object.values(detail.query?.pages||{}),out=[];
  const genres={pop:["pop"],rock:["rock"],jazz:["jazz"],electronic:["electronic","techno","house"],classical:["classical","orchestra"],"hip-hop":["hip-hop","hip hop","rap"],"r&b":["r&b","rhythm and blues","soul"],country:["country","bluegrass"],folk:["folk","traditional"],metal:["metal","heavy metal"],reggae:["reggae","ska"],dangdut:["dangdut","koplo"],world:["world music","latin","african","indian"],ambient:["ambient"],instrumental:["instrumental"]};
@@ -2408,13 +2412,13 @@ async function searchPublicMusicVideos(term="",genre="all",page=1){
  const params=new URLSearchParams();params.set("q",clauses.join(" AND "));
  ["identifier","title","creator","year","licenseurl","subject"].forEach(x=>params.append("fl[]",x));
  params.set("rows","30");params.set("page",String(page));params.set("output","json");params.append("sort[]","downloads desc");
- const response=await fetch("https://archive.org/advancedsearch.php?"+params.toString(),{headers:{accept:"application/json"}});
+ const response=await fetchMusicWithTimeout("https://archive.org/advancedsearch.php?"+params.toString(),{headers:{accept:"application/json"}});
  if(!response.ok)throw new Error("Music video catalogue HTTP "+response.status);
  const data=await response.json(),docs=data.response?.docs||[];
  const candidates=docs.filter(d=>!musicResults.some(t=>t.id==="video-"+d.identifier)).slice(0,15);
  const found=await Promise.all(candidates.map(async d=>{
   try{
-   const r=await fetch("https://archive.org/metadata/"+encodeURIComponent(d.identifier),{headers:{accept:"application/json"}});
+   const r=await fetchMusicWithTimeout("https://archive.org/metadata/"+encodeURIComponent(d.identifier),{headers:{accept:"application/json"}},12000);
    if(!r.ok)return null;
    const meta=await r.json(),md=meta.metadata||{},raw=md.licenseurl||d.licenseurl||"";
    const lic=String(Array.isArray(raw)?raw.join(" "):raw).toLowerCase();
@@ -2590,7 +2594,7 @@ async function searchPublicMusic(term="",genre="all",append=false,background=fal
  const clean=String(term||"").replace(/[^\p{L}\p{N}\s-]/gu," ").trim().replace(/\s+/g," ").slice(0,80);
  if(!clean&&genre==="all"&&!musicDiscoveryMode){musicSearchBusy=false;const status=document.getElementById("musicStatus");if(status){status.removeAttribute("aria-busy");status.textContent="Choose a genre above to discover music, or search for a song or artist."}renderMusicResults();return}
  const backgroundSnapshot=background?{results:musicResults,queue:musicQueue,pageNumber:musicPageNumber,seenIds:musicSeenIds,commonsPage:musicCommonsPage,commonsHasMore:musicCommonsHasMore,hasMore:musicHasMore}:null;
- musicSearchBusy=true;if(!append&&!background){musicResults=[];musicPageNumber=1;musicAudioHasMore=false;musicVideoPageNumber=1;musicVideoHasMore=false;musicSeenIds=new Set();musicCommonsPage=0;musicCommonsHasMore=false}else if(background){musicPageNumber=1;musicVideoPageNumber=1;musicVideoHasMore=false;musicSeenIds=new Set();musicCommonsPage=0;musicCommonsHasMore=false}const searchButton=document.querySelector("#musicSearchForm button[type=submit]");if(searchButton){searchButton.disabled=true;searchButton.dataset.originalText=searchButton.dataset.originalText||searchButton.textContent;searchButton.innerHTML='<span class="music-spinner" aria-hidden="true"></span> Searching';searchButton.setAttribute("aria-busy","true")}const status=document.getElementById("musicStatus");if(status){if(background){status.textContent="Refreshing saved music catalogue…"}else{status.innerHTML='<span class="music-spinner" aria-hidden="true"></span> Searching Internet Archive and Wikimedia Commons…';status.setAttribute("aria-busy","true")}}if(!background){renderMusicResults();musicPlayerMessage("Searching a wider licensed music catalogue…")}
+ musicSearchBusy=true;if(!append&&!background){musicResults=[];musicPageNumber=1;musicAudioHasMore=false;musicVideoPageNumber=1;musicVideoHasMore=false;musicAudioEmptyPages=0;musicVideoEmptyPages=0;musicSeenIds=new Set();musicCommonsPage=0;musicCommonsHasMore=false}else if(background){musicPageNumber=1;musicVideoPageNumber=1;musicVideoHasMore=false;musicAudioEmptyPages=0;musicVideoEmptyPages=0;musicSeenIds=new Set();musicCommonsPage=0;musicCommonsHasMore=false}const searchButton=document.querySelector("#musicSearchForm button[type=submit]");if(searchButton){searchButton.disabled=true;searchButton.dataset.originalText=searchButton.dataset.originalText||searchButton.textContent;searchButton.innerHTML='<span class="music-spinner" aria-hidden="true"></span> Searching';searchButton.setAttribute("aria-busy","true")}const status=document.getElementById("musicStatus");if(status){if(background){status.textContent="Refreshing saved music catalogue…"}else{status.innerHTML='<span class="music-spinner" aria-hidden="true"></span> Searching Internet Archive and Wikimedia Commons…';status.setAttribute("aria-busy","true")}}if(!background){renderMusicResults();musicPlayerMessage("Searching a wider licensed music catalogue…")}
  const genreTerms={pop:["pop"],rock:["rock"],jazz:["jazz"],electronic:["electronic","electronica","techno","house"],classical:["classical","orchestra","symphony"],"hip-hop":["hip-hop","hip hop","rap"],"r&b":["r&b","rhythm and blues","soul"],country:["country","bluegrass"],folk:["folk","traditional"],metal:["metal","heavy metal"],reggae:["reggae","ska"],dangdut:["dangdut","koplo"],world:["world music","latin","african","indian"],ambient:["ambient"],instrumental:["instrumental"]};
  const clauses=["mediatype:audio",'(licenseurl:http*by* OR licenseurl:http*publicdomain*)'];
  if(clean)clauses.push('(title:"'+clean.replace(/"/g,"")+'" OR creator:"'+clean.replace(/"/g,"")+'" OR subject:"'+clean.replace(/"/g,"")+'")');
@@ -2599,14 +2603,14 @@ async function searchPublicMusic(term="",genre="all",append=false,background=fal
  ["identifier","title","creator","year","licenseurl","collection","subject"].forEach(f=>params.append("fl[]",f));
  params.set("rows","100");params.set("page",String(musicPageNumber));params.set("output","json");params.append("sort[]","downloads desc");
  try{
-  const res=await fetch("https://archive.org/advancedsearch.php?"+params.toString(),{headers:{accept:"application/json"}});
+  const res=await fetchMusicWithTimeout("https://archive.org/advancedsearch.php?"+params.toString(),{headers:{accept:"application/json"}});
   if(!res.ok)throw new Error("Internet Archive search returned HTTP "+res.status);
   const data=await res.json(),docs=data.response?.docs||[];
   const candidates=docs.filter(d=>!musicSeenIds.has(d.identifier)).slice(0,30);const commonsPromise=searchCommonsMusic(clean,genre,append).catch(error=>{console.warn("Commons music search unavailable",error);return []});
   candidates.forEach(d=>musicSeenIds.add(d.identifier));
   const found=await Promise.all(candidates.map(async d=>{
    try{
-    const mr=await fetch("https://archive.org/metadata/"+encodeURIComponent(d.identifier),{headers:{accept:"application/json"}});
+    const mr=await fetchMusicWithTimeout("https://archive.org/metadata/"+encodeURIComponent(d.identifier),{headers:{accept:"application/json"}},12000);
     if(!mr.ok)return null;
     const meta=await mr.json(),md=meta.metadata||{};
     const rawLicense=md.licenseurl||d.licenseurl||"";
@@ -2632,15 +2636,14 @@ async function searchPublicMusic(term="",genre="all",append=false,background=fal
     return {id:d.identifier,title,artist:String(Array.isArray(creator)?creator.join(", "):creator),year:d.year||md.year||"",license:licenseLabel,stream:"https://archive.org/download/"+encodeURIComponent(d.identifier)+"/"+file.name.split("/").map(encodeURIComponent).join("/"),art:"https://archive.org/services/img/"+encodeURIComponent(d.identifier)};
    }catch(error){console.warn("Skipping unavailable IA item",d.identifier,error);return null}
   }));
-  const valid=found.filter(Boolean),commons=await commonsPromise;const merged=valid.concat(commons).filter((track,index,all)=>all.findIndex(item=>item.id===track.id)===index);musicResults=append?musicResults.concat(merged):merged;if(musicQueueMode!=="playlist"){musicQueue=musicResults;musicQueueIndex=-1;}musicSearchBusy=false;if(searchButton){searchButton.disabled=false;searchButton.textContent=searchButton.dataset.originalText||"Search";searchButton.removeAttribute("aria-busy")}if(status){status.removeAttribute("aria-busy");status.textContent=musicResults.length?(background?"Updated saved catalogue · ":"Found ")+musicResults.length+" playable tracks.":"No open-licence tracks found."}
-  const archiveTotal=Number(data.response?.numFound);musicAudioHasMore=(Number.isFinite(archiveTotal)?archiveTotal>musicPageNumber*100:docs.length===100)||musicCommonsHasMore;musicHasMore=musicAudioHasMore;if(musicQueueMode!=="playlist")musicQueue=musicResults;try{musicVideoBusy=true;const nextVideoPage=append?musicVideoPageNumber+1:1;const videoPage=await searchPublicMusicVideos(clean,genre,nextVideoPage);musicVideoPageNumber=nextVideoPage;musicVideoHasMore=videoPage.hasMore;musicResults=musicResults.concat(videoPage.tracks).filter((t,i,a)=>a.findIndex(x=>x.id===t.id)===i);musicHasMore=musicHasMore||musicVideoHasMore;if(musicQueueMode!=="playlist")musicQueue=musicResults}catch(videoError){console.warn("Music video search unavailable",videoError)}finally{musicVideoBusy=false}saveMusicCatalogCache(term,genre);rememberMusicArtistsFromResults(clean,merged);renderMusicResults();renderMusicSearchMemory();
+  const valid=found.filter(Boolean),commons=await commonsPromise;const merged=valid.concat(commons).filter((track,index,all)=>all.findIndex(item=>item.id===track.id)===index);const audioAdded=append?merged.filter(track=>!musicResults.some(existing=>existing.id===track.id)).length:merged.length;musicAudioEmptyPages=append&&audioAdded===0?musicAudioEmptyPages+1:0;musicResults=append?musicResults.concat(merged):merged;if(musicQueueMode!=="playlist"){musicQueue=musicResults;musicQueueIndex=-1;}const archiveTotal=Number(data.response?.numFound);musicAudioHasMore=((Number.isFinite(archiveTotal)?archiveTotal>musicPageNumber*100:docs.length===100)||musicCommonsHasMore)&&musicAudioEmptyPages<2;musicHasMore=musicAudioHasMore;if(musicQueueMode!=="playlist")musicQueue=musicResults;try{musicVideoBusy=true;const nextVideoPage=append?musicVideoPageNumber+1:1;const videoPage=await searchPublicMusicVideos(clean,genre,nextVideoPage);musicVideoPageNumber=nextVideoPage;const videoAdded=videoPage.tracks.filter(track=>!musicResults.some(existing=>existing.id===track.id)).length;musicVideoEmptyPages=append&&videoAdded===0?musicVideoEmptyPages+1:0;musicVideoHasMore=videoPage.hasMore&&musicVideoEmptyPages<2;musicResults=musicResults.concat(videoPage.tracks).filter((t,i,a)=>a.findIndex(x=>x.id===t.id)===i);musicHasMore=musicHasMore||musicVideoHasMore;if(musicQueueMode!=="playlist")musicQueue=musicResults}catch(videoError){musicVideoHasMore=false;console.warn("Music video search unavailable; pagination stopped for this source",videoError)}finally{musicVideoBusy=false}musicSearchBusy=false;if(searchButton){searchButton.disabled=false;searchButton.textContent=searchButton.dataset.originalText||"Search";searchButton.removeAttribute("aria-busy")}if(status){status.removeAttribute("aria-busy");status.textContent=musicResults.length?(background?"Updated saved catalogue · ":"Found ")+musicResults.filter(musicSearchRelevance).length+" playable tracks.":"No open-licence tracks found."}saveMusicCatalogCache(term,genre);rememberMusicArtistsFromResults(clean,merged);renderMusicResults();renderMusicSearchMemory();
   if(!background)musicPlayerMessage(musicResults.length?musicResults.length+" playable open-licence tracks · "+(musicHasMore?"More available below":"End of current catalogue results"):"No verified playable tracks matched. Try All or another search.");
  }catch(error){
   if(backgroundSnapshot){musicResults=backgroundSnapshot.results;if(musicQueueMode!=="playlist")musicQueue=backgroundSnapshot.queue;musicPageNumber=backgroundSnapshot.pageNumber;musicSeenIds=backgroundSnapshot.seenIds;musicCommonsPage=backgroundSnapshot.commonsPage;musicCommonsHasMore=backgroundSnapshot.commonsHasMore;musicHasMore=backgroundSnapshot.hasMore}
   musicSearchBusy=false;if(searchButton){searchButton.disabled=false;searchButton.textContent=searchButton.dataset.originalText||"Search";searchButton.removeAttribute("aria-busy")}if(status){status.removeAttribute("aria-busy");status.textContent=background&&musicResults.length?"Saved catalogue is still available. Background refresh failed.":"Music search failed. Please try again."}renderMusicResults();renderMusicSearchMemory();if(!background)musicPlayerMessage("Music catalogue could not be reached. Please try again.");console.error("GomoGie Music search:",error);
  }
 }
-let musicPageNumber=1,musicSeenIds=new Set(),musicHasMore=false,musicAudioHasMore=false,musicVideoPageNumber=1,musicVideoHasMore=false;
+let musicPageNumber=1,musicSeenIds=new Set(),musicHasMore=false,musicAudioHasMore=false,musicVideoPageNumber=1,musicVideoHasMore=false,musicAudioEmptyPages=0,musicVideoEmptyPages=0;
 
 const MUSIC_CATALOG_CACHE_KEY="gomogie-music-catalog-v1";
 const MUSIC_CATALOG_CACHE_TTL=24*60*60*1000;

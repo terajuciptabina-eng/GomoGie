@@ -1096,7 +1096,7 @@ async function fetchSyntheticFixtures(){
  };
 }
 function normalizeApiFeedItems(items){
- return items.map(item=>({id:item.id,authorId:item.author?.id,type:item.mediaType==="video"?"video":item.mediaType==="image"?"image":item.mediaType==="poll"?"poll":"text",text:item.content||"",hashtags:Array.isArray(item.hashtags)?item.hashtags:[],mediaUrl:item.mediaUrl||"",thumbnailUrl:item.thumbnailUrl||"",poll:item.poll||null,likes:Number(item.reactionCount||0),comments:Number(item.commentCount||0),shares:0,createdAt:item.createdAt,isSynthetic:false}));
+ return items.map(item=>({id:item.id,authorId:item.author?.id,type:item.mediaType==="video"?"video":item.mediaType==="image"?"image":item.mediaType==="poll"?"poll":"text",text:item.content||"",hashtags:Array.isArray(item.hashtags)?item.hashtags:[],mediaUrl:item.mediaUrl||"",fallbackMediaUrl:item.fallbackMediaUrl||item.backupMediaUrl||item.alternateMediaUrl||"",thumbnailUrl:item.thumbnailUrl||item.thumbnail_url||"",poll:item.poll||null,likes:Number(item.reactionCount||0),comments:Number(item.commentCount||0),shares:0,createdAt:item.createdAt,isSynthetic:false}));
 }
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function postTextHtml(value){

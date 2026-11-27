@@ -1010,6 +1010,27 @@ body{background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;te
 .music-search-memory .music-memory-group{min-width:0}
 .music-media-filters{flex-wrap:nowrap;white-space:nowrap;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;touch-action:pan-x;scroll-snap-type:x proximity;padding:2px 1px 8px;scrollbar-width:none}
 .music-media-filters .music-chip,.music-genres .music-chip{scroll-snap-align:start;touch-action:pan-x}
+
+/* Spotify-inspired playlist layout: visual arrangement only */
+.music-playlists{display:grid;grid-template-columns:1fr;gap:12px}
+.music-playlist-card{padding:14px;border-radius:18px}
+.music-playlist-summary{display:grid;grid-template-columns:68px minmax(0,1fr) auto;align-items:center;gap:12px;min-width:0}
+.music-playlist-cover{display:block;width:68px;height:68px;object-fit:cover;border-radius:12px;background:#dcebe8}
+.music-playlist-cover-placeholder,.music-playlist-track-art-placeholder{display:flex;align-items:center;justify-content:center;background:linear-gradient(145deg,#102330,#087f73);color:#fff;font-size:27px;font-weight:800}
+.music-playlist-meta{display:flex;flex-direction:column;gap:5px;min-width:0}
+.music-playlist-meta strong{font-size:16px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.music-playlist-meta small{font-size:12px;color:var(--muted)}
+.music-playlist-actions{display:flex;align-items:center;gap:7px;margin:0}
+.music-playlist-actions button{min-width:38px;height:38px;padding:0 11px;border-radius:999px}
+.music-playlist-actions button[data-play-playlist]{background:#087f73;border-color:#087f73;color:#fff}
+.music-playlist-track-list{margin-top:12px;border-top:1px solid var(--line)}
+.music-playlist-track{gap:9px;padding:9px 0}
+.music-playlist-track-art{display:block;width:38px;height:38px;flex:0 0 38px;object-fit:cover;border-radius:7px;background:#dcebe8}
+.music-playlist-track-art-placeholder{font-size:17px}
+.music-playlist-track .music-playlist-track-title{font-size:13px}
+.music-playlist-track button{width:34px;height:34px;flex-basis:34px;border-radius:50%;font-size:14px}
+@media(min-width:700px){.music-playlists{grid-template-columns:repeat(2,minmax(0,1fr))}.music-playlist-summary{grid-template-columns:64px minmax(0,1fr) auto}.music-playlist-cover{width:64px;height:64px}}
+@media(max-width:380px){.music-playlist-summary{grid-template-columns:56px minmax(0,1fr) auto;gap:9px}.music-playlist-cover{width:56px;height:56px}.music-playlist-actions button{min-width:34px;height:34px;padding:0 9px}.music-playlist-meta strong{font-size:14px}}
 </style>
 </head>
 <body>
@@ -2531,7 +2552,7 @@ function openMusicPlaylistPicker(track){
  modal.hidden=false;
 }
 function closeMusicPlaylistPicker(){const modal=document.getElementById("musicPlaylistPicker");if(modal)modal.hidden=true;musicPendingPlaylistTrack=null}
-function renderMusicPlaylists(){const root=document.getElementById("musicPlaylists");if(!root)return;root.innerHTML=musicPlaylists.length?musicPlaylists.map(p=>'<article class="music-playlist-card"><strong>'+esc(p.name)+'</strong><small> · '+(p.tracks||[]).length+' tracks</small><div class="music-playlist-actions"><button data-play-playlist="'+esc(p.id)+'">Play all</button><button data-delete-playlist="'+esc(p.id)+'">Delete</button></div>'+((p.tracks||[]).map((t,i)=>'<div class="music-playlist-track"><span>'+esc(t.title)+'</span><button data-play-pl-track="'+esc(p.id)+'" data-track-index="'+i+'">▶</button><button data-remove-pl-track="'+esc(p.id)+'" data-track-index="'+i+'">×</button></div>').join(""))+'</article>').join(""):'<p class="pulse-page-description">Create a playlist and add tracks from the catalogue.</p>';root.querySelectorAll("[data-play-playlist]").forEach(b=>b.onclick=()=>playMusicPlaylist(b.dataset.playPlaylist));root.querySelectorAll("[data-delete-playlist]").forEach(b=>b.onclick=()=>{musicPlaylists=musicPlaylists.filter(p=>p.id!==b.dataset.deletePlaylist);saveMusicPlaylists();renderMusicPlaylists()});root.querySelectorAll("[data-play-pl-track]").forEach(b=>{b.onclick=()=>{const p=musicPlaylists.find(x=>x.id===b.dataset.playPlTrack);if(p){musicQueue=p.tracks.slice();musicQueueMode="playlist";musicQueueIndex=Number(b.dataset.trackIndex);playMusic(musicQueueIndex)}}});root.querySelectorAll("[data-remove-pl-track]").forEach(b=>b.onclick=()=>{const p=musicPlaylists.find(x=>x.id===b.dataset.removePlTrack);if(p){p.tracks.splice(Number(b.dataset.trackIndex),1);saveMusicPlaylists();renderMusicPlaylists()}})}
+function renderMusicPlaylists(){const root=document.getElementById("musicPlaylists");if(!root)return;root.innerHTML=musicPlaylists.length?musicPlaylists.map(p=>{const tracks=p.tracks||[],cover=tracks.find(t=>t.art)?.art;return '<article class="music-playlist-card"><div class="music-playlist-summary">'+(cover?'<img class="music-playlist-cover" loading="lazy" src="'+esc(cover)+'" alt="">':'<div class="music-playlist-cover music-playlist-cover-placeholder" aria-hidden="true">♫</div>')+'<div class="music-playlist-meta"><strong>'+esc(p.name)+'</strong><small>'+tracks.length+' tracks</small></div><div class="music-playlist-actions"><button data-play-playlist="'+esc(p.id)+'" aria-label="Play all '+esc(p.name)+'">▶</button><button data-delete-playlist="'+esc(p.id)+'" aria-label="Delete '+esc(p.name)+'">Delete</button></div></div><div class="music-playlist-track-list">'+tracks.map((t,i)=>'<div class="music-playlist-track">'+(t.art?'<img class="music-playlist-track-art" loading="lazy" src="'+esc(t.art)+'" alt="">':'<span class="music-playlist-track-art music-playlist-track-art-placeholder" aria-hidden="true">♫</span>')+'<span class="music-playlist-track-title">'+esc(t.title)+'</span><button data-play-pl-track="'+esc(p.id)+'" data-track-index="'+i+'" aria-label="Play '+esc(t.title)+'">▶</button><button data-remove-pl-track="'+esc(p.id)+'" data-track-index="'+i+'" aria-label="Remove '+esc(t.title)+'">×</button></div>').join("")+'</div></article>'}).join(""):'<p class="pulse-page-description">Create a playlist and add tracks from the catalogue.</p>';root.querySelectorAll("[data-play-playlist]").forEach(b=>b.onclick=()=>playMusicPlaylist(b.dataset.playPlaylist));root.querySelectorAll("[data-delete-playlist]").forEach(b=>b.onclick=()=>{musicPlaylists=musicPlaylists.filter(p=>p.id!==b.dataset.deletePlaylist);saveMusicPlaylists();renderMusicPlaylists()});root.querySelectorAll("[data-play-pl-track]").forEach(b=>{b.onclick=()=>{const p=musicPlaylists.find(x=>x.id===b.dataset.playPlTrack);if(p){musicQueue=p.tracks.slice();musicQueueMode="playlist";musicQueueIndex=Number(b.dataset.trackIndex);playMusic(musicQueueIndex)}}});root.querySelectorAll("[data-remove-pl-track]").forEach(b=>b.onclick=()=>{const p=musicPlaylists.find(x=>x.id===b.dataset.removePlTrack);if(p){p.tracks.splice(Number(b.dataset.trackIndex),1);saveMusicPlaylists();renderMusicPlaylists()}})}
 const musicDisplayText=value=>String(value??"").replace(/&amp;/gi,"&").replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").replace(/&lt;/gi,"<").replace(/&gt;/gi,">");
 let musicYoutubeIsPlaying=false;
 let musicLoadMoreObserver=null;

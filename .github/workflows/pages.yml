@@ -137,6 +137,7 @@ jobs:
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@v4
         with:
+          name: github-pages-${{ github.run_attempt }}
           path: .
       - name: Wait for Pages artifact indexing
         run: sleep 15
@@ -145,3 +146,4 @@ jobs:
         uses: actions/deploy-pages@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          artifact_name: github-pages-${{ github.run_attempt }}

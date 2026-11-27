@@ -1471,7 +1471,7 @@ function viralNewsCard(item){
 }
 
 function dedupeViralNews(items){
- const clean=value=>String(value||"").toLowerCase().normalize("NFKD").replace(/[\\u0300-\\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();
+ const clean=value=>String(value||"").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();
  const ranked=[...(items||[])].filter(Boolean).sort((a,b)=>{
   const score=x=>(x.embed_url?4:0)+(x.video_url?2:0)+(x.thumbnail_url||x.image_url?1:0);
   return score(b)-score(a);

@@ -927,13 +927,21 @@ async function route(request, env) {
     };
     let rows=await readItems();
     let refreshed=false;
-    // Only the primary For You request may trigger an on-demand feed sync.
-    // The frontend requests several modes in parallel; letting each empty mode sync
-    // independently multiplies D1 reads and writes during an empty catalogue.
+    // For You may refresh an empty catalogue. Video discovery also checks APHD's
+    // own feed freshness so this publisher is not hidden behind another source's
+    // last-checked timestamp. The scheduled 15-minute sync remains the normal path.
     if(mode==="for-you"&&!(rows.results||[]).length){
       const last=await env.DB.prepare("SELECT last_checked_at FROM gomogie_news_sources WHERE id='bernama-en' AND active=1").first();
       const lastAt=last?.last_checked_at?Date.parse(last.last_checked_at):0;
       if(!lastAt||Date.now()-lastAt>120000){
+        refreshed=true;
+        await syncNewsFeedsSingleFlight(env);
+        rows=await readItems();
+      }
+    } else if(mode==="videos") {
+      const aphd=await env.DB.prepare("SELECT active,last_checked_at FROM gomogie_news_sources WHERE id='aphd-video'").first();
+      const lastAt=aphd?.last_checked_at?Date.parse(aphd.last_checked_at):0;
+      if(aphd?.active&&(!lastAt||Date.now()-lastAt>15*60*1000)){
         refreshed=true;
         await syncNewsFeedsSingleFlight(env);
         rows=await readItems();
@@ -952,7 +960,8 @@ async function route(request, env) {
       ]);
     }
     const source=await env.DB.prepare("SELECT name,last_checked_at,last_error FROM gomogie_news_sources WHERE id='bernama-en'").first();
-    return json({mode,region,interests,refreshed,sourceStatus:{name:source?.name||"BERNAMA",lastCheckedAt:source?.last_checked_at||null,lastError:source?.last_error||null},items:(rows.results||[]).map(x=>({...x,title:decodeNewsXml(x.title).replace(/Â/g,""),summary:(x.content_type==="video"||x.content_type==="documentary")?"":decodeNewsXml(x.summary).replace(/Â/g,""),body_text:(x.content_type==="video"||x.content_type==="documentary")?"":decodeNewsXml(x.body_text).replace(/Â/g,""),trendScore:Number(x.trend_score||0)}))});
+    const sourceStatuses=await env.DB.prepare("SELECT id,name,active,last_checked_at,last_error FROM gomogie_news_sources WHERE id IN ('aphd-video','mlstudios-video','siakapkeli-video') ORDER BY name,id").all();
+    return json({mode,region,interests,refreshed,sourceStatus:{name:source?.name||"BERNAMA",lastCheckedAt:source?.last_checked_at||null,lastError:source?.last_error||null},sourceStatuses:sourceStatuses.results||[],items:(rows.results||[]).map(x=>({...x,title:decodeNewsXml(x.title).replace(/Â/g,""),summary:(x.content_type==="video"||x.content_type==="documentary")?"":decodeNewsXml(x.summary).replace(/Â/g,""),body_text:(x.content_type==="video"||x.content_type==="documentary")?"":decodeNewsXml(x.body_text).replace(/Â/g,""),trendScore:Number(x.trend_score||0)}))});
   }
   if (path === "/v1/feed" && method === "GET") {
     const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit") || 20)));

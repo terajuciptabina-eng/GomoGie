@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#10202d"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="description" content="GomoGie — Connect. Share. Discover.">
 <link rel="icon" type="image/svg+xml" href="assets/brand/favicon.svg">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/brand/apple-touch-icon.png?v=4">
@@ -812,6 +812,32 @@ body{background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;te
  .music-track{min-width:0}
  .music-track-copy{flex:1 1 0;width:0;min-width:0}
  .music-genres{width:100%;max-width:100%;min-width:0}
+}
+
+
+/* Mobile viewport and music-video fit safeguards */
+@media(max-width:700px){
+ html,body{width:100%;max-width:100%;overflow-x:hidden;overscroll-behavior-x:none}
+ input,textarea,select{font-size:16px!important}
+}
+.music-player-dock.video-mode .music-dock-media-stage:not([hidden]),
+.music-player-dock.youtube-compact-mode .music-dock-media-stage:not([hidden]){
+ display:grid!important;place-items:center;
+ width:min(100%,calc(48vh * 16 / 9));
+ height:auto!important;min-height:0!important;max-height:48vh;
+ aspect-ratio:16 / 9;margin:0 auto;overflow:hidden;background:#071722;
+}
+.music-player-dock.video-mode #musicDockVideo,
+.music-player-dock.youtube-compact-mode #musicDockVideo{
+ display:block;width:100%!important;height:100%!important;
+ min-height:0!important;max-height:100%!important;
+ object-fit:contain!important;object-position:center!important;background:#071722;
+}
+.music-player-dock.video-mode #musicDockYoutube,
+.music-player-dock.youtube-compact-mode #musicDockYoutube{
+ display:block;width:100%!important;height:100%!important;
+ min-height:0!important;max-height:100%!important;
+ aspect-ratio:16 / 9!important;margin:0!important;border:0;background:#071722;
 }
 
 </style>

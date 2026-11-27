@@ -3092,6 +3092,20 @@ async function openNotificationCenter(){
 }
 document.getElementById("search").addEventListener("keydown",e=>{if(e.key==="Enter"){searchQuery=e.target.value.trim();active="pulse";render()}});document.getElementById("search").addEventListener("input",e=>{if(!e.target.value.trim()){searchQuery="";if(active==="pulse")render()}});
 document.getElementById("notify").onclick=()=>openNotificationCenter();
+function handleNotificationDeepLink(){
+ const url=new URL(window.location.href),type=url.searchParams.get("gomogieNotification");
+ if(!type)return false;
+ const entity=url.searchParams.get("entity")||"",post=url.searchParams.get("post")||"",actor=url.searchParams.get("actor")||"";
+ ["gomogieNotification","entity","post","actor"].forEach(key=>url.searchParams.delete(key));
+ window.history.replaceState(null,"",url.pathname+url.search+url.hash);
+ if(!currentUser){openAuth();return true}
+ if(type==="message"||type==="message_request_accepted"){active="connect";nav();connect("messages",entity,"");bind();return true}
+ if(type==="message_request"){active="connect";nav();connect("requests","","","connect-message-requests");bind();return true}
+ if(type==="friend_request"){active="connect";nav();connect("requests","","","connect-friend-requests");bind();return true}
+ if((type==="follow"||type==="friend_accepted")&&actor){active="profile";selectedProfileId=actor;profileTab="posts";render();return true}
+ if(["new_post","reaction","comment","mention"].includes(type)){active="home";render();requestAnimationFrame(()=>{const target=document.getElementById("post-"+post);if(target)target.scrollIntoView({behavior:"smooth",block:"center"})});return true}
+ openNotificationCenter();return true;
+}
 window.addEventListener("focus",()=>{refreshNotificationBadge();pollLiveNotifications()});
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){refreshNotificationBadge();pollLiveNotifications()}});
 setInterval(()=>{if(document.visibilityState==="visible")refreshNotificationBadge()},60000);
@@ -3168,7 +3182,7 @@ async function loadGomoGieData(){
  accounts=[...new Map(accounts.filter(a=>a&&a.id).map(a=>[a.id,a])).values()];
  const sharedProfile=decodeURIComponent(location.hash.replace(/^#profile-/,"")).trim().toLowerCase();
  if(location.hash.startsWith("#profile-")&&sharedProfile){const target=accounts.find(a=>String(a.handle||"").toLowerCase()===sharedProfile);if(target){active="profile";selectedProfileId=target.id;profileTab="posts";editingProfile=false}}
- extras();render();updateConnectionState();
+ extras();if(!handleNotificationDeepLink())render();updateConnectionState();
 }
 async function refreshGomoGie(){
  if(isRefreshing)return;

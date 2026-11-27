@@ -1501,7 +1501,7 @@ function pulse(){
 }
 function watch(){
  const readVideoNewsIds=getReadNewsIds();
- const videoDiscoveryItems=[...new Map(viralVideoItems.filter(item=>item&&(item.content_type==="video"||item.content_type==="documentary"||!!item.embed_url)&&!readVideoNewsIds.has(String(item.id))).map(item=>[String(item.id),item])).values()];
+ const videoDiscoveryItems=dedupeViralNews([...new Map(viralVideoItems.filter(item=>item&&(item.content_type==="video"||item.content_type==="documentary"||!!item.embed_url)&&!readVideoNewsIds.has(String(item.id))).map(item=>[String(item.id),item])).values()]);
  const videoDiscovery=watchSectionMode==="discovery"&&videoDiscoveryItems.length?'<section class="watch-discovery"><div class="viral-news-heading"><div><span class="viral-news-kicker">CONTENT DISCOVERY</span><h3>▶ Videos for you</h3><p class="pulse-intro">Discover videos from publishers and creators.</p></div></div>'+videoDiscoveryItems.slice(0,watchNewsVisibleCount).map(viralNewsCard).join("")+'</section>':"";
  const seenMedia=new Set();
  const watchPostSource=watchMode==="following"?followingFeedPosts:posts;

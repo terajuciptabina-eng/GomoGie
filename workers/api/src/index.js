@@ -1125,8 +1125,8 @@ async function route(request, env) {
       await notifyPushDevices(env,recipientId,{id:commentMatch[1],title:"New reply on GomoGie",body:"Someone replied to a post you’re part of."});
     }
     for(const recipient of mentionRecipients){
-      await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),recipient.id,auth.sub,"mention",id,now).run();
-      await notifyPushDevices(env,recipient.id,{id,title:"You were mentioned on GomoGie",body:"A friend mentioned you in a reply."});
+      await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),recipient.id,auth.sub,"mention",commentMatch[1],now).run();
+      await notifyPushDevices(env,recipient.id,{id:commentMatch[1],title:"You were mentioned on GomoGie",body:"A friend mentioned you in a reply."});
     }
     return json({ comment: { id, postId: commentMatch[1], userId: auth.sub, parentId: parent?.id || null, content: input.content.trim(), createdAt: now } }, 201);
   }
@@ -1135,8 +1135,9 @@ async function route(request, env) {
   if (path === "/v1/users/search" && method === "GET") {
     const q=(url.searchParams.get("q")||"").trim().replace(/^@/,"").slice(0,24);
     if(q.length<2)return json({items:[]});
-    // Mention autocomplete intentionally exposes accepted friends only.
-    const rows=await env.DB.prepare("SELECT u.id,u.username,p.display_name,p.avatar_url FROM users u LEFT JOIN profiles p ON p.user_id=u.id WHERE u.status='active' AND u.id<>? AND (u.username LIKE ? OR p.display_name LIKE ?) AND EXISTS (SELECT 1 FROM friend_requests fr WHERE fr.status='accepted' AND ((fr.requester_id=? AND fr.recipient_id=u.id) OR (fr.recipient_id=? AND fr.requester_id=u.id))) ORDER BY CASE WHEN u.username=? COLLATE NOCASE THEN 0 ELSE 1 END,u.username LIMIT 20").bind(auth.sub,"%"+q+"%","%"+q+"%",auth.sub,auth.sub,q).all();
+    const friendsOnly=url.searchParams.get("scope")==="mentions";
+    const sql="SELECT u.id,u.username,p.display_name,p.avatar_url FROM users u LEFT JOIN profiles p ON p.user_id=u.id WHERE u.status='active' AND u.id<>? AND (u.username LIKE ? OR p.display_name LIKE ?)"+(friendsOnly?" AND EXISTS (SELECT 1 FROM friend_requests fr WHERE fr.status='accepted' AND ((fr.requester_id=? AND fr.recipient_id=u.id) OR (fr.recipient_id=? AND fr.requester_id=u.id)))":"")+" ORDER BY CASE WHEN u.username=? COLLATE NOCASE THEN 0 ELSE 1 END,u.username LIMIT 20";
+    const rows=friendsOnly?await env.DB.prepare(sql).bind(auth.sub,"%"+q+"%","%"+q+"%",auth.sub,auth.sub,q).all():await env.DB.prepare(sql).bind(auth.sub,"%"+q+"%","%"+q+"%",q).all();
     return json({items:(rows.results||[]).map(x=>({id:x.id,username:x.username,displayName:x.display_name||x.username,avatarUrl:x.avatar_url||""}))});
   }
   if (path === "/v1/friends" && method === "GET") {

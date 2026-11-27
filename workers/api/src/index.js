@@ -797,7 +797,7 @@ async function route(request, env) {
       uploadedKey = key;
 
       stage = "save_image_record";
-      const statements = [env.DB.prepare("INSERT INTO gomogie_media_assets (id,owner_id,purpose,object_key,mime_type,size_bytes,status,created_at) VALUES (?,?,?,?,?,?,?,?)").bind(id, auth.sub, purpose, key, detected, file.size, "ready", now)];
+      const statements = [env.DB.prepare("INSERT INTO gomogie_media_assets (id,owner_id,purpose,media_context,object_key,mime_type,size_bytes,status,created_at) VALUES (?,?,?,?,?,?,?,?,?)").bind(id, auth.sub, purpose === "message" ? "post" : purpose, purpose, key, detected, file.size, "ready", now)];
       if (purpose === "avatar" || purpose === "cover") {
         const column = purpose === "avatar" ? "avatar_url" : "cover_url";
         statements.push(env.DB.prepare("UPDATE profiles SET " + column + "=?,updated_at=? WHERE user_id=?").bind(mediaUrl(id), now, auth.sub));
@@ -1415,7 +1415,7 @@ async function route(request, env) {
       for(const [position,item] of attachments.entries()){
         if(!item||!["image","video","file"].includes(item.type)||!text(item.id,64))return json({error:"invalid_attachment"},400);
         const table=item.type==="image"?"gomogie_media_assets":item.type==="video"?"gomogie_video_assets":"gomogie_message_files";
-        const owner=await env.DB.prepare("SELECT id FROM "+table+" WHERE id=? AND owner_id=?"+(item.type==="image"?" AND purpose='message'":"")+(item.type!=="file"?" AND status='ready'":"")).bind(item.id,auth.sub).first();
+        const owner=await env.DB.prepare("SELECT id FROM "+table+" WHERE id=? AND owner_id=?"+(item.type==="image"?" AND media_context='message'":"")+(item.type!=="file"?" AND status='ready'":"")).bind(item.id,auth.sub).first();
         if(!owner)return json({error:"attachment_not_found",message:"Lampiran tidak sah atau bukan milik akaun ini."},404);
         verified.push({...item,position});
       }

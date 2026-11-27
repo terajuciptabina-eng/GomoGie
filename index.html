@@ -1173,10 +1173,15 @@ function filterUnreadNews(items){
  return (items||[]).filter(item=>!read.has(String(item.id)));
 }
 function getNewsVideoOrientation(item){
- const orientation=String(item?.video_orientation||item?.orientation||"").toLowerCase();
- if(["portrait","vertical"].includes(orientation))return "portrait";
- if(["landscape","horizontal"].includes(orientation))return "landscape";
- if(["square","1:1"].includes(orientation))return "square";
+ const orientation=String(item?.video_orientation||item?.orientation||item?.video_format||"").toLowerCase();
+ if(["portrait","vertical","shorts","youtube_shorts","youtube-shorts","9:16","9/16"].includes(orientation))return "portrait";
+ if(["landscape","horizontal","16:9","16/9"].includes(orientation))return "landscape";
+ if(["square","1:1","1/1"].includes(orientation))return "square";
+ const sourceUrls=[item?.canonical_url,item?.original_url,item?.source_url,item?.video_url,item?.url,item?.embed_url].filter(Boolean).map(value=>String(value).toLowerCase());
+ if(sourceUrls.some(value=>/(?:youtube\.com|youtu\.be)\/(?:shorts\/|embed\/shorts\/)/.test(value)))return "portrait";
+ if(sourceUrls.some(value=>/(?:#|[?&])shorts(?:=|\b)|\bshorts\b/.test(value)))return "portrait";
+ const title=String(item?.title||"")+" "+String(item?.summary||"");
+ if(/(?:^|\s)#?shorts\b/i.test(title))return "portrait";
  const width=Number(item?.video_width||item?.width||item?.media_width||0);
  const height=Number(item?.video_height||item?.height||item?.media_height||0);
  if(width>0&&height>0){const ratio=width/height;return ratio<0.9?"portrait":ratio>1.1?"landscape":"square"}

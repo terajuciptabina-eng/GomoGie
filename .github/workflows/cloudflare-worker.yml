@@ -117,12 +117,27 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: wrangler d1 execute gomogie-db --remote --file=sql/0021_message_attachments.sql
-      - name: Add message image context to media assets
+      - name: Add message image context to media assets when missing
         working-directory: workers/api
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: wrangler d1 execute gomogie-db --remote --file=sql/0022_message_image_context.sql
+        run: |
+          HAS_MEDIA_CONTEXT=$(wrangler d1 execute gomogie-db --remote --command="SELECT COUNT(*) AS has_column FROM pragma_table_info('gomogie_media_assets') WHERE name='media_context';" --json | node -e '
+            let input="";
+            process.stdin.on("data",chunk=>input+=chunk);
+            process.stdin.on("end",()=>{
+              const result=JSON.parse(input);
+              const row=(Array.isArray(result)?result:[]).flatMap(item=>item.results||[]).find(item=>item.has_column!==undefined);
+              if(!row) process.exit(2);
+              process.stdout.write(String(row.has_column));
+            });
+          ')
+          if [ "$HAS_MEDIA_CONTEXT" = "0" ]; then
+            wrangler d1 execute gomogie-db --remote --file=sql/0022_message_image_context.sql
+          else
+            echo "media_context already exists; skipping additive schema step."
+          fi
       - name: Ensure APHD Channel is an active Content Discovery source
         working-directory: workers/api
         env:

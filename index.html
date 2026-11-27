@@ -2988,7 +2988,13 @@ async function discoverMusicGenre(genre="all"){
  if(yt)yt.href="https://music.youtube.com/search?q="+q;if(sp)sp.href="https://open.spotify.com/search/"+q;if(sc)sc.href="https://soundcloud.com/search?q="+q;
  musicResults=[];musicQueue=[];musicQueueIndex=-1;musicPageNumber=1;musicVideoPageNumber=1;musicAudioHasMore=false;musicVideoHasMore=false;musicHasMore=false;musicSeenIds=new Set();musicCommonsPage=0;musicCommonsHasMore=false;musicSearchBusy=true;
  renderMusicResults();
- if(musicLanguage==="all")await searchPublicMusic("",genre,false);
+ if(musicLanguage==="all"){
+  await searchPublicMusic("",genre,false);
+  // The supplementary public-catalogue video search has its own broad provider
+  // matching. Apply the same genre gate before those videos enter discovery.
+  musicResults=musicResults.filter(track=>track.mediaType!=="video"||musicGenreVideoRelevance(track,genre));
+  if(musicQueueMode!=="playlist")musicQueue=musicResults.slice();
+ }
  else{
   // Language-specific discovery uses localized YouTube queries. The open
   // licence catalogues do not expose dependable language metadata, so do not

@@ -1833,7 +1833,7 @@ async function searchPublicMusicVideos(term="",genre="all",page=1){
  }));
  return {tracks:found.filter(Boolean),hasMore:docs.length===30};
 }
-async async function searchYouTubeMusic(term){
+async function searchYouTubeMusic(term){
  const query=String(term||"").trim();if(!query)return [];
  let lastError=null;
  for(let attempt=0;attempt<MUSIC_YOUTUBE_APIS.length;attempt++){

@@ -1140,6 +1140,11 @@ body{background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;te
  .discovery-tabs button{min-height:40px;padding:8px 13px;font-size:12px}
 }
 
+
+.music-language-label{font-size:13px;font-weight:750;color:var(--muted);margin:0 0 7px}
+.music-languages{display:flex;width:100%;flex-wrap:nowrap;gap:8px;overflow-x:auto;overflow-y:hidden;padding:4px 2px 14px;max-width:100%;min-width:0;white-space:nowrap;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;touch-action:pan-x;scrollbar-width:none;scroll-snap-type:x proximity}
+.music-languages::-webkit-scrollbar{display:none}
+.music-languages .music-chip{flex:0 0 auto;scroll-snap-align:start;touch-action:pan-x}
 </style>
 <section class="install-guide-layer" id="installGuideLayer" hidden role="dialog" aria-modal="true" aria-labelledby="installGuideTitle">
  <div class="install-guide-card">
@@ -2832,21 +2837,17 @@ async function searchYouTubeGenreMusic(genre){
   instrumental:["instrumental guitar music","instrumental piano music","orchestral instrumental music"]
  };
  const languageQueries={
-  english:["English songs","English language music videos"],
-  malay:["lagu Melayu","lagu Malaysia","muzik Melayu","rock kapak Malaysia"],
-  indonesian:["lagu Indonesia","musik Indonesia","rock Indonesia","band Indonesia"],
-  tamil:["Tamil songs","Tamil music video"],
-  mandarin:["Mandarin songs","Chinese Mandarin music video"],
-  hindi:["Hindi songs","Bollywood music video"],
-  korean:["K-pop music video","Korean songs"],
-  japanese:["J-pop music video","Japanese songs"],
-  spanish:["canciones en español","música latina video oficial"],
-  arabic:["اغاني عربية","Arabic music video"],
-  filipino:["OPM songs","Filipino music video"]
+  english:{all:["English songs","English language music videos"]},
+  malay:{all:["lagu Melayu","lagu Malaysia","muzik Melayu"],rock:["lagu rock Melayu","rock kapak Malaysia","band rock Malaysia","lagu rock 80an Malaysia"],pop:["lagu pop Melayu","pop Malaysia"],jazz:["jazz Malaysia","lagu jazz Melayu"],dangdut:["dangdut Malaysia"]},
+  indonesian:{all:["lagu Indonesia","musik Indonesia"],rock:["lagu rock Indonesia","band rock Indonesia","rock Indonesia 80an","lagu rock Indonesia terbaik"],pop:["lagu pop Indonesia","pop Indonesia terbaru"],dangdut:["dangdut Indonesia","dangdut koplo"]},
+  tamil:{all:["Tamil songs","Tamil music video"]},mandarin:{all:["Mandarin songs","Chinese Mandarin music video"]},
+  hindi:{all:["Hindi songs","Bollywood music video"]},korean:{all:["K-pop music video","Korean songs"]},
+  japanese:{all:["J-pop music video","Japanese songs"]},spanish:{all:["canciones en español","música latina video oficial"]},
+  arabic:{all:["اغاني عربية","Arabic music video"]},filipino:{all:["OPM songs","Filipino music video"]}
  };
- const localized=languageQueries[musicLanguage]||[];
  const baseQueries=searches[label]||[label+" music official videos",label+" live music performance",label+" classic songs"];
- const queries=musicLanguage==="all"?baseQueries:localized.map(term=>label==="all"?term:term+" "+label+" music").concat(baseQueries.slice(0,2).map(term=>term+" "+(localized[0]||"")));
+ const localized=(languageQueries[musicLanguage]?.[label]||languageQueries[musicLanguage]?.all||[]);
+ const queries=musicLanguage==="all"||musicLanguage==="english"?baseQueries:localized;
  const collected=[],seen=new Set();
  // Run only three focused searches at a time to balance catalogue breadth and
  // public-instance load. Each request has a bounded timeout and fallback.

@@ -83,7 +83,7 @@ jobs:
           required = ["mlstudios-video", "aphd-video", "siakapkeli-video", "astroawani-video", "buletintv3-video", "kinitv-video", "thestar-video", "fmt-video"]
           for source in required:
               assert f'id:"{source}"' in worker, f"Worker source missing: {source}"
-          for source in required[3:]:
+          for source in required:
               assert source in migration, f"D1 activation migration missing: {source}"
           assert "staleVideoSource" in worker, "Video mode must inspect every active video source"
           assert "feedItemCount" in worker and "acceptedCount" in worker and "upsertChanges" in worker

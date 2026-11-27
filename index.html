@@ -1159,7 +1159,7 @@ function postTextHtml(value){
   const raw=match[0],start=match.index;html+=esc(text.slice(last,start));
   if(match[2]){
    const username=match[2],person=mentionProfiles.get(username.toLowerCase())||accounts.find(a=>String(a.username||"").toLowerCase()===username.toLowerCase()),prefix=raw.startsWith("@")?"":raw[0];
-   html+=esc(prefix)+(person?'<button type="button" class="mention-link" data-open-profile="'+esc(person.id)+'">@'+esc(username)+'</button>':'<span class="mention-text">@'+esc(username)+'</span>');
+   html+=esc(prefix)+'<button type="button" class="mention-link" data-open-profile-username="'+esc(username)+'">@'+esc(username)+'</button>';
   }else{
    const trimmed=raw.replace(/[),.!?;:]+$/,""),href=/^https?:\/\//i.test(trimmed)?trimmed:"https://"+trimmed;
    try{const parsed=new URL(href);if(parsed.protocol==="https:"||parsed.protocol==="http:"){html+='<a class="post-link" href="'+esc(href)+'" target="_blank" rel="noopener noreferrer nofollow">'+esc(trimmed)+'</a>'+esc(raw.slice(trimmed.length));}else html+=esc(raw)}catch{html+=esc(raw)}
@@ -2478,6 +2478,11 @@ function extras(){
  if(trends){const counts=new Map();posts.forEach(p=>{const tags=String(p.text||"").match(/#[\p{L}\p{N}_]+/gu)||[];tags.forEach(tag=>{const key=tag.slice(1).toLowerCase();counts.set(key,(counts.get(key)||0)+1)})});const top=[...counts].sort((a,b)=>b[1]-a[1]).slice(0,6);trends.innerHTML=top.length?top.map(([tag,count],i)=>'<button class="trend-topic" type="button" data-topic="'+esc(tag)+'"><span>'+(i+1)+'. #'+esc(tag)+'</span><small>'+count+' posts</small></button>').join(""):'<div class="empty">Topics will trend as members publish with hashtags.</div>'}
  if(suggestions)suggestions.innerHTML=accounts.filter(a=>a.id!==currentUser?.id).slice(0,4).map(a=>'<div class="people" data-open-profile="'+esc(a.id)+'"><img class="avatar" src="'+esc(a.avatarUrl||"")+'" alt=""><div class="meta"><strong>'+esc(a.displayName||a.handle)+'</strong><div class="handle">GomoGie member</div></div></div>').join("")||'<div class="empty">No member suggestions yet.</div>';
 }
+document.addEventListener("click",async e=>{
+ const button=e.target.closest("[data-open-profile-username]");if(!button)return;
+ const username=button.dataset.openProfileUsername||"",cached=mentionProfiles.get(username.toLowerCase())||accounts.find(a=>String(a.username||"").toLowerCase()===username.toLowerCase());
+ try{let person=cached;if(!person){const data=await apiRequest("/v1/users/search?q="+encodeURIComponent(username));person=(data.items||[]).find(x=>String(x.username||"").toLowerCase()===username.toLowerCase())}if(!person?.id)return;selectedProfileId=person.id;profileTab="posts";active="profile";render()}catch(error){alert(error.message)}
+});
 function notificationRelativeTime(value){
  const date=new Date(value),seconds=Math.max(0,Math.floor((Date.now()-date.getTime())/1000));
  if(!Number.isFinite(date.getTime()))return "";

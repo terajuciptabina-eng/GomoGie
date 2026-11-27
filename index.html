@@ -1937,26 +1937,25 @@ function ensureYouTubeIframeApi(){
 }
 let musicYouTubeApiPromise=null;
 function prepareYouTubePlayer(){
- if(musicYouTubePlayerInitPromise||musicYouTubePlayer)return musicYouTubePlayerInitPromise||Promise.resolve(musicYouTubePlayer);
+ if(musicYouTubePlayerInitPromise)return musicYouTubePlayerInitPromise;
+ if(musicYouTubePlayer&&musicYouTubePlayerReady)return Promise.resolve(musicYouTubePlayer);
  ensureMusicPlayer();
  const frame=musicDock?.querySelector("#musicDockYoutube");
  if(!frame)return Promise.resolve(null);
- musicYouTubePlayerInitPromise=ensureYouTubeIframeApi().then(()=>{
-  if(musicYouTubePlayer)return musicYouTubePlayer;
+ musicYouTubePlayerInitPromise=ensureYouTubeIframeApi().then(()=>new Promise(resolve=>{
   frame.hidden=false;
   frame.style.width="100%";frame.style.height="1px";frame.style.opacity="0";frame.style.pointerEvents="none";
   musicYouTubePlayerReady=false;
   musicYouTubePlayer=new YT.Player(frame,{
    playerVars:{autoplay:0,controls:1,playsinline:1,rel:0,enablejsapi:1,origin:window.location.origin},
    events:{
-    onReady:()=>{musicYouTubePlayerReady=true;},
+    onReady:()=>{musicYouTubePlayerReady=true;resolve(musicYouTubePlayer)},
     onStateChange:onYouTubePlayerStateChange,
     onAutoplayBlocked:()=>{if(musicCurrent?.source==="YouTube"){musicResumeNeeded=true;musicPlayerMessage("Safari blocked autoplay. Tap Resume Playback once.")}},
     onError:()=>{if(musicCurrent?.source==="YouTube"){musicResumeNeeded=true;musicPlayerMessage("YouTube could not start this video. Tap Resume Playback.")}}
    }
   });
-  return musicYouTubePlayer;
- }).catch(error=>{musicYouTubePlayerInitPromise=null;console.warn("YouTube prewarm failed",error);return null});
+ })).catch(error=>{musicYouTubePlayerInitPromise=null;console.warn("YouTube prewarm failed",error);return null});
  return musicYouTubePlayerInitPromise;
 }
 // Load and initialise the official player before the user presses Play.
@@ -2029,14 +2028,6 @@ async function playMusicVideo(track){
    musicPlayerMessage("YouTube player is still preparing. Please wait a moment, then tap Play once.");
    prepareYouTubePlayer().then(player=>{if(!player||musicCurrent?.id!==track.id||musicYouTubeCurrentTrackId!==track.id)return; if(musicYouTubePlayerReady){player.loadVideoById({videoId:track.videoId,startSeconds:0});player.playVideo();}});
    return;
-   /* legacy player creation removed */
-   ytFrame.src="https://www.youtube.com/embed/"+encodeURIComponent(track.videoId)+"?playsinline=1&rel=0&enablejsapi=1&autoplay=1&origin="+encodeURIComponent(window.location.origin);
-   musicYouTubePlayer=new YT.Player(ytFrame,{events:{
-    onReady:event=>{if(musicCurrent?.id!==track.id||musicYouTubeCurrentTrackId!==track.id)return;try{event.target.playVideo();scheduleYouTubeResumeRetries(track.id)}catch{musicResumeNeeded=true;musicPlayerMessage("Tap Resume Playback to start YouTube.")}},
-    onStateChange:onYouTubePlayerStateChange,
-    onAutoplayBlocked:()=>{if(musicCurrent?.id!==track.id)return;musicResumeNeeded=true;musicPlayerMessage("Safari requires one tap to start this YouTube video. Tap Resume Playback.")},
-    onError:()=>{if(musicCurrent?.id!==track.id)return;musicResumeNeeded=true;musicPlayerMessage("YouTube could not start this video. Tap Resume Playback or use Next.")}
-   }});
   }catch(error){console.warn("YouTube player API unavailable",error);musicResumeNeeded=true;musicPlayerMessage("YouTube player could not start. Tap Resume Playback.")}
   return;
  }

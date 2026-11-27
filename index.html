@@ -2031,8 +2031,8 @@ function onYouTubePlayerStateChange(event){
  if(event.data===0){
   if(musicRepeat==="one"){try{event.target.seekTo(0,true);event.target.playVideo()}catch{musicResumeNeeded=true;musicPlayerMessage("Video ended. Tap Resume Playback to replay.")};return}
   playNextMusic(1,true);
- }else if(event.data===1){clearYouTubeResumeRetries();musicYoutubeIsPlaying=true;musicResumeNeeded=false;const button=musicDock?.querySelector("#musicDockPlay");if(button)button.textContent="Ⅱ";musicPlayerMessage("Playing video: "+(musicCurrent?.title||""))}
- else if(event.data===2){musicYoutubeIsPlaying=false;const button=musicDock?.querySelector("#musicDockPlay");if(button)button.textContent="▶";if(musicUserPaused||!musicPlaybackIntent){musicResumeNeeded=false}else{musicPlayerMessage("YouTube paused playback. Waiting for YouTube to finish any ad or player transition…")}}else if(event.data===5){musicPlayerMessage("Video ready. Press Play if playback does not start.")}
+ }else if(event.data===1){clearYouTubeResumeRetries();musicYoutubeIsPlaying=true;musicResumeNeeded=false;updateMusicDock();musicPlayerMessage("Playing video: "+(musicCurrent?.title||""))}
+ else if(event.data===2){musicYoutubeIsPlaying=false;updateMusicDock();if(musicUserPaused||!musicPlaybackIntent){musicResumeNeeded=false}else{musicPlayerMessage("YouTube paused playback. Waiting for YouTube to finish any ad or player transition…")}}else if(event.data===5){musicPlayerMessage("Video ready. Press Play if playback does not start.")}
  else if(event.data===3){musicPlayerMessage("Buffering video…")}
 }
 async function playMusicVideo(track){

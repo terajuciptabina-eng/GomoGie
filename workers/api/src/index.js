@@ -761,7 +761,7 @@ async function route(request, env) {
     catch(error){await env.MEDIA_BUCKET.delete(key);throw error}
     return json({file:{id,name,mimeType:file.type,size:file.size,url:"/v1/message-files/"+id}},201);
   }
-  const messageFileRead=path.match(/^\\/v1\\/message-files\\/([0-9a-f-]+)$/i);
+  const messageFileRead=path.match(/^\/v1\/message-files\/([0-9a-f-]+)$/i);
   if(messageFileRead&&method==="GET"){
     const asset=await env.DB.prepare("SELECT object_key,file_name,mime_type,size_bytes FROM gomogie_message_files WHERE id=?").bind(messageFileRead[1]).first();
     if(!asset||!env.MEDIA_BUCKET)return json({error:"file_not_found"},404);

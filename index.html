@@ -1833,7 +1833,7 @@ async function searchPublicMusicVideos(term="",genre="all",page=1){
  }));
  return {tracks:found.filter(Boolean),hasMore:docs.length===30};
 }
-async function searchYouTubeMusic(term){
+async async function searchYouTubeMusic(term){
  const key=getMusicYoutubeApiKey(),query=String(term||"").trim();if(!key||!query)return [];
  const params=new URLSearchParams({part:"snippet",type:"video",videoCategoryId:"10",videoEmbeddable:"true",q:query+" music",maxResults:"20",order:"relevance",key});
  const response=await fetch("https://www.googleapis.com/youtube/v3/search?"+params.toString(),{headers:{accept:"application/json"}});
@@ -1845,7 +1845,7 @@ function extractYouTubePlaylistId(value){
  const input=String(value||"").trim();if(/^[A-Za-z0-9_-]{10,}$/.test(input))return input;
  try{const url=new URL(input);if(!/(^|\.)youtube\.com$|(^|\.)youtube-nocookie\.com$/.test(url.hostname))return "";return url.searchParams.get("list")||""}catch{return ""}
 }
-async function importYouTubePlaylist(value){
+async async function importYouTubePlaylist(value){
  const key=getMusicYoutubeApiKey(),playlistId=extractYouTubePlaylistId(value);if(!key)throw new Error("Save your free YouTube API key first.");if(!playlistId)throw new Error("Paste a valid public YouTube playlist URL or playlist ID.");
  const params=new URLSearchParams({part:"snippet,contentDetails",playlistId,maxResults:"50",key});
  const response=await fetch("https://www.googleapis.com/youtube/v3/playlistItems?"+params.toString(),{headers:{accept:"application/json"}});

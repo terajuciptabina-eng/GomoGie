@@ -960,6 +960,41 @@ body{background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;te
 @media(max-width:700px){.composer .composer-row .avatar{width:40px;height:40px;flex-basis:40px}.composer .composer-row input{height:50px;padding:0 16px;font-size:15px}.composer .compose-actions{margin:12px 0 0;width:100%;gap:7px}.composer .compose-actions button{min-height:44px;font-size:12px;padding:8px 4px;gap:5px}.composer .compose-actions button svg{width:17px;height:17px;flex-basis:17px}}
 
 #musicDockAddPlaylist{display:grid;place-items:center;width:32px;height:32px;padding:3px!important;border-radius:50%;color:#087f73;background:#e8f7f3}#musicDockAddPlaylist svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}#musicDockAddPlaylist[hidden]{display:none!important}
+
+/* Music player header and control layout refinement */
+.music-player-dock.video-mode,.music-player-dock.youtube-compact-mode{box-sizing:border-box;padding:14px;gap:12px;border:1px solid #dce8e6;border-radius:26px;background:rgba(255,255,255,.98);box-shadow:0 16px 42px rgba(17,43,49,.14)}
+.music-dock-top{display:grid;grid-template-columns:46px minmax(0,1fr) 40px 40px 40px;align-items:center;gap:10px;width:100%;padding:0 0 10px;border-bottom:1px solid #edf1f1}
+.music-dock-top img{width:46px;height:46px;border-radius:12px;object-fit:cover}
+.music-player-info{min-width:0}
+.music-player-info strong{font-size:15px;line-height:1.25;color:#172d35}
+.music-player-info small{font-size:12px;line-height:1.25;color:#778891}
+.music-dock-top button{display:grid;place-items:center;justify-self:center;width:38px;height:38px;min-width:38px;min-height:38px;padding:0!important;border:0;border-radius:50%;font-size:20px;line-height:1;transition:background .15s ease,transform .15s ease}
+.music-dock-top #musicDockAddPlaylist{background:#e8f7f3;color:#087f73}
+.music-dock-top #musicDockAddPlaylist svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.music-dock-top #musicDockMinimize{width:38px;height:38px;background:#f1f4f5;color:#63757d}
+.music-dock-top #musicDockMinimize svg{width:21px;height:21px}
+.music-dock-top #musicDockClose{width:38px;height:38px;min-width:38px;background:#f2f4f5;color:#52636b;font-size:25px;font-weight:500}
+.music-dock-top button:active{transform:scale(.94);background:#e5efed}
+.music-dock-controls-row{padding:2px 0 0}
+.music-dock-controls{gap:clamp(24px,6vw,52px)}
+.music-dock-controls button{width:46px;height:44px;min-width:46px;min-height:44px;border-radius:14px;color:#18333b}
+.music-dock-controls button svg{width:27px;height:27px}
+.music-player-dock.video-mode .music-dock-media-stage{width:100%;height:auto;aspect-ratio:16/9;max-height:48vh;overflow:hidden;border-radius:14px;background:#071722}
+.music-player-dock.video-mode #musicDockVideo,.music-player-dock.video-mode #musicDockYoutube{width:100%;height:100%;max-height:none;border-radius:14px}
+.music-player-dock.youtube-compact-mode .music-dock-media-stage{margin:0 auto;border-radius:14px;overflow:hidden}
+@media(max-width:520px){
+ .music-player-dock.video-mode,.music-player-dock.youtube-compact-mode{max-width:calc(100vw - 20px);padding:10px;border-radius:20px;gap:9px}
+ .music-dock-top{grid-template-columns:40px minmax(0,1fr) 34px 34px 34px;gap:6px;padding-bottom:8px}
+ .music-dock-top img{width:40px;height:40px;border-radius:10px}
+ .music-player-info strong{font-size:12px}
+ .music-player-info small{font-size:10px}
+ .music-dock-top button,.music-dock-top #musicDockMinimize,.music-dock-top #musicDockClose{width:34px;height:34px;min-width:34px;min-height:34px}
+ .music-dock-top #musicDockAddPlaylist svg,.music-dock-top #musicDockMinimize svg{width:19px;height:19px}
+ .music-dock-top #musicDockClose{font-size:23px}
+ .music-dock-controls{gap:clamp(18px,7vw,34px)}
+ .music-dock-controls button{width:42px;height:40px;min-width:42px;min-height:40px}
+ .music-dock-controls button svg{width:24px;height:24px}
+}
 </style>
 </head>
 <body>

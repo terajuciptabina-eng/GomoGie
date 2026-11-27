@@ -261,8 +261,9 @@ async function syncNewsFeeds(env){
     const changes=Number(result.meta?.changes||0);inserted+=changes;upsertChanges+=changes;checked++;
    }
    await env.DB.prepare("UPDATE gomogie_news_sources SET last_checked_at=?,last_error=NULL WHERE id=?").bind(now,feed.id).run();
+   await env.DB.prepare("INSERT INTO gomogie_news_source_runs (source_id,last_attempt_at,last_success_at,last_http_status,feed_item_count,accepted_count,upsert_changes,last_error) VALUES (?,?,?,?,?,?,?,NULL) ON CONFLICT(source_id) DO UPDATE SET last_attempt_at=excluded.last_attempt_at,last_success_at=excluded.last_success_at,last_http_status=excluded.last_http_status,feed_item_count=excluded.feed_item_count,accepted_count=excluded.accepted_count,upsert_changes=excluded.upsert_changes,last_error=NULL").bind(feed.id,now,now,httpStatus,feedItemCount,acceptedCount,upsertChanges).run();
    sourceResults.push({id:feed.id,name:feed.name,status:"ok",httpStatus,feedItemCount,acceptedCount,upsertChanges});
-  }catch(error){errors++;const message=String(error.message||error).slice(0,300);await env.DB.prepare("UPDATE gomogie_news_sources SET last_checked_at=?,last_error=? WHERE id=?").bind(now,message,feed.id).run().catch(()=>{});sourceResults.push({id:feed.id,name:feed.name,status:"error",httpStatus,feedItemCount,acceptedCount,error:message})}
+  }catch(error){errors++;const message=String(error.message||error).slice(0,300);await env.DB.prepare("UPDATE gomogie_news_sources SET last_checked_at=?,last_error=? WHERE id=?").bind(now,message,feed.id).run().catch(()=>{});await env.DB.prepare("INSERT INTO gomogie_news_source_runs (source_id,last_attempt_at,last_http_status,feed_item_count,accepted_count,upsert_changes,last_error) VALUES (?,?,?,?,?,?,?) ON CONFLICT(source_id) DO UPDATE SET last_attempt_at=excluded.last_attempt_at,last_http_status=excluded.last_http_status,feed_item_count=excluded.feed_item_count,accepted_count=excluded.accepted_count,upsert_changes=excluded.upsert_changes,last_error=excluded.last_error").bind(feed.id,now,httpStatus,feedItemCount,acceptedCount,upsertChanges,message).run().catch(diagnosticError=>console.error("Unable to persist source diagnostics",feed.id,diagnosticError));sourceResults.push({id:feed.id,name:feed.name,status:"error",httpStatus,feedItemCount,acceptedCount,error:message})}
  }
  await env.DB.prepare("UPDATE gomogie_news_items SET status='archived' WHERE status='published' AND content_type='article' AND julianday(published_at)<julianday('now','-72 hours')").run();
  await env.DB.prepare("DELETE FROM gomogie_news_items WHERE julianday(published_at)<julianday('now','-30 days')").run();
@@ -382,18 +383,21 @@ async function route(request, env) {
   }
   if (path === "/v1/news/status" && method === "GET") {
     try {
-      const [sources, counts, bySource] = await Promise.all([
+      const [sources, counts, bySource, runDiagnostics] = await Promise.all([
         env.DB.prepare("SELECT id,name,active,last_checked_at,last_error FROM gomogie_news_sources ORDER BY name,id").all(),
         env.DB.prepare("SELECT status,content_type,COUNT(*) AS total FROM gomogie_news_items GROUP BY status,content_type").all(),
-        env.DB.prepare("SELECT s.id,s.name,COUNT(CASE WHEN n.status='published' THEN 1 END) AS published_count,MAX(n.published_at) AS latest_published_at,(SELECT title FROM gomogie_news_items x WHERE x.source_id=s.id AND x.status='published' ORDER BY x.published_at DESC LIMIT 1) AS latest_title FROM gomogie_news_sources s LEFT JOIN gomogie_news_items n ON n.source_id=s.id GROUP BY s.id,s.name ORDER BY published_count DESC,s.name").all()
+        env.DB.prepare("SELECT s.id,s.name,COUNT(CASE WHEN n.status='published' THEN 1 END) AS published_count,MAX(n.published_at) AS latest_published_at,(SELECT title FROM gomogie_news_items x WHERE x.source_id=s.id AND x.status='published' ORDER BY x.published_at DESC LIMIT 1) AS latest_title FROM gomogie_news_sources s LEFT JOIN gomogie_news_items n ON n.source_id=s.id GROUP BY s.id,s.name ORDER BY published_count DESC,s.name").all(),
+        env.DB.prepare("SELECT source_id,last_attempt_at,last_success_at,last_http_status,feed_item_count,accepted_count,upsert_changes,last_error FROM gomogie_news_source_runs").all()
       ]);
       const sourceState = new Map((bySource.results || []).map(row => [row.id, row]));
+      const runState = new Map((runDiagnostics.results || []).map(row => [row.source_id, row]));
       return json({
         checkedAt: new Date().toISOString(),
         schedule: "*/15 * * * *",
         sources: (sources.results || []).map(row => {
           const stats = sourceState.get(row.id) || {};
-          return { id: row.id, name: row.name, active: Boolean(row.active), lastCheckedAt: row.last_checked_at, lastError: row.last_error, publishedCount: Number(stats.published_count || 0), latestPublishedAt: stats.latest_published_at || null, latestTitle: stats.latest_title || null };
+          const run=runState.get(row.id)||{};
+          return { id: row.id, name: row.name, active: Boolean(row.active), lastCheckedAt: row.last_checked_at, lastError: row.last_error, lastAttemptAt:run.last_attempt_at||null,lastSuccessAt:run.last_success_at||null,lastHttpStatus:run.last_http_status??null,feedItemCount:Number(run.feed_item_count||0),acceptedCount:Number(run.accepted_count||0),upsertChanges:Number(run.upsert_changes||0),runError:run.last_error||null,publishedCount: Number(stats.published_count || 0), latestPublishedAt: stats.latest_published_at || null, latestTitle: stats.latest_title || null };
         }),
         counts: counts.results || []
       });
@@ -975,7 +979,7 @@ async function route(request, env) {
     const source=await env.DB.prepare("SELECT name,last_checked_at,last_error FROM gomogie_news_sources WHERE id='bernama-en'").first();
     const videoSourceIds=NEWS_FEEDS.filter(feed=>feed.contentType==="video"||feed.contentType==="documentary").map(feed=>feed.id);
     const videoPlaceholders=videoSourceIds.map(()=>"?").join(",");
-    const sourceStatuses=videoSourceIds.length?await env.DB.prepare("SELECT id,name,active,last_checked_at,last_error FROM gomogie_news_sources WHERE id IN ("+videoPlaceholders+") ORDER BY name,id").bind(...videoSourceIds).all():{results:[]};
+    const sourceStatuses=videoSourceIds.length?await env.DB.prepare("SELECT s.id,s.name,s.active,s.last_checked_at,s.last_error,r.last_attempt_at,r.last_success_at,r.last_http_status,r.feed_item_count,r.accepted_count,r.upsert_changes,r.last_error AS run_error FROM gomogie_news_sources s LEFT JOIN gomogie_news_source_runs r ON r.source_id=s.id WHERE s.id IN ("+videoPlaceholders+") ORDER BY s.name,s.id").bind(...videoSourceIds).all():{results:[]};
     return json({mode,region,interests,refreshed,sourceStatus:{name:source?.name||"BERNAMA",lastCheckedAt:source?.last_checked_at||null,lastError:source?.last_error||null},sourceStatuses:sourceStatuses.results||[],items:(rows.results||[]).map(x=>({...x,title:decodeNewsXml(x.title).replace(/Â/g,""),summary:(x.content_type==="video"||x.content_type==="documentary")?"":decodeNewsXml(x.summary).replace(/Â/g,""),body_text:(x.content_type==="video"||x.content_type==="documentary")?"":decodeNewsXml(x.body_text).replace(/Â/g,""),trendScore:Number(x.trend_score||0)}))});
   }
   if (path === "/v1/feed" && method === "GET") {

@@ -905,6 +905,7 @@ async function route(request, env) {
   if(path==="/v1/news"&&method==="GET"){
     const requestedMode=url.searchParams.get("mode");const mode=["global","archive","videos"].includes(requestedMode)?requestedMode:"for-you";
     const limit=Math.min(mode==="videos"?100:30,Math.max(1,Number(url.searchParams.get("limit")||(mode==="videos"?60:12))));
+    const offset=mode==="videos"?Math.max(0,Math.floor(Number(url.searchParams.get("offset")||0))):0;
     let region="MY",interests=["national","politics","business","technology","sports","entertainment","world","lifestyle"];
     if(auth&&mode==="for-you"){
       const pref=await env.DB.prepare("SELECT region_code,interests_json FROM gomogie_news_preferences WHERE user_id=?").bind(auth.sub).first();
@@ -914,7 +915,7 @@ async function route(request, env) {
     const archiveMode=mode==="archive";if(!archiveMode)await env.DB.prepare("UPDATE gomogie_news_items SET status='archived' WHERE status='published' AND julianday(published_at)<julianday('now','-72 hours')").run();const base="WITH ranked_news AS (SELECT n.id,n.title,n.summary,n.body_text,n.image_url,n.canonical_url,n.category,n.region_code,n.published_at,n.content_type,n.embed_url,n.source_id,s.name AS source_name,s.language AS language,(SELECT COUNT(*) FROM gomogie_news_items t WHERE t.category=n.category AND julianday(t.published_at)>=julianday('now','-12 hours')) AS trend_score,ROW_NUMBER() OVER (PARTITION BY n.source_id ORDER BY n.published_at DESC) AS source_rank FROM gomogie_news_items n JOIN gomogie_news_sources s ON s.id=n.source_id WHERE n.status='"+(archiveMode?"archived":"published")+"' AND julianday(n.published_at)>=julianday('now','-"+(archiveMode?"30":mode==="videos"?"7":"3")+" days') ) SELECT * FROM ranked_news WHERE source_rank<=100 ";
     const readItems=async()=>{
       if(mode==="videos"){
-        return await env.DB.prepare(base+"AND content_type IN ('video','documentary') ORDER BY published_at DESC LIMIT ?").bind(limit).all();
+        return await env.DB.prepare(base+"AND content_type IN ('video','documentary') ORDER BY published_at DESC LIMIT ? OFFSET ?").bind(limit,offset).all();
       }
       if(mode==="for-you"&&auth){
         const regionClause=region==="MY"?"":" AND region_code IN ('MY',?)";

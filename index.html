@@ -1648,13 +1648,15 @@ async function openConversation(id,title){
   form.onsubmit=async e=>{e.preventDefault();const content=input.value.trim();if(!content&&!selected.length)return;const button=form.querySelector(".chat-send-button");button.disabled=true;status.textContent="Sending…";
    try{const attachments=[];for(let index=0;index<selected.length;index++){const item=selected[index];status.textContent="Uploading "+(index+1)+"/"+selected.length;let asset;if(item.type==="image")asset=await uploadImage(item.file,"message");else if(item.type==="video")asset=await uploadVideo(item.file);else asset=await uploadMessageFile(item.file);attachments.push({type:item.type,id:asset.id,name:item.file.name})}
     await apiRequest("/v1/conversations/"+encodeURIComponent(id)+"/messages",{method:"POST",body:JSON.stringify({content,attachments})});
-    input.value="";input.style.height="auto";selected=[];renderSelected();status.textContent="";await openConversation(id,title);await loadConversations();
+    input.value="";input.style.height="auto";selected=[];renderSelected();status.textContent="";const refreshed=await apiRequest("/v1/conversations/"+encodeURIComponent(id)+"/messages"),historyNow=document.getElementById("messageHistory");if(historyNow){historyNow.innerHTML=(refreshed.items||[]).map(m=>'<article class="chat-bubble '+(m.senderId===currentUser.id?"outgoing":"incoming")+'">'+(m.content?'<div class="chat-message-text">'+esc(m.content)+'</div>':"")+(m.attachments?.length?'<div class="chat-attachments">'+m.attachments.map(attachmentMarkup).join("")+'</div>':"")+'<footer>'+esc(m.sender.displayName)+' · '+new Date(m.createdAt).toLocaleString()+'</footer></article>').join("");historyNow.scrollTop=historyNow.scrollHeight}
    }catch(error){status.textContent="";alert(error.message)}finally{button.disabled=false}
   };
  }catch(error){panel.innerHTML='<div class="chat-empty">'+esc(error.message)+'</div>'}
 }
 
 function connect(initialTab="friends",initialConversationId="",initialTitle="",initialScrollTarget=""){
+ document.body.classList.remove("connect-chat-open");
+ const staleThread=document.getElementById("messageThread");if(staleThread)staleThread.hidden=true;
  const tabs=["friends","requests","messages"];
  let activeTab="friends";
  view.innerHTML='<h2 class="section-title">Connect</h2><section class="panel connect-shell"><div class="connect-heading"><div><h3>Your people</h3><p>Friends, requests and private conversations in one place.</p></div><button type="button" class="primary" id="connectNewMessage">New message</button></div><nav class="connect-tabs" aria-label="Connect categories"><button type="button" data-connect-tab="friends" class="active">Friends</button><button type="button" data-connect-tab="requests">Requests <span id="connectRequestCount" hidden></span></button><button type="button" data-connect-tab="messages">Messages</button></nav><div id="connectSearch" class="connect-search"><form id="connectSearchForm"><input name="q" maxlength="24" placeholder="Search people by name or username" autocomplete="off"><button class="primary" type="submit">Search</button></form><div id="connectSearchResults"></div></div><div id="connectContent"><div class="empty">Loading friends…</div></div></section><section class="panel connect-thread" id="messageThread" hidden><div class="empty">Choose a conversation or start a new one.</div></section>';
@@ -1669,7 +1671,7 @@ function connect(initialTab="friends",initialConversationId="",initialTitle="",i
   catch(error){searchResults.innerHTML='<div class="empty">'+esc(error.message)+'</div>'}
  }
  async function showTab(tab){
-  activeTab=tab;const thread=document.getElementById("messageThread");if(thread)thread.hidden=true;document.querySelectorAll("[data-connect-tab]").forEach(x=>x.classList.toggle("active",x.dataset.connectTab===tab));
+  activeTab=tab;const thread=document.getElementById("messageThread");if(thread)thread.hidden=true;document.body.classList.remove("connect-chat-open");document.querySelector(".connect-shell")?.classList.remove("chat-active");document.querySelectorAll("[data-connect-tab]").forEach(x=>x.classList.toggle("active",x.dataset.connectTab===tab));
   searchBox.hidden=tab!=="friends";
   content.innerHTML='<div class="empty">Loading…</div>';
   try{

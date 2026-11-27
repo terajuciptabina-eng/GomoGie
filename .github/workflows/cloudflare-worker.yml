@@ -111,6 +111,12 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: wrangler d1 execute gomogie-db --remote --file=sql/0020_post_media_gallery.sql
+      - name: Apply private message attachments schema
+        working-directory: workers/api
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: wrangler d1 execute gomogie-db --remote --file=sql/0021_message_attachments.sql
       - name: Deploy Worker before checking existing Push keys
         working-directory: workers/api
         env:

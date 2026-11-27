@@ -2846,7 +2846,7 @@ function runMusicSearchWithCache(term,genre="all"){
  }).catch(error=>console.warn("YouTube Music search failed",error));
 }
 function musicGenreVideoRelevance(track,genre){
- const text=(String(track?.title||"")+" "+String(track?.artist||"")).normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLocaleLowerCase();
+ const text=(String(track?.title||"")+" "+String(track?.artist||"")).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase();
  if(genre==="metal"){
   // Search engines often return generic chart playlists for broad Metal queries.
   // Keep only videos whose metadata identifies Metal/subgenres or a recognised

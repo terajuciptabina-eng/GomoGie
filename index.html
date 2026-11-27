@@ -995,6 +995,16 @@ body{background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;te
  .music-dock-controls button{width:42px;height:40px;min-width:42px;min-height:40px}
  .music-dock-controls button svg{width:24px;height:24px}
 }
+
+/* Compact horizontal swipe rows for search history and music categories */
+.music-search-memory .music-memory-chips{display:flex;flex-wrap:nowrap;align-items:center;gap:8px;width:100%;max-width:100%;overflow-x:auto;overflow-y:hidden;padding:2px 1px 9px;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;touch-action:pan-x;scrollbar-width:none;scroll-snap-type:x proximity}
+.music-search-memory .music-memory-chips::-webkit-scrollbar,.music-media-filters::-webkit-scrollbar,.music-genres::-webkit-scrollbar{display:none}
+.music-search-memory .music-memory-item{flex:0 0 auto;max-width:min(78vw,320px);scroll-snap-align:start}
+.music-search-memory .music-memory-chip{max-width:min(66vw,270px)}
+.music-search-memory .music-memory-chip span{min-width:0}
+.music-search-memory .music-memory-group{min-width:0}
+.music-media-filters{flex-wrap:nowrap;white-space:nowrap;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;touch-action:pan-x;scroll-snap-type:x proximity;padding:2px 1px 8px;scrollbar-width:none}
+.music-media-filters .music-chip,.music-genres .music-chip{scroll-snap-align:start;touch-action:pan-x}
 </style>
 </head>
 <body>

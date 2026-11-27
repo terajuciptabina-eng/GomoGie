@@ -1987,7 +1987,7 @@ function onYouTubePlayerStateChange(event){
  else if(event.data===2){musicYoutubeIsPlaying=false;const button=musicDock?.querySelector("#musicDockPlay");if(button)button.textContent="▶";if(musicUserPaused||!musicPlaybackIntent){musicResumeNeeded=false}else{musicPlayerMessage("YouTube paused playback. Waiting for YouTube to finish any ad or player transition…")}}else if(event.data===5){musicPlayerMessage("Video ready. Press Play if playback does not start.")}
  else if(event.data===3){musicPlayerMessage("Buffering video…")}
 }
-async function playMusicVideo(track){
+async async function playMusicVideo(track){
  ensureMusicPlayer();
  const video=musicDock.querySelector("#musicDockVideo"),ytFrame=musicDock.querySelector("#musicDockYoutube"),bottom=musicDock.querySelector(".music-dock-bottom");
  if(!video||!ytFrame||!track)return;
@@ -2008,7 +2008,7 @@ async function playMusicVideo(track){
   // original Next/Play click stack so iOS Safari can honor the user gesture.
   if(musicYouTubePlayer&&musicYouTubePlayerReady&&typeof musicYouTubePlayer.loadVideoById==="function"){
    try{
-    const playerFrame=musicYouTubePlayer.getIframe?.();if(playerFrame){playerFrame.style.width="100%";playerFrame.style.height="1px";playerFrame.style.opacity="0";playerFrame.style.pointerEvents="none"}
+    const playerFrame=musicYouTubePlayer.getIframe?.();if(playerFrame){playerFrame.hidden=false;playerFrame.style.display="block";playerFrame.style.width="100%";playerFrame.style.height="1px";playerFrame.style.opacity="0";playerFrame.style.pointerEvents="none"}
     musicYouTubePlayer.loadVideoById({videoId:track.videoId,startSeconds:0});
     // loadVideoById starts the new video itself. An immediate second playVideo()
     // can interrupt YouTube ad/startup transitions on iOS Safari.
@@ -2035,8 +2035,8 @@ async function playMusicVideo(track){
   return;
  }
  musicYouTubeCurrentTrackId=null;
- if(musicYouTubePlayer&&typeof musicYouTubePlayer.pauseVideo==="function"){try{musicYouTubePlayer.pauseVideo()}catch{}}
- ytFrame.hidden=true;video.hidden=false;video.src=track.stream;video.load();
+ if(musicYouTubePlayer&&typeof musicYouTubePlayer.pauseVideo==="function"){try{musicYouTubePlayer.pauseVideo();const playerFrame=musicYouTubePlayer.getIframe?.();if(playerFrame){playerFrame.style.height="1px";playerFrame.style.opacity="0";playerFrame.style.pointerEvents="none"}}catch{}}
+ ytFrame.hidden=true;ytFrame.style.height="1px";ytFrame.style.opacity="0";video.hidden=false;video.src=track.stream;video.load();
  musicPlayerMessage("Loading video: "+track.title+"…");
  try{await video.play();musicDock.querySelector("#musicDockPlay").textContent="Ⅱ";musicPlayerMessage("Playing video: "+track.title)}
  catch{musicResumeNeeded=true;musicDock.querySelector("#musicDockPlay").textContent="▶";musicPlayerMessage("Tap Resume Playback to start video.")}

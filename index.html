@@ -1781,7 +1781,9 @@ function playNextMusic(step=1,automatic=false){
  const activeVideo=!!(musicDock?.classList.contains("video-mode"));
  if(musicAudio)musicAudio.pause();
  const video=musicDock?.querySelector("#musicDockVideo");if(video)video.pause();
- if(musicYouTubePlayer&&typeof musicYouTubePlayer.pauseVideo==="function"){try{musicYouTubePlayer.pauseVideo()}catch{}}
+ // Do not pause the YouTube iframe before switching tracks. loadVideoById()
+ // replaces the current item and starts the next one; pre-pausing can leave iOS
+ // Safari stuck in the previous ad/player state.
  let next;
  if(musicShuffle&&step>0&&musicQueue.length>1){do{next=Math.floor(Math.random()*musicQueue.length)}while(next===musicQueueIndex)}
  else{
@@ -2008,8 +2010,9 @@ async function playMusicVideo(track){
    try{
     const playerFrame=musicYouTubePlayer.getIframe?.();if(playerFrame){playerFrame.style.width="100%";playerFrame.style.height="1px";playerFrame.style.opacity="0";playerFrame.style.pointerEvents="none"}
     musicYouTubePlayer.loadVideoById({videoId:track.videoId,startSeconds:0});
-    musicYouTubePlayer.playVideo();
-    musicPlayerMessage("Starting YouTube video: "+track.title);
+    // loadVideoById starts the new video itself. An immediate second playVideo()
+    // can interrupt YouTube ad/startup transitions on iOS Safari.
+    musicPlayerMessage("Loading next YouTube video: "+track.title);
    }catch(error){musicResumeNeeded=true;musicPlayerMessage("Tap Resume Playback to start this YouTube video.")}
    return;
   }
@@ -2026,7 +2029,7 @@ async function playMusicVideo(track){
    // it yet, keep the selected track and wait for onReady rather than creating a
    // second iframe/player instance.
    musicPlayerMessage("YouTube player is still preparing. Please wait a moment, then tap Play once.");
-   prepareYouTubePlayer().then(player=>{if(!player||musicCurrent?.id!==track.id||musicYouTubeCurrentTrackId!==track.id)return; if(musicYouTubePlayerReady){player.loadVideoById({videoId:track.videoId,startSeconds:0});player.playVideo();}});
+   prepareYouTubePlayer().then(player=>{if(!player||musicCurrent?.id!==track.id||musicYouTubeCurrentTrackId!==track.id)return; if(musicYouTubePlayerReady){player.loadVideoById({videoId:track.videoId,startSeconds:0});}});
    return;
   }catch(error){console.warn("YouTube player API unavailable",error);musicResumeNeeded=true;musicPlayerMessage("YouTube player could not start. Tap Resume Playback.")}
   return;

@@ -2845,6 +2845,33 @@ function runMusicSearchWithCache(term,genre="all"){
   if(status)status.textContent=musicResults.filter(musicSearchRelevance).length+" matching results, including YouTube videos.";
  }).catch(error=>console.warn("YouTube Music search failed",error));
 }
+function musicGenreVideoRelevance(track,genre){
+ const text=(String(track?.title||"")+" "+String(track?.artist||"")).normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLocaleLowerCase();
+ if(genre==="metal"){
+  // Search engines often return generic chart playlists for broad Metal queries.
+  // Keep only videos whose metadata identifies Metal/subgenres or a recognised
+  // Metal act; query provenance alone is not sufficient evidence of relevance.
+  const metalTerms=[
+   "metal","metalcore","heavy metal","thrash","death metal","black metal","doom metal",
+   "power metal","symphonic metal","progressive metal","nu metal","djent","grindcore",
+   "melodic death","folk metal","speed metal","industrial metal","alternative metal",
+   "groove metal","sludge metal","stoner metal","post-metal","metal cover"
+  ];
+  const metalArtists=[
+   "metallica","iron maiden","black sabbath","judas priest","megadeth","slayer","anthrax",
+   "pantera","sepultura","slipknot","korn","system of a down","linkin park","disturbed",
+   "avenged sevenfold","bullet for my valentine","trivium","killswitch engage","parkway drive",
+   "bring me the horizon","architects","spiritbox","gojira","mastodon","lamb of god","opeth",
+   "dream theater","nightwish","rammstein","sabaton","powerwolf","ghost","babymetal",
+   "deftones","evanescence","alice in chains","soundgarden","tool","meshuggah","behemoth",
+   "children of bodom","in flames","amon amarth","cradle of filth","dimmu borgir",
+   "within temptation","epica","dragonforce","haken","animals as leaders","motley crue",
+   "def leppard","motörhead","motorhead","rhapsody","blind guardian","judas priest"
+  ];
+  return metalTerms.some(term=>text.includes(term))||metalArtists.some(artist=>text.includes(artist));
+ }
+ return true;
+}
 async function searchYouTubeGenreMusic(genre){
  const label=String(genre||"all").toLowerCase();
  const searches={
@@ -2928,7 +2955,7 @@ async function searchYouTubeGenreMusic(genre){
    }
   }
  }
- return collected;
+ return collected.filter(track=>musicGenreVideoRelevance(track,label));
 }
 async function discoverMusicGenre(genre="all"){
  const allowed=musicGenres.map(g=>g.toLowerCase());genre=allowed.includes(String(genre).toLowerCase())?String(genre).toLowerCase():"all";

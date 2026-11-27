@@ -2716,21 +2716,19 @@ let musicAutoLoadScrollRoot=null;
 let musicAutoLoadInFlight=false;
 function triggerMusicAutoLoad(){
  const scrollRoot=document.getElementById("musicResultsScroll");
- const sentinel=document.getElementById("musicLoadMoreSentinel");
  const hasMoreForFilter=musicMediaFilter==="video"?musicVideoHasMore:musicMediaFilter==="audio"?musicAudioHasMore:(musicAudioHasMore||musicVideoHasMore);
- if(!scrollRoot||!hasMoreForFilter||musicSearchBusy||musicAutoLoadInFlight)return;
- const nearBottom=scrollRoot.scrollTop+scrollRoot.clientHeight>=scrollRoot.scrollHeight-320;
- if(!nearBottom&&sentinel&&!sentinel.dataset.intersecting)return;
+ if(!scrollRoot||!String(musicSearchTerm||"").trim()||!hasMoreForFilter||musicSearchBusy||musicAutoLoadInFlight)return;
+ // Pagination is allowed only after a real user scroll reaches the bottom.
+ // Do not use IntersectionObserver: a short list can intersect on page entry.
+ const nearBottom=scrollRoot.scrollTop+scrollRoot.clientHeight>=scrollRoot.scrollHeight-80;
+ if(!nearBottom)return;
  musicAutoLoadInFlight=true;
- const previousCount=musicResults.length;
  if(musicMediaFilter!=="video")musicPageNumber++;
  Promise.resolve(searchPublicMusic(musicSearchTerm,musicGenre,true)).finally(()=>{
   musicAutoLoadInFlight=false;
-  if(musicResults.length>previousCount)requestAnimationFrame(()=>triggerMusicAutoLoad());
  });
 }
 function setupMusicAutoLoad(){
- const sentinel=document.getElementById("musicLoadMoreSentinel");
  const scrollRoot=document.getElementById("musicResultsScroll");
  if(musicLoadMoreObserver){musicLoadMoreObserver.disconnect();musicLoadMoreObserver=null}
  if(!scrollRoot)return false;
@@ -2739,15 +2737,7 @@ function setupMusicAutoLoad(){
   musicAutoLoadScrollRoot=scrollRoot;
   scrollRoot.addEventListener("scroll",triggerMusicAutoLoad,{passive:true});
  }
- if(sentinel&&"IntersectionObserver" in window){
-  musicLoadMoreObserver=new IntersectionObserver(entries=>{
-   const entry=entries[0];if(!entry)return;
-   sentinel.dataset.intersecting=entry.isIntersecting?"true":"false";
-   if(entry.isIntersecting)triggerMusicAutoLoad();
-  },{root:scrollRoot,rootMargin:"320px 0px",threshold:0});
-  musicLoadMoreObserver.observe(sentinel);
- }
- requestAnimationFrame(()=>triggerMusicAutoLoad());
+ // Intentionally no initial trigger. Loading another page requires user scroll.
  return true;
 }
 function musicSearchRelevance(track){

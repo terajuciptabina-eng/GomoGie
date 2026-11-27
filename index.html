@@ -1858,7 +1858,7 @@ function extractYouTubePlaylistId(value){
  const input=String(value||"").trim();if(/^[A-Za-z0-9_-]{10,}$/.test(input))return input;
  try{const url=new URL(input);if(!/(^|\.)youtube\.com$|(^|\.)youtube-nocookie\.com$/.test(url.hostname))return "";return url.searchParams.get("list")||""}catch{return ""}
 }
-async async function importYouTubePlaylist(value){
+async function importYouTubePlaylist(value){
  const playlistId=extractYouTubePlaylistId(value);if(!playlistId)throw new Error("Paste a valid public YouTube playlist URL or playlist ID.");
  let lastError=null;
  for(const base of MUSIC_YOUTUBE_APIS){

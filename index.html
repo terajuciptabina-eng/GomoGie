@@ -2905,11 +2905,14 @@ async function searchYouTubeGenreMusic(genre){
  };
  const baseQueries=searches[label]||[label+" music official videos",label+" live music performance",label+" classic songs"];
  const languageMap=languageQueries[musicLanguage]||null;
- const localized=languageMap?(languageMap[label]||languageMap.all||[]):[];
- // Keep the genre-specific English discovery queries as a fallback for every
- // language, then add localized genre searches. This prevents a language with
- // incomplete translations from collapsing to only one or two generic terms.
- const queries=[...new Set((musicLanguage==="all"?baseQueries:localized.concat(baseQueries.slice(0,4))).map(q=>String(q||"").trim()).filter(Boolean))];
+ const localized=languageMap?(languageMap[label]||[]):[];
+ const localizedBase=languageMap?.all||[];
+ const languageLabel=musicLanguages.find(item=>item.id===musicLanguage)?.label||musicLanguage;
+ // Keep selected-language discovery language-specific. When a translation
+ // table has no dedicated genre entry, build genre variants with the selected
+ // language name rather than silently mixing generic English results.
+ const localizedFallback=label==="all"?[]:[languageLabel+" "+label+" songs",languageLabel+" "+label+" music videos",languageLabel+" "+label+" live performance"];
+ const queries=[...new Set((musicLanguage==="all"?baseQueries:localized.concat(localizedBase,localizedFallback)).map(q=>String(q||"").trim()).filter(Boolean))];
  const collected=[],seen=new Set();
  // Fan out over focused subgenre queries in small batches. Public Piped and
  // Invidious instances do not expose a dependable shared pagination cursor;

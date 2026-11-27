@@ -775,7 +775,7 @@ async function route(request, env) {
     if (!env.MEDIA_BUCKET) return json({ error: "media_storage_unavailable", message: "Cloudflare R2 belum dihubungkan kepada Worker." }, 503);
     const form = await request.formData();
     const file = form.get("file"), purpose = form.get("purpose");
-    if (!(file instanceof File) || !["avatar","cover","post"].includes(purpose)) return json({ error: "validation_error", message: "Fail gambar dan tujuan upload diperlukan." }, 400);
+    if (!(file instanceof File) || !["avatar","cover","post","message"].includes(purpose)) return json({ error: "validation_error", message: "Fail gambar dan tujuan upload diperlukan." }, 400);
     if (!file.size || file.size > IMAGE_LIMIT) return json({ error: "file_size_invalid", message: "Saiz gambar maksimum ialah 8 MB." }, 413);
     const bytes = new Uint8Array(await file.arrayBuffer());
     const detected = detectImageType(bytes);

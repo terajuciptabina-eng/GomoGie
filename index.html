@@ -1286,6 +1286,87 @@ function watch(){
  document.querySelectorAll("[data-watch-share]").forEach(b=>b.onclick=async()=>{const url=location.href.split("#")[0]+"#post-"+encodeURIComponent(b.dataset.watchShare);try{if(navigator.share)await navigator.share({title:"GomoGie",url});else if(navigator.clipboard){await navigator.clipboard.writeText(url);alert("Post link copied.")}else alert(url)}catch(error){if(error.name!=="AbortError")alert("Unable to share this post.")}});
  document.querySelectorAll("[data-watch-save]").forEach(b=>b.onclick=async()=>{if(!currentUser){openAuth();return}const id=b.dataset.watchSave,wasSaved=savedPosts.has(id);b.disabled=true;try{await apiRequest("/v1/saved/"+encodeURIComponent(id),{method:wasSaved?"DELETE":"POST"});wasSaved?savedPosts.delete(id):savedPosts.add(id);render()}catch(error){alert(error.message)}finally{b.disabled=false}});
 }
+function renderKeepingFeedPosition(){
+ const y=window.scrollY||document.documentElement.scrollTop||0;
+ render();
+ requestAnimationFrame(()=>window.scrollTo({top:y,behavior:"instant"}));
+}
+function setupPulseAutoLoad(){
+ const sentinel=document.getElementById("pulseLoadSentinel");
+ if(!sentinel||!("IntersectionObserver" in window))return;
+ const observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting))loadMorePulse()},{root:null,rootMargin:"700px 0px",threshold:0});
+ observer.observe(sentinel);
+}
+async function loadMorePulse(){
+ if(pulseLoadBusy||!pulseHasMore||active!=="pulse")return;
+ pulseLoadBusy=true;
+ const status=document.getElementById("pulseLoadStatus");if(status)status.textContent="Loading more stories…";
+ try{
+  const source=newsMode==="global"?viralNewsGlobalItems:newsMode==="archive"?viralNewsArchiveItems:viralNewsItems;
+  const filtered=filterUnreadNews(source.filter(item=>newsContentFilter==="all"||(newsContentFilter==="article"&&(item.content_type||"article")==="article")||(newsContentFilter==="video"&&item.content_type==="video")||(newsContentFilter==="documentary"&&item.content_type==="documentary")||(newsContentFilter==="entertainment"&&item.category==="entertainment")).filter(item=>!searchQuery||String(item.title+" "+item.summary).toLowerCase().includes(searchQuery.toLowerCase().replace(/^#/,""))));
+  if(filtered.length>pulseVisibleCount){pulseVisibleCount=Math.min(filtered.length,pulseVisibleCount+12);renderKeepingFeedPosition();return}
+  const mode=newsMode==="global"?"global":newsMode==="archive"?"archive":"for-you";
+  const response=await apiRequest("/v1/news?mode="+mode+"&limit=30&offset="+source.length);
+  const incoming=Array.isArray(response.items)?response.items:[];
+  const seen=new Set(source.map(item=>String(item.id)));
+  const fresh=incoming.filter(item=>item&&item.id&&!seen.has(String(item.id)));
+  if(!fresh.length){pulseHasMore=false;if(status)status.textContent="You're all caught up. New stories will appear when publishers update.";return}
+  source.push(...fresh);
+  if(incoming.length<30)pulseHasMore=false;
+  pulseVisibleCount+=12;
+  renderKeepingFeedPosition();
+ }catch(error){console.warn("Pulse auto-load failed:",error);if(status)status.textContent="Couldn't load more stories. Scroll again to retry."}
+ finally{pulseLoadBusy=false}
+}
+async function fetchMoreWatchPosts(){
+ const offset=watchMode==="following"?followingFeedPosts.length:posts.length;
+ const path="/v1/feed?"+(watchMode==="following"?"scope=following&":"")+"limit=30&offset="+offset;
+ const payload=await apiRequest(path);
+ const items=Array.isArray(payload.items)?payload.items:[];
+ const normalised=normalizeApiFeedItems(items);
+ const target=watchMode==="following"?followingFeedPosts:posts;
+ const seen=new Set(target.map(item=>String(item.id)));
+ const fresh=normalised.filter(item=>!seen.has(String(item.id)));
+ for(const item of items){const author=item.author;if(author&&!accounts.some(a=>a.id===author.id))accounts.push({id:author.id,handle:author.username,displayName:author.displayName||author.username,avatarUrl:author.avatarUrl||"",coverUrl:author.coverUrl||"",bio:"",location:"",website:"",joined:"GomoGie",followers:0,following:0})}
+ target.push(...fresh);
+ if(watchMode==="following"){const merged=new Map(posts.map(p=>[p.id,p]));fresh.forEach(p=>merged.set(p.id,p));posts=[...merged.values()]}
+ return {received:items.length,added:fresh.length};
+}
+function setupWatchAutoLoad(newsCount,postCount){
+ const sentinel=document.getElementById("watchLoadSentinel");
+ if(!sentinel||!("IntersectionObserver" in window))return;
+ const observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting))loadMoreWatch()},{root:null,rootMargin:"800px 0px",threshold:0});
+ observer.observe(sentinel);
+}
+async function loadMoreWatch(){
+ if(watchLoadBusy||!watchHasMore||active!=="watch")return;
+ watchLoadBusy=true;
+ const status=document.getElementById("watchLoadStatus");if(status)status.textContent="Loading more videos…";
+ try{
+  let changed=false;
+  if(watchMode==="for-you"&&watchNewsVisibleCount>=viralVideoItems.length){
+   const response=await apiRequest("/v1/news?mode=videos&limit=30&offset="+viralVideoItems.length);
+   const incoming=Array.isArray(response.items)?response.items:[];
+   const seen=new Set(viralVideoItems.map(item=>String(item.id)));
+   const fresh=incoming.filter(item=>item&&item.id&&!seen.has(String(item.id)));
+   viralVideoItems.push(...fresh);changed=changed||fresh.length>0;
+   if(incoming.length<30)pulseHasMore=false;
+  }
+  const postList=watchMode==="following"?followingFeedPosts:posts;
+  const visibleVideos=postList.filter(p=>p.type==="video"&&!p.isWatchDuplicate&&(watchMode==="for-you"||followed.has(p.authorId))&&p.mediaUrl);
+  if(watchPostVisibleCount>=visibleVideos.length){
+   const result=await fetchMoreWatchPosts();changed=changed||result.added>0;
+   if(result.received<30&&result.added===0)watchHasMore=false;
+  }
+  watchNewsVisibleCount+=8;watchPostVisibleCount+=8;
+  const allNews=watchMode==="for-you"?viralVideoItems.length:0;
+  const allPosts=(watchMode==="following"?followingFeedPosts:posts).filter(p=>p.type==="video"&&!p.isWatchDuplicate&&(watchMode==="for-you"||followed.has(p.authorId))&&p.mediaUrl).length;
+  if(!changed&&watchNewsVisibleCount>=allNews&&watchPostVisibleCount>=allPosts)watchHasMore=false;
+  renderKeepingFeedPosition();
+  const nextStatus=document.getElementById("watchLoadStatus");if(nextStatus&&!watchHasMore)nextStatus.textContent="You're all caught up. New videos will appear as they're published.";
+ }catch(error){console.warn("Watch auto-load failed:",error);if(status)status.textContent="Couldn't load more videos. Scroll again to retry."}
+ finally{watchLoadBusy=false}
+}
 let activeCommunitySlug=null,communityCache=[];
 function communities(){
  if(!currentUser){view.innerHTML='<h2 class="section-title">Communities</h2><div class="empty">Your session has ended. Log in again to discover, join and create communities.<p><button class="primary" id="communityLoginButton" type="button">Log in</button></p></div>';document.getElementById("communityLoginButton").onclick=()=>openAuth("login");return}

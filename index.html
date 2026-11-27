@@ -1184,6 +1184,7 @@ document.addEventListener("scroll",event=>{
  const track=event.target;if(!track?.classList?.contains("post-gallery-track"))return;
  const gallery=track.closest(".post-gallery");if(!gallery)return;
  const slides=[...track.querySelectorAll(".post-gallery-slide")],index=Math.max(0,Math.min(slides.length-1,Math.round(track.scrollLeft/Math.max(1,track.clientWidth))));
+ slides.forEach((slide,i)=>{if(i!==index)slide.querySelectorAll("video").forEach(video=>video.pause())});
  const count=gallery.querySelector(".post-gallery-count");if(count)count.textContent=(index+1)+" / "+slides.length;
  const prev=gallery.querySelector(".post-gallery-prev"),next=gallery.querySelector(".post-gallery-next");if(prev)prev.disabled=index===0;if(next)next.disabled=index>=slides.length-1;
  gallery.querySelectorAll(".post-gallery-dots span").forEach((dot,i)=>dot.classList.toggle("active",i===index));

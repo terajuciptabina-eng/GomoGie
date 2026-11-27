@@ -1002,6 +1002,22 @@ async function route(request, env) {
     let closesAt=null;
     if(hasPoll&&pollInput.durationHours!==undefined){const hours=Number(pollInput.durationHours);if(![1,6,12,24,72,168,720].includes(hours))return json({error:"invalid_poll_duration"},400);closesAt=new Date(Date.now()+hours*3600000).toISOString()}
     const visibility=["public","followers","private"].includes(input.visibility)?input.visibility:"public";
+    const mentionNames=[...new Set([...input.content.matchAll(/(?:^|[\\s(])@([A-Za-z0-9_]{3,24})\\b/g)].map(m=>m[1].toLowerCase()))];
+    let mentionRecipients=[];
+    if(mentionNames.length){
+      const marks=mentionNames.map(()=>"?").join(",");
+      const found=await env.DB.prepare("SELECT id,username FROM users WHERE lower(username) IN ("+marks+") AND status='active'").bind(...mentionNames).all();
+      const byName=new Map((found.results||[]).map(x=>[x.username.toLowerCase(),x]));
+      const missing=mentionNames.filter(name=>!byName.has(name));
+      if(missing.length)return json({error:"mention_user_not_found",message:"One or more mentioned users could not be found."},400);
+      const ids=[...byName.values()].map(x=>x.id);
+      const friendMarks=ids.map(()=>"?").join(",");
+      const accepted=await env.DB.prepare("SELECT CASE WHEN requester_id=? THEN recipient_id ELSE requester_id END AS friend_id FROM friend_requests WHERE status='accepted' AND ((requester_id=? AND recipient_id IN ("+friendMarks+")) OR (recipient_id=? AND requester_id IN ("+friendMarks+")))").bind(auth.sub,auth.sub,...ids,auth.sub,...ids).all();
+      const friendIds=new Set((accepted.results||[]).map(x=>x.friend_id));
+      const blocked=[...byName.values()].filter(x=>x.id!==auth.sub&&!friendIds.has(x.id));
+      if(blocked.length)return json({error:"mention_requires_friend",message:"You can mention friends only."},403);
+      mentionRecipients=[...byName.values()].filter(x=>x.id!==auth.sub);
+    }
     const id=uuid(),now=new Date().toISOString();
     let media=null,video=null;
     if(input.mediaId){media=await env.DB.prepare("SELECT id FROM gomogie_media_assets WHERE id=? AND owner_id=? AND purpose='post' AND status='ready'").bind(input.mediaId,auth.sub).first();if(!media)return json({error:"media_not_found",message:"Gambar post tidak ditemui atau bukan milik akaun ini."},404)}
@@ -1013,6 +1029,10 @@ async function route(request, env) {
     let pollId=null;
     if(hasPoll){pollId=uuid();statements.push(env.DB.prepare("INSERT INTO gomogie_polls (id,post_id,closes_at,created_at) VALUES (?,?,?,?)").bind(pollId,id,closesAt,now));pollOptions.forEach((label,index)=>statements.push(env.DB.prepare("INSERT INTO gomogie_poll_options (id,poll_id,label,position) VALUES (?,?,?,?)").bind(uuid(),pollId,label,index)))}
     await env.DB.batch(statements);
+    for(const recipient of mentionRecipients){
+      await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),recipient.id,auth.sub,"mention",id,now).run();
+      await notifyPushDevices(env,recipient.id,{id,title:"You were mentioned on GomoGie",body:"A friend mentioned you in a post."});
+    }
     return json({post:{id,userId:auth.sub,content:input.content.trim(),visibility,status:"published",mediaType:video?"video":media?"image":hasPoll?"poll":"text",mediaUrl:video?videoUrl(video.id):media?mediaUrl(media.id):"",pollId,createdAt:now}},201);
   }
 
@@ -1072,6 +1092,21 @@ async function route(request, env) {
     const post = await env.DB.prepare("SELECT id,comments_enabled FROM posts WHERE id=? AND status='published'").bind(commentMatch[1]).first();
     if (!post) return json({ error: "post_not_found" }, 404);
     if (!post.comments_enabled) return json({ error: "comments_disabled" }, 403);
+    const mentionNames=[...new Set([...input.content.matchAll(/(?:^|[\\s(])@([A-Za-z0-9_]{3,24})\\b/g)].map(m=>m[1].toLowerCase()))];
+    let mentionRecipients=[];
+    if(mentionNames.length){
+      const marks=mentionNames.map(()=>"?").join(",");
+      const found=await env.DB.prepare("SELECT id,username FROM users WHERE lower(username) IN ("+marks+") AND status='active'").bind(...mentionNames).all();
+      const byName=new Map((found.results||[]).map(x=>[x.username.toLowerCase(),x]));
+      if(mentionNames.some(name=>!byName.has(name)))return json({error:"mention_user_not_found",message:"One or more mentioned users could not be found."},400);
+      const ids=[...byName.values()].map(x=>x.id);
+      const friendMarks=ids.map(()=>"?").join(",");
+      const accepted=await env.DB.prepare("SELECT CASE WHEN requester_id=? THEN recipient_id ELSE requester_id END AS friend_id FROM friend_requests WHERE status='accepted' AND ((requester_id=? AND recipient_id IN ("+friendMarks+")) OR (recipient_id=? AND requester_id IN ("+friendMarks+")))").bind(auth.sub,auth.sub,...ids,auth.sub,...ids).all();
+      const friendIds=new Set((accepted.results||[]).map(x=>x.friend_id));
+      const blocked=[...byName.values()].filter(x=>x.id!==auth.sub&&!friendIds.has(x.id));
+      if(blocked.length)return json({error:"mention_requires_friend",message:"You can mention friends only."},403);
+      mentionRecipients=[...byName.values()].filter(x=>x.id!==auth.sub);
+    }
     let parent = null;
     if (input.parentId) {
       parent = await env.DB.prepare("SELECT id,user_id FROM comments WHERE id=? AND post_id=? AND status='published'")
@@ -1082,11 +1117,16 @@ async function route(request, env) {
     await env.DB.prepare("INSERT INTO comments (id,post_id,user_id,parent_id,content,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)")
       .bind(id, commentMatch[1], auth.sub, parent?.id || null, input.content.trim(), "published", now, now).run();
     const owner = await env.DB.prepare("SELECT user_id FROM posts WHERE id=?").bind(commentMatch[1]).first();
-    const recipients = new Set([owner?.user_id, parent?.user_id].filter(userId => userId && userId !== auth.sub));
+    const mentionedIds=new Set(mentionRecipients.map(x=>x.id));
+    const recipients = new Set([owner?.user_id, parent?.user_id].filter(userId => userId && userId !== auth.sub && !mentionedIds.has(userId)));
     for (const recipientId of recipients) {
       await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)")
         .bind(uuid(), recipientId, auth.sub, "comment", commentMatch[1], now).run();
       await notifyPushDevices(env,recipientId,{id:commentMatch[1],title:"New reply on GomoGie",body:"Someone replied to a post you’re part of."});
+    }
+    for(const recipient of mentionRecipients){
+      await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),recipient.id,auth.sub,"mention",id,now).run();
+      await notifyPushDevices(env,recipient.id,{id,title:"You were mentioned on GomoGie",body:"A friend mentioned you in a reply."});
     }
     return json({ comment: { id, postId: commentMatch[1], userId: auth.sub, parentId: parent?.id || null, content: input.content.trim(), createdAt: now } }, 201);
   }
@@ -1095,7 +1135,8 @@ async function route(request, env) {
   if (path === "/v1/users/search" && method === "GET") {
     const q=(url.searchParams.get("q")||"").trim().replace(/^@/,"").slice(0,24);
     if(q.length<2)return json({items:[]});
-    const rows=await env.DB.prepare("SELECT u.id,u.username,p.display_name,p.avatar_url FROM users u LEFT JOIN profiles p ON p.user_id=u.id WHERE u.status='active' AND u.id<>? AND (u.username LIKE ? OR p.display_name LIKE ?) ORDER BY CASE WHEN u.username=? COLLATE NOCASE THEN 0 ELSE 1 END,u.username LIMIT 20").bind(auth.sub,"%"+q+"%","%"+q+"%",q).all();
+    // Mention autocomplete intentionally exposes accepted friends only.
+    const rows=await env.DB.prepare("SELECT u.id,u.username,p.display_name,p.avatar_url FROM users u LEFT JOIN profiles p ON p.user_id=u.id WHERE u.status='active' AND u.id<>? AND (u.username LIKE ? OR p.display_name LIKE ?) AND EXISTS (SELECT 1 FROM friend_requests fr WHERE fr.status='accepted' AND ((fr.requester_id=? AND fr.recipient_id=u.id) OR (fr.recipient_id=? AND fr.requester_id=u.id))) ORDER BY CASE WHEN u.username=? COLLATE NOCASE THEN 0 ELSE 1 END,u.username LIMIT 20").bind(auth.sub,"%"+q+"%","%"+q+"%",auth.sub,auth.sub,q).all();
     return json({items:(rows.results||[]).map(x=>({id:x.id,username:x.username,displayName:x.display_name||x.username,avatarUrl:x.avatar_url||""}))});
   }
   if (path === "/v1/friends" && method === "GET") {

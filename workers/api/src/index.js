@@ -1372,7 +1372,7 @@ async function route(request, env) {
       await env.DB.prepare("UPDATE conversation_members SET last_read_at=? WHERE conversation_id=? AND user_id=?").bind(now, conversationId, auth.sub).run();
       const messages=[];
       for(const row of (rows.results||[]).reverse()){
-        const attached=await env.DB.prepare("SELECT attachment_type,media_id,video_id,file_id FROM gomogie_message_attachments WHERE message_id=? ORDER BY position ASC").bind(row.id).all();
+        const attached=await env.DB.prepare("SELECT a.attachment_type,a.media_id,a.video_id,a.file_id,f.file_name FROM gomogie_message_attachments a LEFT JOIN gomogie_message_files f ON f.id=a.file_id WHERE a.message_id=? ORDER BY a.position ASC").bind(row.id).all();
         const attachments=(attached.results||[]).map(item=>({type:item.attachment_type,id:item.media_id||item.video_id||item.file_id,url:item.attachment_type==="image"?mediaUrl(item.media_id):item.attachment_type==="video"?videoUrl(item.video_id):"/v1/message-files/"+item.file_id,downloadUrl:item.attachment_type==="file"?"/v1/message-files/"+item.file_id+"?download=1":null}));
         messages.push({id:row.id,conversationId:row.conversation_id,senderId:row.sender_id,content:row.content,mediaId:row.media_id,attachments,status:row.status,createdAt:row.created_at,editedAt:row.edited_at,sender:{username:row.username,displayName:row.display_name||row.username,avatarUrl:row.avatar_url}});
       }

@@ -2847,7 +2847,7 @@ function runMusicSearchWithCache(term,genre="all"){
 }
 function musicGenreVideoRelevance(track,genre){
  const normalized=(String(track?.title||"")+" "+String(track?.artist||""))
-  .normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLocaleLowerCase();
+  .normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase();
  const g=String(genre||"all").toLowerCase();
  if(!g||g==="all")return true;
  // Discovery queries are intentionally broad to improve coverage. Validate

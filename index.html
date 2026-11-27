@@ -1059,6 +1059,18 @@ body{background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;te
 .music-playlist-picker-keyboard-hint{margin:7px 0 0;font-size:11px;line-height:1.35;color:var(--muted)}
 @media(min-width:600px){.music-playlist-picker{align-items:center}.music-playlist-picker-panel{max-height:min(82vh,680px)}}
 @media(max-width:420px){.music-playlist-picker{padding:8px}.music-playlist-picker-panel{padding:16px;border-radius:21px}.music-playlist-picker-create{flex-direction:column}.music-playlist-picker-create button{width:100%}.music-playlist-picker-list{max-height:30dvh}}
+
+/* Playlist library: compact by default, expand one playlist at a time */
+.music-playlist-open{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:5px;min-width:0;width:100%;padding:4px 0;border:0;background:transparent;color:var(--ink);text-align:left;cursor:pointer}
+.music-playlist-open strong{display:block;max-width:100%;font-size:16px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.music-playlist-open small{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:12px;font-weight:500}
+.music-playlist-chevron{display:inline-block;font-size:19px;line-height:12px;transition:transform .18s ease}
+.music-playlist-open[aria-expanded="true"] .music-playlist-chevron{transform:rotate(180deg)}
+.music-playlist-track-list[hidden]{display:none!important}
+.music-playlist-track-list{margin-top:12px;padding-top:4px;border-top:1px solid var(--line)}
+.music-playlist-card:not(.is-expanded) .music-playlist-summary{margin-bottom:0}
+.music-playlist-card.is-expanded .music-playlist-track-list{animation:playlistReveal .18s ease-out}
+@keyframes playlistReveal{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
 </style>
 </head>
 <body>
@@ -2580,7 +2592,38 @@ function openMusicPlaylistPicker(track){
  modal.hidden=false;
 }
 function closeMusicPlaylistPicker(){const modal=document.getElementById("musicPlaylistPicker");if(modal)modal.hidden=true;musicPendingPlaylistTrack=null}
-function renderMusicPlaylists(){const root=document.getElementById("musicPlaylists");if(!root)return;root.innerHTML=musicPlaylists.length?musicPlaylists.map(p=>{const tracks=p.tracks||[],cover=tracks.find(t=>t.art)?.art;return '<article class="music-playlist-card"><div class="music-playlist-summary">'+(cover?'<img class="music-playlist-cover" loading="lazy" src="'+esc(cover)+'" alt="">':'<div class="music-playlist-cover music-playlist-cover-placeholder" aria-hidden="true">♫</div>')+'<div class="music-playlist-meta"><strong>'+esc(p.name)+'</strong><small>'+tracks.length+' tracks</small></div><div class="music-playlist-actions"><button data-play-playlist="'+esc(p.id)+'" aria-label="Play all '+esc(p.name)+'">▶</button><button data-delete-playlist="'+esc(p.id)+'" aria-label="Delete '+esc(p.name)+'">Delete</button></div></div><div class="music-playlist-track-list">'+tracks.map((t,i)=>'<div class="music-playlist-track">'+(t.art?'<img class="music-playlist-track-art" loading="lazy" src="'+esc(t.art)+'" alt="">':'<span class="music-playlist-track-art music-playlist-track-art-placeholder" aria-hidden="true">♫</span>')+'<span class="music-playlist-track-title">'+esc(t.title)+'</span><button data-play-pl-track="'+esc(p.id)+'" data-track-index="'+i+'" aria-label="Play '+esc(t.title)+'">▶</button><button data-remove-pl-track="'+esc(p.id)+'" data-track-index="'+i+'" aria-label="Remove '+esc(t.title)+'">×</button></div>').join("")+'</div></article>'}).join(""):'<p class="pulse-page-description">Create a playlist and add tracks from the catalogue.</p>';root.querySelectorAll("[data-play-playlist]").forEach(b=>b.onclick=()=>playMusicPlaylist(b.dataset.playPlaylist));root.querySelectorAll("[data-delete-playlist]").forEach(b=>b.onclick=()=>{musicPlaylists=musicPlaylists.filter(p=>p.id!==b.dataset.deletePlaylist);saveMusicPlaylists();renderMusicPlaylists()});root.querySelectorAll("[data-play-pl-track]").forEach(b=>{b.onclick=()=>{const p=musicPlaylists.find(x=>x.id===b.dataset.playPlTrack);if(p){musicQueue=p.tracks.slice();musicQueueMode="playlist";musicQueueIndex=Number(b.dataset.trackIndex);playMusic(musicQueueIndex)}}});root.querySelectorAll("[data-remove-pl-track]").forEach(b=>b.onclick=()=>{const p=musicPlaylists.find(x=>x.id===b.dataset.removePlTrack);if(p){p.tracks.splice(Number(b.dataset.trackIndex),1);saveMusicPlaylists();renderMusicPlaylists()}})}
+let musicExpandedPlaylistId=null;
+function renderMusicPlaylists(){
+ const root=document.getElementById("musicPlaylists");if(!root)return;
+ if(musicExpandedPlaylistId&&!musicPlaylists.some(p=>p.id===musicExpandedPlaylistId))musicExpandedPlaylistId=null;
+ root.innerHTML=musicPlaylists.length?musicPlaylists.map(p=>{
+  const tracks=p.tracks||[],cover=tracks.find(t=>t.art)?.art,expanded=musicExpandedPlaylistId===p.id;
+  return '<article class="music-playlist-card'+(expanded?' is-expanded':'')+'"><div class="music-playlist-summary">'+
+   (cover?'<img class="music-playlist-cover" loading="lazy" src="'+esc(cover)+'" alt="">':'<div class="music-playlist-cover music-playlist-cover-placeholder" aria-hidden="true">♫</div>')+
+   '<button type="button" class="music-playlist-meta music-playlist-open" data-toggle-playlist="'+esc(p.id)+'" aria-expanded="'+expanded+'" aria-label="'+(expanded?'Hide':'Show')+' tracks in '+esc(p.name)+'"><strong>'+esc(p.name)+'</strong><small>'+tracks.length+' tracks <span class="music-playlist-chevron" aria-hidden="true">⌄</span></small></button>'+
+   '<div class="music-playlist-actions"><button data-play-playlist="'+esc(p.id)+'" aria-label="Play all '+esc(p.name)+'">▶</button><button data-delete-playlist="'+esc(p.id)+'" aria-label="Delete '+esc(p.name)+'">Delete</button></div></div>'+
+   '<div class="music-playlist-track-list" '+(expanded?'':'hidden')+'>'+
+   (tracks.length?tracks.map((t,i)=>'<div class="music-playlist-track">'+(t.art?'<img class="music-playlist-track-art" loading="lazy" src="'+esc(t.art)+'" alt="">':'<span class="music-playlist-track-art music-playlist-track-art-placeholder" aria-hidden="true">♫</span>')+'<span class="music-playlist-track-title">'+esc(t.title)+'</span><button data-play-pl-track="'+esc(p.id)+'" data-track-index="'+i+'" aria-label="Play '+esc(t.title)+'">▶</button><button data-remove-pl-track="'+esc(p.id)+'" data-track-index="'+i+'" aria-label="Remove '+esc(t.title)+'">×</button></div>').join(""):'<p class="music-empty">This playlist is empty. Add tracks from Explore music.</p>')+
+   '</div></article>';
+ }).join(""):'<p class="pulse-page-description">Create a playlist and add tracks from the catalogue.</p>';
+ root.querySelectorAll("[data-toggle-playlist]").forEach(b=>b.onclick=()=>{
+  const id=b.dataset.togglePlaylist;musicExpandedPlaylistId=musicExpandedPlaylistId===id?null:id;renderMusicPlaylists();
+ });
+ root.querySelectorAll("[data-play-playlist]").forEach(b=>b.onclick=()=>playMusicPlaylist(b.dataset.playPlaylist));
+ root.querySelectorAll("[data-delete-playlist]").forEach(b=>b.onclick=()=>{
+  const id=b.dataset.deletePlaylist;musicPlaylists=musicPlaylists.filter(p=>p.id!==id);
+  if(musicExpandedPlaylistId===id)musicExpandedPlaylistId=null;
+  saveMusicPlaylists();renderMusicPlaylists();
+ });
+ root.querySelectorAll("[data-play-pl-track]").forEach(b=>{b.onclick=()=>{
+  const p=musicPlaylists.find(x=>x.id===b.dataset.playPlTrack);
+  if(p){musicQueue=p.tracks.slice();musicQueueMode="playlist";musicQueueIndex=Number(b.dataset.trackIndex);playMusic(musicQueueIndex)}
+ }});
+ root.querySelectorAll("[data-remove-pl-track]").forEach(b=>b.onclick=()=>{
+  const p=musicPlaylists.find(x=>x.id===b.dataset.removePlTrack);
+  if(p){p.tracks.splice(Number(b.dataset.trackIndex),1);saveMusicPlaylists();renderMusicPlaylists()}
+ });
+}
 const musicDisplayText=value=>String(value??"").replace(/&amp;/gi,"&").replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").replace(/&lt;/gi,"<").replace(/&gt;/gi,">");
 let musicYoutubeIsPlaying=false;
 let musicLoadMoreObserver=null;

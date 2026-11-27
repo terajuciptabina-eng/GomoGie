@@ -1119,16 +1119,21 @@ async function route(request, env) {
     let pollId=null;
     if(hasPoll){pollId=uuid();statements.push(env.DB.prepare("INSERT INTO gomogie_polls (id,post_id,closes_at,created_at) VALUES (?,?,?,?)").bind(pollId,id,closesAt,now));pollOptions.forEach((label,index)=>statements.push(env.DB.prepare("INSERT INTO gomogie_poll_options (id,poll_id,label,position) VALUES (?,?,?,?)").bind(uuid(),pollId,label,index)))}
     await env.DB.batch(statements);
+    const postAudienceIds=new Set();
     if(visibility!=="private"){
-      const audience=await env.DB.prepare("SELECT follower_id AS user_id FROM follows WHERE following_id=? AND status='accepted' AND follower_id<>? UNION SELECT CASE WHEN requester_id=? THEN recipient_id ELSE requester_id END AS user_id FROM friend_requests WHERE status='accepted' AND (requester_id=? OR recipient_id=?) LIMIT 300").bind(auth.sub,auth.sub,auth.sub,auth.sub,auth.sub).all();
+      const audience=visibility==="public"
+        ? await env.DB.prepare("SELECT follower_id AS user_id FROM follows WHERE following_id=? AND status='accepted' AND follower_id<>? UNION SELECT CASE WHEN requester_id=? THEN recipient_id ELSE requester_id END AS user_id FROM friend_requests WHERE status='accepted' AND (requester_id=? OR recipient_id=?) LIMIT 300").bind(auth.sub,auth.sub,auth.sub,auth.sub,auth.sub).all()
+        : await env.DB.prepare("SELECT follower_id AS user_id FROM follows WHERE following_id=? AND status='accepted' AND follower_id<>? LIMIT 300").bind(auth.sub,auth.sub).all();
       const mentionedForPost=new Set(mentionRecipients.map(person=>person.id));
       for(const recipient of audience.results||[]){
+        postAudienceIds.add(recipient.user_id);
         if(mentionedForPost.has(recipient.user_id))continue;
         await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),recipient.user_id,auth.sub,"new_post",id,now).run();
         await notifyPushDevices(env,recipient.user_id,{id,actorId:auth.sub,type:"new_post",preview:input.content.trim().slice(0,120)});
       }
     }
     for(const recipient of mentionRecipients){
+      if(!postAudienceIds.has(recipient.id))continue;
       await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),recipient.id,auth.sub,"mention",id,now).run();
       await notifyPushDevices(env,recipient.id,{id,actorId:auth.sub,type:"mention",preview:input.content.trim().slice(0,120)});
     }

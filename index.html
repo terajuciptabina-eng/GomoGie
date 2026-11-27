@@ -2019,9 +2019,18 @@ function setupMusicAutoLoad(){
  requestAnimationFrame(()=>triggerMusicAutoLoad());
  return true;
 }
+function musicSearchRelevance(track){
+ const raw=String(musicSearchTerm||"").trim().toLocaleLowerCase();
+ if(!raw)return true;
+ const tokens=raw.normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").split(/[^\\p{L}\\p{N}]+/u).filter(x=>x.length>1);
+ if(!tokens.length)return true;
+ const titleArtist=(String(track.title||"")+" "+String(track.artist||"")).normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLocaleLowerCase();
+ const matched=tokens.filter(token=>titleArtist.includes(token)).length;
+ return matched>=Math.max(1,Math.ceil(tokens.length*0.5));
+}
 function renderMusicResults(){
  const list=document.getElementById("musicResults");if(!list)return;
- const visible=musicResults.map((track,index)=>({track,index})).filter(x=>musicMediaFilter==="all"||(musicMediaFilter==="video"?x.track.mediaType==="video":x.track.mediaType!=="video"));
+ const visible=musicResults.map((track,index)=>({track,index})).filter(x=>musicSearchRelevance(x.track)&&(musicMediaFilter==="all"||(musicMediaFilter==="video"?x.track.mediaType==="video":x.track.mediaType!=="video")));
  const sorted=visible.slice();if(musicSort!=="recent")sorted.sort((a,b)=>{const field=musicSort==="title"?"title":"artist",v=String(a.track[field]||"").localeCompare(String(b.track[field]||""),undefined,{sensitivity:"base",numeric:true});return musicSort==="artist-desc"?-v:v});
  list.innerHTML=musicSearchBusy&&!musicResults.length?'<div class="music-empty music-loading-state"><span class="music-spinner" aria-hidden="true"></span> Searching catalogues… Please wait.</div>':sorted.length?sorted.map(({track:t,index:i})=>'<div class="music-track">'+(t.art?'<img class="music-art" loading="lazy" src="'+esc(t.art)+'" alt="'+esc(t.title)+(t.mediaType==="video"?" video thumbnail":" cover art")+'">':'<div class="music-art music-art-placeholder" aria-hidden="true">'+(t.mediaType==="video"?"▶":"♫")+'</div>')+'<div class="music-track-copy"><strong>'+(t.mediaType==="video"?'<span class="music-type-label">VIDEO</span> ':'')+esc(t.title)+'</strong><small>'+esc(musicDisplayText(t.artist))+(t.year?' · '+esc(musicDisplayText(t.year)):'')+' · '+esc(musicDisplayText(t.license||"Licensed"))+(t.source?' · '+esc(musicDisplayText(t.source)):'')+'</small></div><button class="music-add-track" data-add-music="'+i+'" aria-label="Add to playlist">＋</button><button class="music-play" data-music-play="'+i+'" aria-label="Play '+esc(t.title)+'">▶</button></div>').join(""):'<div class="music-empty">'+(musicMediaFilter==="video"?"No verified open-licence music videos found for this search.":"No open-licence tracks found. Try another search or explore official platforms below.")+'</div>';
  list.querySelectorAll("[data-music-play]").forEach(b=>b.onclick=()=>{const i=Number(b.dataset.musicPlay),track=musicResults[i];musicQueue=musicResults.slice();if(track?.mediaType==="video")playMusicVideo(track);else playMusic(i)});

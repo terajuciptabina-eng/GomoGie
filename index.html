@@ -1987,7 +1987,7 @@ function onYouTubePlayerStateChange(event){
  else if(event.data===2){musicYoutubeIsPlaying=false;const button=musicDock?.querySelector("#musicDockPlay");if(button)button.textContent="▶";if(musicUserPaused||!musicPlaybackIntent){musicResumeNeeded=false}else{musicPlayerMessage("YouTube paused playback. Waiting for YouTube to finish any ad or player transition…")}}else if(event.data===5){musicPlayerMessage("Video ready. Press Play if playback does not start.")}
  else if(event.data===3){musicPlayerMessage("Buffering video…")}
 }
-async async function playMusicVideo(track){
+async function playMusicVideo(track){
  ensureMusicPlayer();
  const video=musicDock.querySelector("#musicDockVideo"),ytFrame=musicDock.querySelector("#musicDockYoutube"),bottom=musicDock.querySelector(".music-dock-bottom");
  if(!video||!ytFrame||!track)return;

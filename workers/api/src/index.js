@@ -1124,12 +1124,12 @@ async function route(request, env) {
       const followerRows=(followers.results||[]);
       for(const follower of followerRows){
         await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),follower.follower_id,auth.sub,"new_post",id,now).run();
-        await notifyPushDevices(env,follower.follower_id,{id,actorId:auth.sub,type:"new_post",preview:input.content.trim().slice(0,120),url:"./"});
+        await notifyPushDevices(env,follower.follower_id,{id,actorId:auth.sub,type:"new_post",preview:input.content.trim().slice(0,120)});
       }
     }
     for(const recipient of mentionRecipients){
       await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),recipient.id,auth.sub,"mention",id,now).run();
-      await notifyPushDevices(env,recipient.id,{id,actorId:auth.sub,type:"mention",preview:input.content.trim().slice(0,120),url:"./"});
+      await notifyPushDevices(env,recipient.id,{id,actorId:auth.sub,type:"mention",preview:input.content.trim().slice(0,120)});
     }
     const mediaItems=verifiedMedia.map(item=>({type:item.type,id:item.id,url:item.type==="image"?mediaUrl(item.id):videoUrl(item.id),position:item.position}));
     return json({post:{id,userId:auth.sub,content:input.content.trim(),visibility,status:"published",mediaType:mediaItems[0]?.type|| (hasPoll?"poll":"text"),mediaUrl:mediaItems[0]?.url||"",mediaItems,pollId,createdAt:now}},201);
@@ -1166,7 +1166,7 @@ async function route(request, env) {
     if (!previous && post.user_id !== auth.sub) {
       await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)")
         .bind(uuid(), post.user_id, auth.sub, "reaction", reactionMatch[1], new Date().toISOString()).run();
-      await notifyPushDevices(env,post.user_id,{id:reactionMatch[1],actorId:auth.sub,type:"reaction",url:"./"});
+      await notifyPushDevices(env,post.user_id,{id:reactionMatch[1],actorId:auth.sub,type:"reaction"});
     }
     return json({ reaction: { postId: reactionMatch[1], type } });
   }
@@ -1221,11 +1221,11 @@ async function route(request, env) {
     for (const recipientId of recipients) {
       await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)")
         .bind(uuid(), recipientId, auth.sub, "comment", id, now).run();
-      await notifyPushDevices(env,recipientId,{id:commentMatch[1],actorId:auth.sub,type:"comment",preview:input.content.trim().slice(0,120),url:"./"});
+      await notifyPushDevices(env,recipientId,{id:commentMatch[1],actorId:auth.sub,type:"comment",preview:input.content.trim().slice(0,120)});
     }
     for(const recipient of mentionRecipients){
       await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),recipient.id,auth.sub,"mention",id,now).run();
-      await notifyPushDevices(env,recipient.id,{id:commentMatch[1],actorId:auth.sub,type:"mention",preview:input.content.trim().slice(0,120),url:"./"});
+      await notifyPushDevices(env,recipient.id,{id:commentMatch[1],actorId:auth.sub,type:"mention",preview:input.content.trim().slice(0,120)});
     }
     return json({ comment: { id, postId: commentMatch[1], userId: auth.sub, parentId: parent?.id || null, content: input.content.trim(), createdAt: now } }, 201);
   }
@@ -1258,14 +1258,14 @@ async function route(request, env) {
     if(pair?.status==="pending"&&pair.recipient_id===auth.sub){
       await env.DB.prepare("UPDATE friend_requests SET status='accepted',updated_at=? WHERE id=?").bind(now,pair.id).run();
       try{await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),pair.requester_id,auth.sub,"friend_accepted",pair.id,now).run();}catch(error){console.error("Reciprocal friend acceptance notification failed",pair.id,error);}
-      try{await notifyPushDevices(env,pair.requester_id,{id:pair.id,actorId:auth.sub,type:"friend_accepted",url:"./"});}catch(error){console.error("Reciprocal friend acceptance push failed",pair.id,error);}
+      try{await notifyPushDevices(env,pair.requester_id,{id:pair.id,actorId:auth.sub,type:"friend_accepted"});}catch(error){console.error("Reciprocal friend acceptance push failed",pair.id,error);}
       return json({friend:true,accepted:true});
     }
     if(pair?.status==="pending")return json({requestSent:true,pending:true});
     const id=uuid();
     await env.DB.prepare("INSERT INTO friend_requests (id,requester_id,recipient_id,status,created_at,updated_at) VALUES (?,?,?,'pending',?,?) ON CONFLICT(requester_id,recipient_id) DO UPDATE SET status='pending',created_at=excluded.created_at,updated_at=excluded.updated_at").bind(id,auth.sub,target.id,now,now).run();
     await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),target.id,auth.sub,"friend_request",id,now).run();
-    await notifyPushDevices(env,target.id,{id,actorId:auth.sub,type:"friend_request",url:"./"});
+    await notifyPushDevices(env,target.id,{id,actorId:auth.sub,type:"friend_request"});
     return json({requestSent:true,status:"pending"},201);
   }
   const friendRequestAction=path.match(/^\/v1\/friend-requests\/([0-9a-f-]+)\/(accept|decline)$/i);
@@ -1279,7 +1279,7 @@ async function route(request, env) {
         await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),requestRow.requester_id,auth.sub,"friend_accepted",requestRow.id,now).run();
       }catch(error){console.error("Friend acceptance in-app notification failed",requestRow.id,error);}
       try{
-        await notifyPushDevices(env,requestRow.requester_id,{id:requestRow.id,actorId:auth.sub,type:"friend_accepted",url:"./"});
+        await notifyPushDevices(env,requestRow.requester_id,{id:requestRow.id,actorId:auth.sub,type:"friend_accepted"});
       }catch(error){console.error("Friend acceptance push notification failed",requestRow.id,error);}
     }
     return json({accepted:accept});
@@ -1340,7 +1340,7 @@ async function route(request, env) {
     if (!existingFollow && status === "accepted") {
       await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)")
         .bind(uuid(), target.id, auth.sub, "follow", auth.sub, new Date().toISOString()).run();
-      await notifyPushDevices(env,target.id,{id:auth.sub,actorId:auth.sub,type:"follow",url:"./"});
+      await notifyPushDevices(env,target.id,{id:auth.sub,actorId:auth.sub,type:"follow"});
     }
     return json({ following: true, status });
   }
@@ -1365,7 +1365,7 @@ async function route(request, env) {
       const now=new Date().toISOString();
       await env.DB.prepare("UPDATE gomogie_message_requests SET status='accepted',decided_at=? WHERE conversation_id=? AND status='pending'").bind(now,id).run();
       try{await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),row.requester_id,auth.sub,"message_request_accepted",id,now).run();}catch(error){console.error("Message request acceptance notification failed",id,error);}
-      try{await notifyPushDevices(env,row.requester_id,{id,actorId:auth.sub,type:"message_request_accepted",url:"./"});}catch(error){console.error("Message request acceptance push failed",id,error);}
+      try{await notifyPushDevices(env,row.requester_id,{id,actorId:auth.sub,type:"message_request_accepted"});}catch(error){console.error("Message request acceptance push failed",id,error);}
       return json({accepted:true});
     }
     if(row.recipient_id!==auth.sub&&row.requester_id!==auth.sub)return json({error:"request_not_found"},404);
@@ -1472,7 +1472,7 @@ async function route(request, env) {
         const isPendingRequest=requestRow?.status==="pending";
         const preview=input.content.trim().replace(/\s+/g," ").slice(0,120);
         try{await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),recipient.user_id,auth.sub,isPendingRequest?"message_request":"message",conversationId,now).run();}catch(error){console.error("New message in-app notification failed",conversationId,error);}
-        try{await notifyPushDevices(env,recipient.user_id,{id,actorId:auth.sub,type:isPendingRequest?"message_request":"message",preview,url:"./"});}catch(error){console.error("New message push notification failed",conversationId,error);}
+        try{await notifyPushDevices(env,recipient.user_id,{id,actorId:auth.sub,type:isPendingRequest?"message_request":"message",preview});}catch(error){console.error("New message push notification failed",conversationId,error);}
       }
       return json({ message: { id, conversationId, senderId: auth.sub, content: input.content.trim(), mediaId: null, status: "sent", createdAt: now } }, 201);
     }
@@ -1563,6 +1563,13 @@ async function sendWebPush(subscription,payload,env){
  if(!response.ok)throw new Error("Web Push endpoint returned "+response.status);
  return true;
 }
+function notificationDeepLink(notification){
+ const params=new URLSearchParams();params.set("gomogieNotification",notification.type||"");
+ if(["message","message_request","message_request_accepted"].includes(notification.type))params.set("entity",notification.conversationId||notification.entityId||notification.id||"");
+ else if(["new_post","reaction","comment","mention"].includes(notification.type))params.set("post",notification.postId||notification.entityId||notification.id||"");
+ else if(["follow","friend_accepted"].includes(notification.type))params.set("actor",notification.actorId||"");
+ return "./?"+params.toString();
+}
 async function notifyPushDevices(env,userId,notification){
  if(!env.VAPID_PRIVATE_JWK||!env.VAPID_PUBLIC_KEY||!env.VAPID_SUBJECT)return;
  const rows=await env.DB.prepare("SELECT id,endpoint,p256dh,auth_secret FROM gomogie_push_subscriptions WHERE user_id=?").bind(userId).all();
@@ -1581,7 +1588,7 @@ async function notifyPushDevices(env,userId,notification){
   message_request_accepted:{title:"Message request accepted",body:name+" accepted your message request."}
  };
  const copy=messages[notification.type]||{title:"GomoGie",body:name+" has an update for you."};
- for(const row of rows.results||[]){try{const result=await sendWebPush(row,{title:copy.title,body:copy.body,url:notification.url||"./",tag:notification.id||"gomogie"},env);if(result==="expired")await env.DB.prepare("DELETE FROM gomogie_push_subscriptions WHERE id=?").bind(row.id).run()}catch(error){console.error("Push delivery failed",row.id,error)}}
+ for(const row of rows.results||[]){try{const result=await sendWebPush(row,{title:copy.title,body:copy.body,url:notification.url||notificationDeepLink(notification),tag:notification.id||"gomogie"},env);if(result==="expired")await env.DB.prepare("DELETE FROM gomogie_push_subscriptions WHERE id=?").bind(row.id).run()}catch(error){console.error("Push delivery failed",row.id,error)}}
 }
 
 export default {

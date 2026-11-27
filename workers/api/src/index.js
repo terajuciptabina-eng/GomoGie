@@ -1002,7 +1002,7 @@ async function route(request, env) {
     let closesAt=null;
     if(hasPoll&&pollInput.durationHours!==undefined){const hours=Number(pollInput.durationHours);if(![1,6,12,24,72,168,720].includes(hours))return json({error:"invalid_poll_duration"},400);closesAt=new Date(Date.now()+hours*3600000).toISOString()}
     const visibility=["public","followers","private"].includes(input.visibility)?input.visibility:"public";
-    const mentionNames=[...new Set([...input.content.matchAll(/(?:^|[\\s(])@([A-Za-z0-9_]{3,24})\\b/g)].map(m=>m[1].toLowerCase()))];
+    const mentionNames=[...new Set([...input.content.matchAll(/(?:^|[\s(])@([A-Za-z0-9_]{3,24})\b/g)].map(m=>m[1].toLowerCase()))];
     let mentionRecipients=[];
     if(mentionNames.length){
       const marks=mentionNames.map(()=>"?").join(",");
@@ -1092,7 +1092,7 @@ async function route(request, env) {
     const post = await env.DB.prepare("SELECT id,comments_enabled FROM posts WHERE id=? AND status='published'").bind(commentMatch[1]).first();
     if (!post) return json({ error: "post_not_found" }, 404);
     if (!post.comments_enabled) return json({ error: "comments_disabled" }, 403);
-    const mentionNames=[...new Set([...input.content.matchAll(/(?:^|[\\s(])@([A-Za-z0-9_]{3,24})\\b/g)].map(m=>m[1].toLowerCase()))];
+    const mentionNames=[...new Set([...input.content.matchAll(/(?:^|[\s(])@([A-Za-z0-9_]{3,24})\b/g)].map(m=>m[1].toLowerCase()))];
     let mentionRecipients=[];
     if(mentionNames.length){
       const marks=mentionNames.map(()=>"?").join(",");

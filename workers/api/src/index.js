@@ -770,29 +770,52 @@ async function route(request, env) {
     return new Response(object.body,{headers:{"content-type":asset.mime_type,"content-length":String(asset.size_bytes),"content-disposition":disposition+'; filename="'+asset.file_name.replace(/["\\\\]/g,"_")+'"',"cache-control":"private, no-store","x-content-type-options":"nosniff"}});
   }
   if (path === "/v1/media" && method === "POST") {
-    const declaredLength = Number(request.headers.get("content-length") || 0);
-    if (declaredLength > IMAGE_LIMIT + 65536) return json({ error: "file_size_invalid", message: "Saiz gambar maksimum ialah 8 MB." }, 413);
-    if (!env.MEDIA_BUCKET) return json({ error: "media_storage_unavailable", message: "Cloudflare R2 belum dihubungkan kepada Worker." }, 503);
-    const form = await request.formData();
-    const file = form.get("file"), purpose = form.get("purpose");
-    if (!(file instanceof File) || !["avatar","cover","post","message"].includes(purpose)) return json({ error: "validation_error", message: "Fail gambar dan tujuan upload diperlukan." }, 400);
-    if (!file.size || file.size > IMAGE_LIMIT) return json({ error: "file_size_invalid", message: "Saiz gambar maksimum ialah 8 MB." }, 413);
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const detected = detectImageType(bytes);
-    if (!detected || detected !== file.type) return json({ error: "unsupported_image", message: "Format yang disokong: JPEG, PNG, WebP dan GIF." }, 415);
-    const id = uuid(), now = new Date().toISOString();
-    const extension = ({ "image/jpeg":"jpg", "image/png":"png", "image/webp":"webp", "image/gif":"gif" })[detected];
-    const key = "users/" + auth.sub + "/" + purpose + "/" + id + "." + extension;
-    await env.MEDIA_BUCKET.put(key, bytes, { httpMetadata: { contentType: detected, cacheControl: "public, max-age=31536000, immutable" }, customMetadata: { ownerId: auth.sub, purpose } });
+    const requestId = uuid();
+    let stage = "validate_request";
+    let uploadedKey = null;
     try {
+      const declaredLength = Number(request.headers.get("content-length") || 0);
+      if (declaredLength > IMAGE_LIMIT + 65536) return json({ error: "file_size_invalid", message: "Saiz gambar maksimum ialah 8 MB." }, 413);
+      if (!env.MEDIA_BUCKET) return json({ error: "media_storage_unavailable", message: "Cloudflare R2 belum dihubungkan kepada Worker." }, 503);
+
+      stage = "read_multipart";
+      const form = await request.formData();
+      const file = form.get("file"), purpose = form.get("purpose");
+      if (!(file instanceof File) || !["avatar","cover","post","message"].includes(purpose)) return json({ error: "validation_error", message: "Fail gambar dan tujuan upload diperlukan." }, 400);
+      if (!file.size || file.size > IMAGE_LIMIT) return json({ error: "file_size_invalid", message: "Saiz gambar maksimum ialah 8 MB." }, 413);
+
+      stage = "inspect_image";
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const detected = detectImageType(bytes);
+      if (!detected || detected !== file.type) return json({ error: "unsupported_image", message: "Format yang disokong: JPEG, PNG, WebP dan GIF." }, 415);
+
+      const id = uuid(), now = new Date().toISOString();
+      const extension = ({ "image/jpeg":"jpg", "image/png":"png", "image/webp":"webp", "image/gif":"gif" })[detected];
+      const key = "users/" + auth.sub + "/" + purpose + "/" + id + "." + extension;
+      stage = "store_image";
+      await env.MEDIA_BUCKET.put(key, bytes, { httpMetadata: { contentType: detected, cacheControl: "public, max-age=31536000, immutable" }, customMetadata: { ownerId: auth.sub, purpose } });
+      uploadedKey = key;
+
+      stage = "save_image_record";
       const statements = [env.DB.prepare("INSERT INTO gomogie_media_assets (id,owner_id,purpose,object_key,mime_type,size_bytes,status,created_at) VALUES (?,?,?,?,?,?,?,?)").bind(id, auth.sub, purpose, key, detected, file.size, "ready", now)];
       if (purpose === "avatar" || purpose === "cover") {
         const column = purpose === "avatar" ? "avatar_url" : "cover_url";
         statements.push(env.DB.prepare("UPDATE profiles SET " + column + "=?,updated_at=? WHERE user_id=?").bind(mediaUrl(id), now, auth.sub));
       }
       await env.DB.batch(statements);
-    } catch (error) { await env.MEDIA_BUCKET.delete(key); throw error; }
-    return json({ media: { id, purpose, url: mediaUrl(id), mimeType: detected, size: file.size, createdAt: now } }, 201);
+      uploadedKey = null;
+      return json({ media: { id, purpose, url: mediaUrl(id), mimeType: detected, size: file.size, createdAt: now } }, 201);
+    } catch (error) {
+      if (uploadedKey) {
+        try { await env.MEDIA_BUCKET.delete(uploadedKey); }
+        catch (cleanupError) { console.error("GomoGie image upload cleanup failed", { requestId, stage, error: String(cleanupError?.message || cleanupError) }); }
+      }
+      const detail = String(error?.message || error || "");
+      console.error("GomoGie image upload failed", { requestId, stage, error: detail.slice(0, 500) });
+      if (/D1's free tier daily row read limit/i.test(detail)) return json({ error: "d1_daily_read_limit", message: "Had bacaan harian D1 telah dicapai. Cuba semula selepas had ditetapkan semula.", requestId }, 503, { "retry-after": "3600" });
+      if (/D1's free tier daily row write limit/i.test(detail)) return json({ error: "d1_daily_write_limit", message: "Had penulisan harian D1 telah dicapai. Cuba semula selepas had ditetapkan semula.", requestId }, 503, { "retry-after": "3600" });
+      return json({ error: "media_upload_failed", message: "Upload gambar gagal pada peringkat " + stage + ". Sila cuba sekali lagi.", stage, requestId }, 500);
+    }
   }
 
   if (path === "/v1/auth/me" && method === "GET") {

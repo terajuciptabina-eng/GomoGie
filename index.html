@@ -2634,7 +2634,7 @@ document.addEventListener("visibilitychange",()=>{if(document.visibilityState===
 setInterval(()=>{if(document.visibilityState==="visible")refreshNotificationBadge()},60000);
 const legacyAuthButton=document.getElementById("authButton");if(legacyAuthButton)legacyAuthButton.onclick=()=>currentUser?signOut():openAuth();document.getElementById("closeAuth").onclick=closeAuth;document.getElementById("authLayer").addEventListener("click",e=>{if(e.target.id==="authLayer")closeAuth()});document.getElementById("showRegister").onclick=()=>setAuthMode("register");document.getElementById("loginForm").onsubmit=async e=>{e.preventDefault();const form=e.currentTarget,button=document.getElementById("loginSubmit"),data=new FormData(form);button.disabled=true;setAuthError("");try{const registering=authMode==="register";const payload=registering?{displayName:String(data.get("displayName")||"").trim(),username:String(data.get("username")||"").trim(),email:String(data.get("email")||"").trim(),password:String(data.get("registerPassword")||"")}:{login:String(data.get("login")||"").trim(),password:String(data.get("password")||"")};const response=await fetch(API_BASE+(registering?"/v1/auth/register":"/v1/auth/login"),{method:"POST",headers:{"content-type":"application/json",accept:"application/json"},body:JSON.stringify(payload),cache:"no-store"});const result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.message||result.error||(registering?"Registration failed.":"Login failed. Check your details."));if(!validAccessToken(result.accessToken))throw new Error("Server tidak memulangkan token sesi yang sah.");await saveToken(result.accessToken);currentUser={...result.user};saveAuthDiagnostic({stage:"login_saved",tokenCookiePresent:!!readTokenCookie(),tokenLocalStoragePresent:(()=>{try{return !!localStorage.getItem(TOKEN_KEY)}catch{return false}})(),rememberedUserPresent:true});try{localStorage.setItem(USER_KEY,JSON.stringify(currentUser))}catch(storageError){console.warn("Remembered user profile unavailable:",storageError)}try{if(!registering&&document.getElementById("rememberLogin")?.checked)localStorage.setItem("gomogie-remembered-login",payload.login);else if(!registering)localStorage.removeItem("gomogie-remembered-login")}catch(storageError){console.warn("Remembered username unavailable:",storageError)}await restoreSession();closeAuth();render();if(result.accountRestored)alert("Your GomoGie account has been reactivated. Welcome back.")}catch(error){setAuthError(error.message)}finally{button.disabled=false}};
 try{const rememberedLogin=localStorage.getItem("gomogie-remembered-login");const loginInput=document.querySelector("#loginFields input[name=login]");if(rememberedLogin&&loginInput)loginInput.value=rememberedLogin}catch(storageError){console.warn("Remembered username unavailable:",storageError)}
-let refreshStartY=0,pullDistance=0,pullArmed=false,isRefreshing=false,releaseTimer=null;
+let refreshStartY=0,pullDistance=0,pullArmed=false,pullActive=false,isRefreshing=false,releaseTimer=null;
 function setPullOffset(px){document.body.style.setProperty("--pull-offset",px+"px")}
 function paintPull(distance){
  const rubber=distance<=120?distance*.58:69.6+(distance-120)*.22;
@@ -2717,30 +2717,31 @@ async function refreshGomoGie(){
  finally{isRefreshing=false}
 }
 document.addEventListener("touchstart",e=>{
- if(document.body.classList.contains("watch-reels-fullscreen")||isRefreshing||window.scrollY>0||!e.touches||e.touches.length!==1)return;
- if(e.target.closest("input,textarea,select,[contenteditable=true]"))return;
- refreshStartY=e.touches[0].clientY;pullDistance=0;pullArmed=true;
+ if(document.body.classList.contains("watch-reels-fullscreen")||document.body.classList.contains("connect-chat-open")||isRefreshing||window.scrollY>0||!e.touches||e.touches.length!==1)return;
+ if(e.target.closest("input,textarea,select,button,a,[role=button],[contenteditable=true],.connect-thread,.chat-composer"))return;
+ refreshStartY=e.touches[0].clientY;pullDistance=0;pullArmed=true;pullActive=false;
  document.body.classList.remove("pull-releasing");
- document.body.classList.add("pull-dragging");
 },{passive:true});
 document.addEventListener("touchmove",e=>{
  if(!pullArmed||isRefreshing||!e.touches||e.touches.length!==1)return;
  const delta=e.touches[0].clientY-refreshStartY;
- if(delta<=0){pullDistance=0;setPullOffset(0);return}
+ if(delta<=4){if(delta<=0){pullDistance=0;if(pullActive){setPullOffset(0)}}return}
  if(window.scrollY<=0){
   pullDistance=delta;
-  if(delta>4)e.preventDefault();
+  if(!pullActive){pullActive=true;document.body.classList.add("pull-dragging")}
+  e.preventDefault();
   paintPull(delta);
  }
 },{passive:false});
 document.addEventListener("touchend",()=>{
  if(!pullArmed)return;
- const shouldRefresh=pullDistance>=88;
- pullArmed=false;
+ const shouldRefresh=pullActive&&pullDistance>=88;
+ pullArmed=false;pullActive=false;
  if(shouldRefresh)refreshGomoGie();
- else springBack();
+ else if(pullDistance>4)springBack();
+ else{pullDistance=0;setPullOffset(0)}
 },{passive:true});
-document.addEventListener("touchcancel",()=>{if(!pullArmed)return;pullArmed=false;pullDistance=0;springBack()},{passive:true});
+document.addEventListener("touchcancel",()=>{if(!pullArmed)return;pullArmed=false;const wasActive=pullActive;pullActive=false;pullDistance=0;if(wasActive)springBack();else setPullOffset(0)},{passive:true});
 // PWA update lifecycle: check on launch, return to foreground, and reconnect.
 if("serviceWorker" in navigator){
  const hadController=!!navigator.serviceWorker.controller;

@@ -911,7 +911,7 @@ body{background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;te
  body.watch-reels-fullscreen .watch-video{width:100%;height:100%;object-fit:cover}
  body.watch-reels-fullscreen .mobile-nav{position:fixed;inset:auto 0 0;z-index:50;height:calc(64px + env(safe-area-inset-bottom));padding:7px 3px calc(7px + env(safe-area-inset-bottom));}
 }
-</style>
+.mention-suggestions{display:grid;gap:2px;margin:6px 0 10px 48px;padding:6px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 28px rgba(15,30,35,.12);max-height:220px;overflow:auto}.thread-compose .mention-suggestions{margin:0}.mention-suggestion{display:flex;align-items:center;gap:10px;width:100%;padding:8px;border:0;border-radius:9px;background:transparent;text-align:left;color:var(--ink)}.mention-suggestion:active,.mention-suggestion:hover{background:#eef8f6}.mention-suggestion-avatar{width:34px;height:34px;flex:0 0 34px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:#e8f4f2}.mention-suggestion-avatar img{width:100%;height:100%;object-fit:cover}.mention-suggestion strong,.mention-suggestion small{display:block}.mention-suggestion small,.mention-suggestion-status{font-size:12px;color:var(--muted)}.mention-suggestion-status{padding:10px}.mention-link{border:0;background:transparent;padding:0;color:var(--teal);font:inherit;font-weight:700;cursor:pointer}.mention-text{color:var(--teal);font-weight:700}</style>
 </head>
 <body>
 <div class="connection-notice" id="connectionNotice" role="status" aria-live="polite">You are offline. Showing your last loaded feed.</div>
@@ -1153,17 +1153,20 @@ function normalizeApiFeedItems(items){
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function postTextHtml(value){
  const text=String(value??"");
- const pattern=/(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/gi;
+ const pattern=/(https?:\\/\\/[^\\s<>"']+|www\\.[^\\s<>"']+|(?:^|[\\s(])@([A-Za-z0-9_]{3,24})\\b)/gi;
  let html="",last=0,match;
  while((match=pattern.exec(text))){
-  const raw=match[0],trimmed=raw.replace(/[),.!?;:]+$/,"");
-  const start=match.index;
-  html+=esc(text.slice(last,start));
-  const href=/^https?:\/\//i.test(trimmed)?trimmed:"https://"+trimmed;
-  try{const parsed=new URL(href);if(parsed.protocol==="https:"||parsed.protocol==="http:"){html+='<a class="post-link" href="'+esc(href)+'" target="_blank" rel="noopener noreferrer nofollow">'+esc(trimmed)+'</a>'+esc(raw.slice(trimmed.length));}else html+=esc(raw)}catch{html+=esc(raw)}
+  const raw=match[0],start=match.index;html+=esc(text.slice(last,start));
+  if(match[2]){
+   const username=match[2],person=accounts.find(a=>String(a.username||"").toLowerCase()===username.toLowerCase()),prefix=raw.startsWith("@")?"":raw[0];
+   html+=esc(prefix)+(person?'<button type="button" class="mention-link" data-open-profile="'+esc(person.id)+'">@'+esc(username)+'</button>':'<span class="mention-text">@'+esc(username)+'</span>');
+  }else{
+   const trimmed=raw.replace(/[),.!?;:]+$/,""),href=/^https?:\\/\\//i.test(trimmed)?trimmed:"https://"+trimmed;
+   try{const parsed=new URL(href);if(parsed.protocol==="https:"||parsed.protocol==="http:"){html+='<a class="post-link" href="'+esc(href)+'" target="_blank" rel="noopener noreferrer nofollow">'+esc(trimmed)+'</a>'+esc(raw.slice(trimmed.length));}else html+=esc(raw)}catch{html+=esc(raw)}
+  }
   last=start+raw.length;
  }
- return (html+esc(text.slice(last))).replace(/\r?\n/g,"<br>");
+ return (html+esc(text.slice(last))).replace(/\\r?\\n/g,"<br>");
 }
 function postLinkPreview(value){
  const match=String(value??"").match(/(?:https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/i);
@@ -1191,7 +1194,7 @@ function postCard(p){
 }
 function composer(){
  const me=currentUser&&account(currentUser.id);
- return '<section class="composer"><div class="composer-row"><img class="avatar" src="'+esc(me?.avatarUrl||"")+'" alt=""><input id="composerText" placeholder="'+(currentUser?"Share something with your community…":"Log in to share with your community…")+'" '+(currentUser?"":"readonly")+'></div><div id="composerMediaPreview" class="composer-media-preview" hidden></div><div id="composerUploadStatus" class="composer-upload-status" role="status" aria-live="polite" hidden><div id="composerUploadLabel">Preparing video…</div><div class="composer-upload-track"><span id="composerUploadBar"></span></div></div><div id="composerLinkPreview" class="composer-link-preview" hidden></div><input id="composerImageInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden><input id="composerVideoInput" type="file" accept="video/mp4,video/quicktime,video/webm,video/x-m4v,video/3gpp,.mp4,.mov,.m4v,.webm,.3gp,.3g2" hidden><div class="compose-actions"><button class="soft" type="button" id="choosePostImage">▧ Photo</button><button class="soft" type="button" id="choosePostVideo">▷ Video</button><button class="soft" type="button" id="choosePostPoll">▤ Poll</button><button class="soft" id="createPost" type="button">Post</button></div></section>';
+ return '<section class="composer"><div class="composer-row"><img class="avatar" src="'+esc(me?.avatarUrl||"")+'" alt=""><input id="composerText" placeholder="'+(currentUser?"Share something with your community…":"Log in to share with your community…")+'" '+(currentUser?"":"readonly")+'></div><div class="mention-suggestions" id="composerMentionSuggestions" hidden></div><div id="composerMediaPreview" class="composer-media-preview" hidden></div><div id="composerUploadStatus" class="composer-upload-status" role="status" aria-live="polite" hidden><div id="composerUploadLabel">Preparing video…</div><div class="composer-upload-track"><span id="composerUploadBar"></span></div></div><div id="composerLinkPreview" class="composer-link-preview" hidden></div><input id="composerImageInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden><input id="composerVideoInput" type="file" accept="video/mp4,video/quicktime,video/webm,video/x-m4v,video/3gpp,.mp4,.mov,.m4v,.webm,.3gp,.3g2" hidden><div class="compose-actions"><button class="soft" type="button" id="choosePostImage">▧ Photo</button><button class="soft" type="button" id="choosePostVideo">▷ Video</button><button class="soft" type="button" id="choosePostPoll">▤ Poll</button><button class="soft" id="createPost" type="button">Post</button></div></section>';
 }
 
 const NEWS_CATEGORY_LABELS={national:"National",politics:"Politics",business:"Business",technology:"Technology",sports:"Sports",entertainment:"Entertainment",world:"World",lifestyle:"Lifestyle"};
@@ -1706,12 +1709,13 @@ async function openThread(postId){
  let items=[],replyTo=null;
  const layer=document.createElement("div");
  layer.className="thread-layer";
- layer.innerHTML='<section class="thread-dialog" role="dialog" aria-modal="true" aria-label="Conversation"><header class="thread-head"><h2>Conversation</h2><button class="thread-close" type="button" aria-label="Close">×</button></header><div class="thread-list" id="threadList"><div class="empty">Loading replies…</div></div><form class="thread-compose" id="threadCompose"><div class="thread-replying" id="threadReplying">Reply to this conversation</div><textarea id="threadText" maxlength="2000" placeholder="Write a reply…" required></textarea><button class="primary" type="submit">Reply</button></form></section>';
+ layer.innerHTML='<section class="thread-dialog" role="dialog" aria-modal="true" aria-label="Conversation"><header class="thread-head"><h2>Conversation</h2><button class="thread-close" type="button" aria-label="Close">×</button></header><div class="thread-list" id="threadList"><div class="empty">Loading replies…</div></div><form class="thread-compose" id="threadCompose"><div class="thread-replying" id="threadReplying">Reply to this conversation</div><textarea id="threadText" maxlength="2000" placeholder="Write a reply…" required></textarea><div class="mention-suggestions" id="threadMentionSuggestions" hidden></div><button class="primary" type="submit">Reply</button></form></section>';
  document.body.appendChild(layer);
  const close=()=>layer.remove();
  layer.querySelector(".thread-close").onclick=close;
  layer.addEventListener("click",e=>{if(e.target===layer)close()});
  const list=layer.querySelector("#threadList"),form=layer.querySelector("#threadCompose"),input=layer.querySelector("#threadText"),replying=layer.querySelector("#threadReplying");
+ bindMentionAutocomplete(input,layer.querySelector("#threadMentionSuggestions"));
  const renderComments=(parentId=null,depth=0)=>items.filter(c=>(c.parentId||null)===parentId).map(c=>'<article class="thread-item '+(depth?'reply':'')+'"><div class="thread-author">'+esc(c.author?.displayName||c.author?.username||"Member")+'</div><div class="thread-handle">@'+esc(c.author?.username||"member")+'</div><div class="thread-content">'+esc(c.content)+'</div><button class="thread-reply" type="button" data-thread-reply="'+esc(c.id)+'">Reply</button>'+renderComments(c.id,depth+1)+'</article>').join("");
  const load=async()=>{const data=await apiRequest("/v1/posts/"+encodeURIComponent(postId)+"/comments?limit=50");items=data.items||[];list.innerHTML=items.length?renderComments():'<div class="empty">No replies yet. Start the conversation.</div>'};
  list.addEventListener("click",e=>{const b=e.target.closest("[data-thread-reply]");if(!b)return;replyTo=b.dataset.threadReply;const target=items.find(c=>c.id===replyTo);replying.textContent="Replying to "+(target?.author?.displayName||target?.author?.username||"member");input.focus()});
@@ -1747,9 +1751,21 @@ async function openThread(postId){
  };
  try{await load()}catch(error){list.innerHTML='<div class="empty">'+esc(error.message)+'</div>'}
 }
+function bindMentionAutocomplete(input,dropdown){
+ if(!input||!dropdown)return;
+ let timer=null,activeToken=null;
+ const hide=()=>{dropdown.hidden=true;dropdown.innerHTML="";activeToken=null};
+ const findToken=()=>{const caret=input.selectionStart??input.value.length,before=input.value.slice(0,caret),m=before.match(/(?:^|[\\s(])@([A-Za-z0-9_]{0,24})$/);if(!m)return null;return {start:caret-m[0].length+(m[0][0]==="@"?0:1),end:caret,query:m[1]}};
+ input.addEventListener("input",()=>{if(timer)clearTimeout(timer);const token=findToken();if(!token||token.query.length<2){hide();return}activeToken=token;dropdown.hidden=false;dropdown.innerHTML='<div class="mention-suggestion-status">Searching friends…</div>';timer=setTimeout(async()=>{try{const data=await apiRequest("/v1/users/search?q="+encodeURIComponent(token.query));if(activeToken!==token)return;const items=data.items||[];dropdown.innerHTML=items.length?items.map(p=>'<button type="button" class="mention-suggestion" data-mention-username="'+esc(p.username)+'"><span class="mention-suggestion-avatar">'+(p.avatarUrl?'<img src="'+esc(p.avatarUrl)+'" alt="">':'♙')+'</span><span><strong>'+esc(p.displayName||p.username)+'</strong><small>@'+esc(p.username)+'</small></span></button>').join(""):'<div class="mention-suggestion-status">No friends found.</div>'}catch(error){if(activeToken===token)dropdown.innerHTML='<div class="mention-suggestion-status">'+esc(error.message)+'</div>'}},180)});
+ input.addEventListener("keydown",e=>{if(e.key==="Escape"&&!dropdown.hidden){hide();e.stopPropagation()}});
+ dropdown.addEventListener("mousedown",e=>e.preventDefault());
+ dropdown.addEventListener("click",e=>{const b=e.target.closest("[data-mention-username]");if(!b||!activeToken)return;const token=activeToken,insert="@"+b.dataset.mentionUsername+" ";input.value=input.value.slice(0,token.start)+insert+input.value.slice(token.end);const caret=(input.value.slice(0,token.start)+insert).length;input.focus();input.setSelectionRange(caret,caret);hide();input.dispatchEvent(new Event("input",{bubbles:true}))});
+ input.addEventListener("blur",()=>setTimeout(hide,160));
+}
 function bindComposer(){
  const imageInput=document.getElementById("composerImageInput"),videoInput=document.getElementById("composerVideoInput"),preview=document.getElementById("composerMediaPreview"),linkPreview=document.getElementById("composerLinkPreview"),composerText=document.getElementById("composerText");
  if(!imageInput||!videoInput||!preview)return;
+ bindMentionAutocomplete(composerText,document.getElementById("composerMentionSuggestions"));
  let linkPreviewTimer=0,linkPreviewValue="";
  const updateComposerLinkPreview=()=>{
   if(linkPreviewTimer)clearTimeout(linkPreviewTimer);
@@ -2474,6 +2490,7 @@ function notificationRelativeTime(value){
 function notificationAction(type){
  if(type==="reaction")return {verb:"liked your post",icon:"♥"};
  if(type==="comment")return {verb:"replied to your post",icon:"↩"};
+ if(type==="mention")return {verb:"mentioned you",icon:"@"};
  if(type==="follow")return {verb:"started following you",icon:"＋"};
  if(type==="friend_request")return {verb:"sent you a friend request",icon:"♙"};
  if(type==="friend_accepted")return {verb:"accepted your friend request",icon:"✓"};

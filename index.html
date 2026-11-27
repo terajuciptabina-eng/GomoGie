@@ -1173,6 +1173,21 @@ function renderPostMediaGallery(p){
  if(!items.length)return "";
  return '<div class="post-gallery" data-post-gallery="'+esc(p.id)+'"><div class="post-gallery-track">'+items.map((item,index)=>'<div class="post-gallery-slide">'+(item.type==="video"?'<div class="feed-video-wrap"><video class="post-media" data-feed-video muted loop playsinline preload="metadata" src="'+esc(item.url)+'" aria-label="Post video '+(index+1)+'"></video><button class="feed-video-sound" type="button" data-video-sound aria-label="Turn video sound on" aria-pressed="false">🔇</button></div>':'<img class="post-media" loading="lazy" src="'+esc(item.url)+'" alt="Post image '+(index+1)+'">')+'</div>').join("")+'</div>'+(items.length>1?'<div class="post-gallery-count">1 / '+items.length+'</div><button class="post-gallery-prev" type="button" aria-label="Previous media" disabled>‹</button><button class="post-gallery-next" type="button" aria-label="Next media">›</button><div class="post-gallery-dots">'+items.map((_,i)=>'<span class="'+(i===0?'active':'')+'"></span>').join("")+'</div>':'')+'</div>';
 }
+document.addEventListener("click",event=>{
+ const button=event.target.closest("[data-post-gallery]");if(button)return;
+ const control=event.target.closest(".post-gallery-prev,.post-gallery-next");if(!control)return;
+ const gallery=control.closest(".post-gallery"),track=gallery?.querySelector(".post-gallery-track");if(!track)return;
+ const direction=control.classList.contains("post-gallery-next")?1:-1;
+ track.scrollBy({left:direction*track.clientWidth,behavior:"smooth"});
+});
+document.addEventListener("scroll",event=>{
+ const track=event.target;if(!track?.classList?.contains("post-gallery-track"))return;
+ const gallery=track.closest(".post-gallery");if(!gallery)return;
+ const slides=[...track.querySelectorAll(".post-gallery-slide")],index=Math.max(0,Math.min(slides.length-1,Math.round(track.scrollLeft/Math.max(1,track.clientWidth))));
+ const count=gallery.querySelector(".post-gallery-count");if(count)count.textContent=(index+1)+" / "+slides.length;
+ const prev=gallery.querySelector(".post-gallery-prev"),next=gallery.querySelector(".post-gallery-next");if(prev)prev.disabled=index===0;if(next)next.disabled=index>=slides.length-1;
+ gallery.querySelectorAll(".post-gallery-dots span").forEach((dot,i)=>dot.classList.toggle("active",i===index));
+},true);
 function postLinkPreview(value){
  const match=String(value??"").match(/(?:https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/i);
  if(!match)return "";

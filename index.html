@@ -2810,6 +2810,39 @@ function runMusicSearchWithCache(term,genre="all"){
   if(status)status.textContent=musicResults.filter(musicSearchRelevance).length+" matching results, including YouTube videos.";
  }).catch(error=>console.warn("YouTube Music search failed",error));
 }
+async function searchYouTubeGenreMusic(genre){
+ const label=String(genre||"all").toLowerCase();
+ const searches={
+  rock:["rock music official music videos","classic rock official music videos","hard rock official music videos","alternative rock official music videos","indie rock official music videos","punk rock official music videos","grunge rock official music videos","progressive rock official music videos","70s rock greatest hits official videos","80s rock official music videos","90s rock official music videos","2000s rock official music videos"],
+  pop:["pop music official music videos","classic pop hits official music videos","80s pop official music videos","90s pop official music videos"],
+  jazz:["jazz music live performance","classic jazz songs","smooth jazz instrumental","bebop jazz performance"],
+  electronic:["electronic music official videos","house music official videos","techno music live set","trance music official videos"],
+  classical:["classical music orchestra performance","piano classical music performance","symphony orchestra concert"],
+  "hip-hop":["hip hop official music videos","classic hip hop official videos","rap music official videos"],
+  "r&b":["r&b official music videos","soul music official videos","classic rhythm and blues songs"],
+  country:["country music official music videos","classic country songs","modern country official videos"],
+  folk:["folk music live performance","traditional folk songs","acoustic folk music"],
+  metal:["heavy metal official music videos","thrash metal official music videos","power metal official music videos","death metal official music videos"],
+  reggae:["reggae official music videos","roots reggae live performance","ska music official videos"],
+  dangdut:["dangdut official music videos","dangdut koplo official videos"],
+  world:["world music live performance","latin music official videos","african music performance","indian classical music performance"],
+  ambient:["ambient music instrumental","ambient electronic live performance"],
+  instrumental:["instrumental guitar music","instrumental piano music","orchestral instrumental music"]
+ };
+ const queries=searches[label]||[label+" music official videos",label+" live music performance",label+" classic songs"];
+ const collected=[],seen=new Set();
+ // Search focused genre variations sequentially to avoid hammering free public instances.
+ for(const query of queries){
+  try{
+   const batch=await searchYouTubeMusic(query);
+   for(const track of batch){
+    if(!track?.videoId||seen.has(track.videoId))continue;
+    seen.add(track.videoId);collected.push(track);
+   }
+  }catch(error){console.warn("YouTube genre query unavailable:",query,error)}
+ }
+ return collected;
+}
 async function discoverMusicGenre(genre="all"){
  const allowed=musicGenres.map(g=>g.toLowerCase());genre=allowed.includes(String(genre).toLowerCase())?String(genre).toLowerCase():"all";
  musicDiscoveryMode=true;musicDiscoveryRequestId++;const requestId=musicDiscoveryRequestId;musicGenre=genre;musicSearchTerm="";
@@ -2826,7 +2859,8 @@ async function discoverMusicGenre(genre="all"){
  await searchPublicMusic("",genre,false);
  if(requestId!==musicDiscoveryRequestId||!musicDiscoveryMode||musicGenre!==genre)return;
  try{
-  const videos=await searchYouTubeMusic(query);
+  if(status)status.textContent="Finding "+label+" music across subgenres…";
+  const videos=await searchYouTubeGenreMusic(genre);
   if(requestId!==musicDiscoveryRequestId||!musicDiscoveryMode||musicGenre!==genre)return;
   const known=new Set(musicResults.map(t=>t.id));musicResults=musicResults.concat(videos.filter(t=>!known.has(t.id)));
   if(musicQueueMode!=="playlist")musicQueue=musicResults.slice();

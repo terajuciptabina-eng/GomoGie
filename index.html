@@ -1950,7 +1950,9 @@ function scheduleYouTubeResumeRetries(trackId){
    if(index===1){
     musicYouTubeRetryTimers=[];musicYouTubeRetryTrackId=null;
     let latestState=-1;try{latestState=musicYouTubePlayer.getPlayerState()}catch{}
-    if(latestState!==1){musicResumeNeeded=true;musicPlayerMessage("Playback is still blocked. Tap Resume Playback to continue.")}
+    if(latestState===2){musicResumeNeeded=true;musicPlayerMessage("Playback is paused. Tap Resume Playback to continue.")}
+    else if(latestState===3||latestState===-1||latestState===5){musicResumeNeeded=false;musicPlayerMessage("YouTube is loading or buffering. Playback will continue when ready.")}
+    else if(latestState===1){musicResumeNeeded=false;musicPlayerMessage("Playing video: "+(musicCurrent?.title||""))}
    }
   },delay);
   musicYouTubeRetryTimers.push(timer);
@@ -1979,7 +1981,7 @@ async function playMusicVideo(track){
  if(bottom)bottom.hidden=true;
  if(track.source==="YouTube"&&track.videoId){
   video.pause();video.removeAttribute("src");video.load();video.hidden=true;ytFrame.hidden=false;
-  musicYouTubeCurrentTrackId=track.id;musicYoutubeIsPlaying=false;musicResumeNeeded=false;
+  musicYouTubeCurrentTrackId=track.id;musicYoutubeIsPlaying=false;musicResumeNeeded=false;musicDock.querySelector("#musicDockResume").hidden=true;
   musicDock.querySelector("#musicDockPlay").textContent="▶";
   musicPlayerMessage("Loading official YouTube player: "+track.title);
   try{

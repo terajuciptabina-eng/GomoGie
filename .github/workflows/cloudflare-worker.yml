@@ -72,6 +72,26 @@ jobs:
           print("Validated notification navigation remains inside the GomoGie Pages scope.")
           PY
 
+      - name: Validate Watch video discovery ingestion and diagnostics
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          worker = Path("workers/api/src/index.js").read_text()
+          migration = Path("workers/api/sql/0024_video_discovery_sources.sql").read_text()
+          diagnostics = Path("workers/api/sql/0025_news_source_run_diagnostics.sql").read_text()
+          config = Path("workers/api/wrangler.toml").read_text()
+          required = ["mlstudios-video", "aphd-video", "siakapkeli-video", "astroawani-video", "buletintv3-video", "kinitv-video", "thestar-video", "fmt-video"]
+          for source in required:
+              assert f'id:"{source}"' in worker, f"Worker source missing: {source}"
+          for source in required[3:]:
+              assert source in migration, f"D1 activation migration missing: {source}"
+          assert "staleVideoSource" in worker, "Video mode must inspect every active video source"
+          assert "feedItemCount" in worker and "acceptedCount" in worker and "upsertChanges" in worker
+          assert "gomogie_news_source_runs" in worker and "gomogie_news_source_runs" in diagnostics
+          assert 'crons = ["*/15 * * * *"]' in config
+          print("Validated 8 video sources, active-source refresh, per-source diagnostics and 15-minute Cron.")
+          PY
+
   deploy:
     needs: validate
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'

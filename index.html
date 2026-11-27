@@ -1922,8 +1922,12 @@ function triggerMusicAutoLoad(){
  const nearBottom=scrollRoot.scrollTop+scrollRoot.clientHeight>=scrollRoot.scrollHeight-320;
  if(!nearBottom&&sentinel&&!sentinel.dataset.intersecting)return;
  musicAutoLoadInFlight=true;
+ const previousCount=musicResults.length;
  if(musicMediaFilter!=="video")musicPageNumber++;
- Promise.resolve(searchPublicMusic(musicSearchTerm,musicGenre,true)).finally(()=>{musicAutoLoadInFlight=false});
+ Promise.resolve(searchPublicMusic(musicSearchTerm,musicGenre,true)).finally(()=>{
+  musicAutoLoadInFlight=false;
+  if(musicResults.length>previousCount)requestAnimationFrame(()=>triggerMusicAutoLoad());
+ });
 }
 function setupMusicAutoLoad(){
  const sentinel=document.getElementById("musicLoadMoreSentinel");

@@ -748,6 +748,27 @@ async function route(request, env) {
     return json({ video: { id, url: videoUrl(id), mimeType: "video/mp4", size: file.size, createdAt: now } }, 201);
   }
 
+  if (path === "/v1/message-files" && method === "POST") {
+    const limit=20*1024*1024,declared=Number(request.headers.get("content-length")||0);
+    if(declared>limit+65536)return json({error:"file_size_invalid",message:"Saiz fail maksimum ialah 20 MB."},413);
+    if(!env.MEDIA_BUCKET)return json({error:"media_storage_unavailable",message:"Cloudflare R2 belum tersedia."},503);
+    const form=await request.formData(),file=form.get("file");
+    const allowed=new Set(["application/pdf","text/plain","application/zip","application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","application/msword","application/vnd.ms-excel"]);
+    if(!(file instanceof File)||!file.size||file.size>limit||!allowed.has(file.type))return json({error:"unsupported_file",message:"Fail yang disokong: PDF, DOC/DOCX, XLS/XLSX, TXT dan ZIP sehingga 20 MB."},415);
+    const id=uuid(),now=new Date().toISOString(),name=String(file.name||"attachment").replace(/[^a-zA-Z0-9._ -]/g,"_").slice(0,120)||"attachment",key="users/"+auth.sub+"/messages/"+id;
+    await env.MEDIA_BUCKET.put(key,new Uint8Array(await file.arrayBuffer()),{httpMetadata:{contentType:file.type,cacheControl:"private, no-store"},customMetadata:{ownerId:auth.sub,fileName:name}});
+    try{await env.DB.prepare("INSERT INTO gomogie_message_files (id,owner_id,object_key,file_name,mime_type,size_bytes,created_at) VALUES (?,?,?,?,?,?,?)").bind(id,auth.sub,key,name,file.type,file.size,now).run()}
+    catch(error){await env.MEDIA_BUCKET.delete(key);throw error}
+    return json({file:{id,name,mimeType:file.type,size:file.size,url:"/v1/message-files/"+id}},201);
+  }
+  const messageFileRead=path.match(/^\\/v1\\/message-files\\/([0-9a-f-]+)$/i);
+  if(messageFileRead&&method==="GET"){
+    const asset=await env.DB.prepare("SELECT object_key,file_name,mime_type,size_bytes FROM gomogie_message_files WHERE id=?").bind(messageFileRead[1]).first();
+    if(!asset||!env.MEDIA_BUCKET)return json({error:"file_not_found"},404);
+    const object=await env.MEDIA_BUCKET.get(asset.object_key);if(!object)return json({error:"file_not_found"},404);
+    const disposition=url.searchParams.get("download")==="1"?"attachment":"inline";
+    return new Response(object.body,{headers:{"content-type":asset.mime_type,"content-length":String(asset.size_bytes),"content-disposition":disposition+'; filename="'+asset.file_name.replace(/["\\\\]/g,"_")+'"',"cache-control":"private, no-store","x-content-type-options":"nosniff"}});
+  }
   if (path === "/v1/media" && method === "POST") {
     const declaredLength = Number(request.headers.get("content-length") || 0);
     if (declaredLength > IMAGE_LIMIT + 65536) return json({ error: "file_size_invalid", message: "Saiz gambar maksimum ialah 8 MB." }, 413);
@@ -1349,12 +1370,13 @@ async function route(request, env) {
       ).bind(conversationId, limit).all();
       const now = new Date().toISOString();
       await env.DB.prepare("UPDATE conversation_members SET last_read_at=? WHERE conversation_id=? AND user_id=?").bind(now, conversationId, auth.sub).run();
-      return json({ items: (rows.results || []).reverse().map(row => ({
-        id: row.id, conversationId: row.conversation_id, senderId: row.sender_id,
-        content: row.content, mediaId: row.media_id, status: row.status,
-        createdAt: row.created_at, editedAt: row.edited_at,
-        sender: { username: row.username, displayName: row.display_name || row.username, avatarUrl: row.avatar_url }
-      })) });
+      const messages=[];
+      for(const row of (rows.results||[]).reverse()){
+        const attached=await env.DB.prepare("SELECT attachment_type,media_id,video_id,file_id FROM gomogie_message_attachments WHERE message_id=? ORDER BY position ASC").bind(row.id).all();
+        const attachments=(attached.results||[]).map(item=>({type:item.attachment_type,id:item.media_id||item.video_id||item.file_id,url:item.attachment_type==="image"?mediaUrl(item.media_id):item.attachment_type==="video"?videoUrl(item.video_id):"/v1/message-files/"+item.file_id,downloadUrl:item.attachment_type==="file"?"/v1/message-files/"+item.file_id+"?download=1":null}));
+        messages.push({id:row.id,conversationId:row.conversation_id,senderId:row.sender_id,content:row.content,mediaId:row.media_id,attachments,status:row.status,createdAt:row.created_at,editedAt:row.edited_at,sender:{username:row.username,displayName:row.display_name||row.username,avatarUrl:row.avatar_url}});
+      }
+      return json({items:messages});
     }
     if (method === "POST") {
       const requestRow=await env.DB.prepare("SELECT requester_id,status FROM gomogie_message_requests WHERE conversation_id=?").bind(conversationId).first();
@@ -1363,11 +1385,21 @@ async function route(request, env) {
         if(requestRow.requester_id!==auth.sub||Number(count?.count||0)>0)return json({error:"message_request_pending",message:"Mesej seterusnya hanya boleh dihantar selepas penerima menerima permintaan ini."},403);
       }
       const input = await readJson(request);
-      if (!input || !text(input.content, 4000)) return json({ error: "validation_error", message: "Mesej diperlukan (maksimum 4,000 aksara)." }, 400);
+      const attachments=Array.isArray(input?.attachments)?input.attachments:[];
+      if (!input || (typeof input.content!=="string") || input.content.length>4000 || (!input.content.trim()&&!attachments.length) || attachments.length>10) return json({ error: "validation_error", message: "Tulis mesej atau lampirkan fail (maksimum 10 lampiran)." }, 400);
       const id = uuid(), now = new Date().toISOString();
+      const verified=[];
+      for(const [position,item] of attachments.entries()){
+        if(!item||!["image","video","file"].includes(item.type)||!text(item.id,64))return json({error:"invalid_attachment"},400);
+        const table=item.type==="image"?"gomogie_media_assets":item.type==="video"?"gomogie_video_assets":"gomogie_message_files";
+        const owner=await env.DB.prepare("SELECT id FROM "+table+" WHERE id=? AND owner_id=?"+(item.type==="image"?" AND purpose='message'":"")+(item.type!=="file"?" AND status='ready'":"")).bind(item.id,auth.sub).first();
+        if(!owner)return json({error:"attachment_not_found",message:"Lampiran tidak sah atau bukan milik akaun ini."},404);
+        verified.push({...item,position});
+      }
       await env.DB.prepare(
         "INSERT INTO messages (id,conversation_id,sender_id,content,media_id,status,created_at,edited_at) VALUES (?,?,?,?,NULL,'sent',?,NULL)"
       ).bind(id, conversationId, auth.sub, input.content.trim(), now).run();
+      for(const item of verified)await env.DB.prepare("INSERT INTO gomogie_message_attachments (id,message_id,attachment_type,media_id,video_id,file_id,position,created_at) VALUES (?,?,?,?,?,?,?,?)").bind(uuid(),id,item.type,item.type==="image"?item.id:null,item.type==="video"?item.id:null,item.type==="file"?item.id:null,item.position,now).run();
       const recipient=await env.DB.prepare("SELECT user_id FROM conversation_members WHERE conversation_id=? AND user_id<>? LIMIT 1").bind(conversationId,auth.sub).first();
       if(recipient){
         const isPendingRequest=requestRow?.status==="pending";

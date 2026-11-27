@@ -2957,7 +2957,7 @@ async function searchYouTubeGenreMusic(genre){
  // table has no dedicated genre entry, build genre variants with the selected
  // language name rather than silently mixing generic English results.
  const localizedFallback=label==="all"?[]:[languageLabel+" "+label+" songs",languageLabel+" "+label+" music videos",languageLabel+" "+label+" live performance"];
- const queries=[...new Set((musicLanguage==="all"?baseQueries:localized.concat(localizedBase,localizedFallback)).map(q=>String(q||"").trim()).filter(Boolean))];
+ const queries=[...new Set(((musicLanguage==="all"||musicLanguage==="english")?baseQueries:localized.concat(localizedBase,localizedFallback)).map(q=>String(q||"").trim()).filter(Boolean))];
  const collected=[],seen=new Set();
  // Fan out over focused subgenre queries in small batches. Public Piped and
  // Invidious instances do not expose a dependable shared pagination cursor;

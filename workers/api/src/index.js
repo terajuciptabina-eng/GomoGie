@@ -901,7 +901,7 @@ async function route(request, env) {
     const rows = await env.DB.prepare(
       "SELECT n.id,n.type,n.entity_id,n.is_read,n.created_at,n.actor_id,u.username,p.display_name,p.avatar_url,"+
       "CASE WHEN n.type IN ('comment','mention') THEN COALESCE((SELECT c.post_id FROM comments c WHERE c.id=n.entity_id),(SELECT po.id FROM posts po WHERE po.id=n.entity_id)) WHEN n.type='reaction' THEN n.entity_id END AS post_id,"+
-      "(SELECT substr(po.content,1,160) FROM posts po WHERE po.id=CASE WHEN n.type IN ('comment','mention') THEN COALESCE((SELECT c.post_id FROM comments c WHERE c.id=n.entity_id),(SELECT px.id FROM posts px WHERE px.id=n.entity_id)) WHEN n.type='reaction' THEN n.entity_id END) AS post_preview,"+
+      "(SELECT substr(po.content,1,160) FROM posts po WHERE po.id=CASE WHEN n.type IN ('comment','mention') THEN COALESCE((SELECT c.post_id FROM comments c WHERE c.id=n.entity_id),(SELECT px.id FROM posts px WHERE px.id=n.entity_id)) WHEN n.type IN ('reaction','new_post') THEN n.entity_id END) AS post_preview,"+
       "(SELECT substr(c.content,1,160) FROM comments c WHERE c.id=n.entity_id AND n.type IN ('comment','mention')) AS comment_preview,"+
       "(SELECT c.parent_id FROM comments c WHERE c.id=n.entity_id AND n.type='comment') AS comment_parent_id,"+
       "(SELECT substr(m.content,1,160) FROM messages m WHERE m.conversation_id=n.entity_id AND n.type IN ('message','message_request') ORDER BY m.created_at DESC LIMIT 1) AS message_preview,"+
@@ -1220,11 +1220,11 @@ async function route(request, env) {
     const recipients = new Set([owner?.user_id, parent?.user_id].filter(userId => userId && userId !== auth.sub && !mentionedIds.has(userId)));
     for (const recipientId of recipients) {
       await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)")
-        .bind(uuid(), recipientId, auth.sub, "comment", commentMatch[1], now).run();
+        .bind(uuid(), recipientId, auth.sub, "comment", id, now).run();
       await notifyPushDevices(env,recipientId,{id:commentMatch[1],actorId:auth.sub,type:"comment",preview:input.content.trim().slice(0,120),url:"./"});
     }
     for(const recipient of mentionRecipients){
-      await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),recipient.id,auth.sub,"mention",commentMatch[1],now).run();
+      await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),recipient.id,auth.sub,"mention",id,now).run();
       await notifyPushDevices(env,recipient.id,{id:commentMatch[1],actorId:auth.sub,type:"mention",preview:input.content.trim().slice(0,120),url:"./"});
     }
     return json({ comment: { id, postId: commentMatch[1], userId: auth.sub, parentId: parent?.id || null, content: input.content.trim(), createdAt: now } }, 201);

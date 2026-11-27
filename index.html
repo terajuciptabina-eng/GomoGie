@@ -1031,6 +1031,34 @@ body{background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;te
 .music-playlist-track button{width:34px;height:34px;flex-basis:34px;border-radius:50%;font-size:14px}
 @media(min-width:700px){.music-playlists{grid-template-columns:repeat(2,minmax(0,1fr))}.music-playlist-summary{grid-template-columns:64px minmax(0,1fr) auto}.music-playlist-cover{width:64px;height:64px}}
 @media(max-width:380px){.music-playlist-summary{grid-template-columns:56px minmax(0,1fr) auto;gap:9px}.music-playlist-cover{width:56px;height:56px}.music-playlist-actions button{min-width:34px;height:34px;padding:0 9px}.music-playlist-meta strong{font-size:14px}}
+
+/* Consistent, responsive add-to-playlist sheet */
+.music-playlist-picker{align-items:flex-end;padding:12px;overflow:hidden;overscroll-behavior:contain}
+.music-playlist-picker-panel{display:flex;flex-direction:column;width:min(100%,520px);max-height:min(82dvh,680px);padding:20px;gap:0;border-radius:24px;background:var(--surface,#fff);overflow:hidden}
+.music-playlist-picker-head{flex:0 0 auto;align-items:flex-start;margin:0 0 16px}
+.music-playlist-picker-head h3{font-size:21px;line-height:1.2;font-weight:800}
+.music-playlist-picker-head p{margin:5px 0 0;color:var(--muted);font-size:13px;line-height:1.4}
+.music-playlist-picker-close{flex:0 0 38px;width:38px;height:38px;font-size:22px}
+.music-playlist-picker-track-row{display:flex;align-items:center;gap:11px;padding:11px 12px;margin-bottom:16px;border-radius:14px;background:var(--bg)}
+.music-playlist-picker-track-art{display:flex;align-items:center;justify-content:center;width:42px;height:42px;flex:0 0 42px;border-radius:9px;background:linear-gradient(145deg,#102330,#087f73);color:#fff;font-size:21px}
+.music-playlist-picker-track{min-width:0;margin:0;color:var(--ink);font-size:13px;line-height:1.4;font-weight:650;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.music-playlist-picker-section{min-height:0;display:flex;flex-direction:column}
+.music-playlist-picker-section-title{margin:0 0 9px;font-size:13px;font-weight:800;color:var(--ink)}
+.music-playlist-picker-list{display:grid;gap:7px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;max-height:min(34dvh,280px);padding:1px 2px 4px}
+.music-playlist-picker-option{display:flex;align-items:center;justify-content:flex-start;gap:11px;min-height:60px;padding:9px 11px;border-radius:13px;background:var(--surface);text-align:left}
+.music-playlist-picker-option>img,.music-playlist-picker-option-art{width:42px;height:42px;flex:0 0 42px;object-fit:cover;border-radius:8px}
+.music-playlist-picker-option-art{display:flex;align-items:center;justify-content:center;background:linear-gradient(145deg,#102330,#087f73);color:#fff;font-size:20px}
+.music-playlist-picker-option-copy{display:flex;flex:1;flex-direction:column;gap:3px;min-width:0}
+.music-playlist-picker-option-copy strong{font-size:14px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.music-playlist-picker-option-copy small{font-size:12px;color:var(--muted)}
+.music-playlist-picker-option-add{display:flex;align-items:center;justify-content:center;width:32px;height:32px;flex:0 0 32px;border-radius:50%;background:rgba(0,174,156,.1);color:#087f73;font-size:22px;font-weight:600}
+.music-playlist-picker-create-block{flex:0 0 auto;padding-top:15px;margin-top:12px;border-top:1px solid var(--line)}
+.music-playlist-picker-create{display:flex;gap:8px;margin:0}
+.music-playlist-picker-create input{height:46px;min-height:46px;min-width:0;flex:1;padding:0 13px;border-radius:12px;font:inherit;font-size:14px}
+.music-playlist-picker-create button{min-height:46px;padding:0 16px;border-radius:12px;font-size:14px}
+.music-playlist-picker-keyboard-hint{margin:7px 0 0;font-size:11px;line-height:1.35;color:var(--muted)}
+@media(min-width:600px){.music-playlist-picker{align-items:center}.music-playlist-picker-panel{max-height:min(82vh,680px)}}
+@media(max-width:420px){.music-playlist-picker{padding:8px}.music-playlist-picker-panel{padding:16px;border-radius:21px}.music-playlist-picker-create{flex-direction:column}.music-playlist-picker-create button{width:100%}.music-playlist-picker-list{max-height:30dvh}}
 </style>
 </head>
 <body>
@@ -2539,7 +2567,7 @@ let musicPendingPlaylistTrack=null;
 function ensureMusicPlaylistPicker(){
  let modal=document.getElementById("musicPlaylistPicker");if(modal)return modal;
  modal=document.createElement("div");modal.id="musicPlaylistPicker";modal.className="music-playlist-picker";modal.hidden=true;
- modal.innerHTML='<section class="music-playlist-picker-panel" role="dialog" aria-modal="true" aria-labelledby="musicPlaylistPickerTitle"><div class="music-playlist-picker-head"><h3 id="musicPlaylistPickerTitle">Add to playlist</h3><button type="button" class="music-playlist-picker-close" aria-label="Close">×</button></div><p class="music-playlist-picker-track" id="musicPlaylistPickerTrack"></p><p class="music-playlist-picker-instruction">Choose a playlist below to add this track instantly, or create a new playlist.</p><div class="music-playlist-picker-list" id="musicPlaylistPickerList"></div><div class="music-playlist-picker-create-label">Create a new playlist</div><form class="music-playlist-picker-create" id="musicPlaylistPickerCreate"><input id="musicPlaylistPickerName" type="text" maxlength="60" placeholder="Enter playlist name" aria-label="New playlist name" autocomplete="off" autocapitalize="words" enterkeyhint="done"><button type="submit">Create &amp; Add</button></form></section>';
+ modal.innerHTML='<section class="music-playlist-picker-panel" role="dialog" aria-modal="true" aria-labelledby="musicPlaylistPickerTitle"><div class="music-playlist-picker-head"><div><h3 id="musicPlaylistPickerTitle">Add to playlist</h3><p>Select a playlist to save this track.</p></div><button type="button" class="music-playlist-picker-close" aria-label="Close">×</button></div><div class="music-playlist-picker-track-row"><div class="music-playlist-picker-track-art" aria-hidden="true">♫</div><p class="music-playlist-picker-track" id="musicPlaylistPickerTrack"></p></div><div class="music-playlist-picker-section"><div class="music-playlist-picker-section-title">Your playlists</div><div class="music-playlist-picker-list" id="musicPlaylistPickerList"></div></div><div class="music-playlist-picker-create-block"><div class="music-playlist-picker-section-title">Create new playlist</div><form class="music-playlist-picker-create" id="musicPlaylistPickerCreate"><input id="musicPlaylistPickerName" type="text" maxlength="60" placeholder="Playlist name" aria-label="New playlist name" autocomplete="off" autocapitalize="words" enterkeyhint="done"><button type="submit">Create &amp; Add</button></form><p class="music-playlist-picker-keyboard-hint">Tap the name field to type. The keyboard will stay closed until you select it.</p></div></section>';
  document.body.append(modal);modal.addEventListener("click",e=>{if(e.target===modal||e.target.closest(".music-playlist-picker-close"))closeMusicPlaylistPicker()});
  modal.querySelector("#musicPlaylistPickerCreate").addEventListener("submit",e=>{e.preventDefault();const input=modal.querySelector("#musicPlaylistPickerName"),name=input.value.trim();if(!name)return;const playlist={id:"pl-"+Date.now().toString(36),name,tracks:[]};musicPlaylists.push(playlist);saveMusicPlaylists();renderMusicPlaylists();input.value="";if(musicPendingPlaylistTrack)addMusicToPlaylist(musicPendingPlaylistTrack,playlist.id);closeMusicPlaylistPicker()});
  return modal;
@@ -2547,7 +2575,7 @@ function ensureMusicPlaylistPicker(){
 function openMusicPlaylistPicker(track){
  if(!track)return;musicPendingPlaylistTrack=track;const modal=ensureMusicPlaylistPicker(),list=modal.querySelector("#musicPlaylistPickerList");
  modal.querySelector("#musicPlaylistPickerTrack").textContent=track.title+" · "+(track.artist||"Unknown artist");
- list.innerHTML=musicPlaylists.length?musicPlaylists.map(p=>'<button type="button" class="music-playlist-picker-option" data-pick-music-playlist="'+esc(p.id)+'"><span>'+esc(p.name)+'</span><small>'+(p.tracks||[]).length+' tracks</small></button>').join(""):'<p class="music-empty">You have no playlists yet. Create one below to save this track.</p>';
+ list.innerHTML=musicPlaylists.length?musicPlaylists.map(p=>{const tracks=p.tracks||[],art=tracks.find(t=>t.art)?.art;return '<button type="button" class="music-playlist-picker-option" data-pick-music-playlist="'+esc(p.id)+'">'+(art?'<img src="'+esc(art)+'" alt="" loading="lazy">' : '<span class="music-playlist-picker-option-art" aria-hidden="true">♫</span>')+'<span class="music-playlist-picker-option-copy"><strong>'+esc(p.name)+'</strong><small>'+tracks.length+' tracks</small></span><span class="music-playlist-picker-option-add" aria-hidden="true">＋</span></button>'}).join(""):'<p class="music-empty">No playlists yet. Create your first playlist below.</p>';
  list.querySelectorAll("[data-pick-music-playlist]").forEach(b=>b.onclick=()=>{const id=b.dataset.pickMusicPlaylist;if(musicPendingPlaylistTrack)addMusicToPlaylist(musicPendingPlaylistTrack,id);closeMusicPlaylistPicker()});
  modal.hidden=false;
 }

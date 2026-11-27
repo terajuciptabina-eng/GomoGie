@@ -1071,6 +1071,13 @@ body{background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;te
 .music-playlist-card:not(.is-expanded) .music-playlist-summary{margin-bottom:0}
 .music-playlist-card.is-expanded .music-playlist-track-list{animation:playlistReveal .18s ease-out}
 @keyframes playlistReveal{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+
+/* Music page: use one bottom-nav clearance, not stacked page/layout/body padding. */
+@media(max-width:700px){
+ body:has(.music-page){padding-bottom:0!important}
+ .layout:has(.music-page){padding-bottom:calc(76px + env(safe-area-inset-bottom))!important}
+ .music-page{padding-bottom:0!important}
+}
 </style>
 </head>
 <body>

@@ -1472,7 +1472,7 @@ async function route(request, env) {
         const isPendingRequest=requestRow?.status==="pending";
         const preview=input.content.trim().replace(/\s+/g," ").slice(0,120);
         try{await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),recipient.user_id,auth.sub,isPendingRequest?"message_request":"message",conversationId,now).run();}catch(error){console.error("New message in-app notification failed",conversationId,error);}
-        try{await notifyPushDevices(env,recipient.user_id,{id,actorId:auth.sub,type:isPendingRequest?"message_request":"message",preview});}catch(error){console.error("New message push notification failed",conversationId,error);}
+        try{await notifyPushDevices(env,recipient.user_id,{id,actorId:auth.sub,type:isPendingRequest?"message_request":"message",preview,entityId:conversationId});}catch(error){console.error("New message push notification failed",conversationId,error);}
       }
       return json({ message: { id, conversationId, senderId: auth.sub, content: input.content.trim(), mediaId: null, status: "sent", createdAt: now } }, 201);
     }

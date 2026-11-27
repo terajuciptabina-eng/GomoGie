@@ -1163,7 +1163,7 @@ body{background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;te
 <section class="auth-layer" id="authLayer" hidden><form class="auth-dialog" id="loginForm"><button class="auth-close" type="button" id="closeAuth" aria-label="Close">×</button><h2 id="authTitle">Welcome back</h2><p id="authIntro">Log in to your GomoGie account.</p><div id="loginFields"><label>Email or username<input name="login" autocomplete="username" required maxlength="254"></label><label>Password<input name="password" type="password" autocomplete="current-password" required maxlength="128"></label><label class="remember-login"><input type="checkbox" id="rememberLogin" checked> Remember my username on this device</label></div><div id="registerFields" hidden><label>Display name<input name="displayName" autocomplete="name" maxlength="60"></label><label>Username<input name="username" autocomplete="username" minlength="3" maxlength="24" pattern="[A-Za-z0-9_]{3,24}"></label><label>Email<input name="email" type="email" autocomplete="email" maxlength="254"></label><label>Password (minimum 9 characters)<input name="registerPassword" type="password" autocomplete="new-password" minlength="9" maxlength="128"></label></div><p class="auth-error" id="authError" role="alert"></p><button class="primary" type="submit" id="loginSubmit">Log in</button><small id="authSwitchText">New to GomoGie? <button type="button" id="showRegister" class="auth-switch">Create account</button></small></form></section>
 <script>
 const labels={home:["⌂","Home"],pulse:["⌁","Pulse"],watch:["▷","Watch"],music:["♫","Music"],communities:["♧","Communities"],connect:["✉","Connect"],studio:["▤","Studio"],profile:["◉","Profile"]};
-let viralNewsItems=[],viralNewsGlobalItems=[],viralNewsArchiveItems=[],viralVideoItems=[],newsContentFilter="all",newsPreferences={region:"MY",interests:["national","politics","business","technology","sports","entertainment","world","lifestyle"]},newsMode="for-you",pulseVisibleCount=12,pulseLoadBusy=false,pulseHasMore=true,watchNewsVisibleCount=8,watchPostVisibleCount=8,watchLoadBusy=false,watchHasMore=true,watchNewsHasMore=true,watchPostsHasMore=true,watchSectionMode="discovery",watchDiscoveryRefreshBusy=false,watchLastDiscoveryRefresh=0;
+let viralNewsItems=[],viralNewsGlobalItems=[],viralNewsArchiveItems=[],viralVideoItems=[],newsContentFilter="all",newsPreferences={region:"MY",interests:["national","politics","business","technology","sports","entertainment","world","lifestyle"]},newsMode="for-you",pulseVisibleCount=12,pulseLoadBusy=false,pulseHasMore=true,watchNewsVisibleCount=8,watchPostVisibleCount=8,watchLoadBusy=false,watchHasMore=true,watchNewsHasMore=true,watchPostsHasMore=true,watchSectionMode="discovery";
 let lastMobileNavTapAt=0,lastMobileNavTapPage="",accounts=[],mentionProfiles=new Map(),posts=[],followingFeedPosts=[],feedMode="for-you",active="home",watchMode="for-you",watchAudioUnlocked=false,liked=new Set(),followed=new Set(),selectedProfileId=null,profileTab="posts",editingProfile=false,profileDraft={},savedPosts=new Set(),localPendingPosts=[],composerImageFile=null,composerImagePreview="",composerVideoFile=null,composerVideoPreview="",composerMediaFiles=[],searchQuery="";
 const view=document.getElementById("view");
 const API_BASE="https://gomogie-api.terajuciptabina.workers.dev";
@@ -1370,7 +1370,7 @@ function postLinkPreview(value){
  }catch{return ""}
 }
 const account=id=>accounts.find(a=>a.id===id)||null;
-function nav(){const html=Object.entries(labels).map(([k,v])=>'<button data-page="'+k+'" class="'+(active===k?'active':'')+'"><span class="ico">'+v[0]+'</span>'+v[1]+'</button>').join("");document.getElementById("sideNav").innerHTML=html;document.getElementById("mobileNav").innerHTML=Object.entries(labels).filter(([k])=>k!=="studio"&&k!=="profile").map(([k,v])=>'<button data-page="'+k+'" class="'+(active===k?'active':'')+'"><span>'+v[0]+'</span>'+v[1]+'</button>').join("");document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>{const page=b.dataset.page,isMobile=b.closest("#mobileNav");if(isMobile){const now=Date.now();if(lastMobileNavTapPage===page&&now-lastMobileNavTapAt<500){lastMobileNavTapAt=0;lastMobileNavTapPage="";window.scrollTo({top:0,behavior:"smooth"});document.documentElement.scrollTo({top:0,behavior:"smooth"});return}lastMobileNavTapAt=now;lastMobileNavTapPage=page}if(page==="profile"&&!currentUser){openAuth("login");return}document.body.classList.remove("connect-chat-open");const openThread=document.getElementById("messageThread");if(openThread)openThread.hidden=true;document.querySelector(".connect-shell")?.classList.remove("chat-active");if(musicCurrent&&musicDock&&musicReopen&&!musicDockMinimized){musicDockMinimized=true;musicDock.hidden=true;musicReopen.hidden=false}active=page;if(active==="profile")selectedProfileId=currentUser.id;editingProfile=false;render();if(page==="watch"&&watchSectionMode==="discovery"&&Date.now()-watchLastDiscoveryRefresh>5*60*1000)refreshWatchDiscovery({silent:true})})}
+function nav(){const html=Object.entries(labels).map(([k,v])=>'<button data-page="'+k+'" class="'+(active===k?'active':'')+'"><span class="ico">'+v[0]+'</span>'+v[1]+'</button>').join("");document.getElementById("sideNav").innerHTML=html;document.getElementById("mobileNav").innerHTML=Object.entries(labels).filter(([k])=>k!=="studio"&&k!=="profile").map(([k,v])=>'<button data-page="'+k+'" class="'+(active===k?'active':'')+'"><span>'+v[0]+'</span>'+v[1]+'</button>').join("");document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>{const page=b.dataset.page,isMobile=b.closest("#mobileNav");if(isMobile){const now=Date.now();if(lastMobileNavTapPage===page&&now-lastMobileNavTapAt<500){lastMobileNavTapAt=0;lastMobileNavTapPage="";window.scrollTo({top:0,behavior:"smooth"});document.documentElement.scrollTo({top:0,behavior:"smooth"});return}lastMobileNavTapAt=now;lastMobileNavTapPage=page}if(page==="profile"&&!currentUser){openAuth("login");return}document.body.classList.remove("connect-chat-open");const openThread=document.getElementById("messageThread");if(openThread)openThread.hidden=true;document.querySelector(".connect-shell")?.classList.remove("chat-active");if(musicCurrent&&musicDock&&musicReopen&&!musicDockMinimized){musicDockMinimized=true;musicDock.hidden=true;musicReopen.hidden=false}active=page;if(active==="profile")selectedProfileId=currentUser.id;editingProfile=false;render()})}
 function stories(){
  const demo=accounts.filter(a=>a.isSynthetic).slice(0,6),live=accounts.filter(a=>!a.isSynthetic).slice(0,6),people=[...demo,...live];
  return people.length?'<div class="stories">'+people.map(a=>'<div class="story" data-open-profile="'+esc(a.id)+'"><img src="'+esc(a.avatarUrl||"")+'" alt=""><div>'+esc((a.displayName||a.handle||"Member").split(" ")[0])+'</div>'+(a.isSynthetic?'<small class="story-demo-label">Demo</small>':'')+'</div>').join("")+'</div>':"";
@@ -1418,31 +1418,6 @@ async function loadViralNews(){
    viralNewsItems=[];viralNewsGlobalItems=[];viralNewsArchiveItems=[];viralVideoItems=[];
   }
  }
-}
-async function refreshWatchDiscovery({silent=false}={}){
- if(watchDiscoveryRefreshBusy)return false;
- if(!navigator.onLine){const status=document.getElementById("watchLoadStatus");if(status&&!silent)status.textContent="You're offline. Showing the latest saved videos.";return false}
- watchDiscoveryRefreshBusy=true;
- const button=document.getElementById("watchDiscoveryRefresh");if(button){button.disabled=true;button.textContent="Refreshing…"}
- const status=document.getElementById("watchLoadStatus");if(status&&!silent)status.textContent="Checking for new videos…";
- try{
-  const response=await apiRequest("/v1/news?mode=videos&limit=30");
-  const incoming=Array.isArray(response.items)?response.items:[];
-  const byId=new Map();
-  [...incoming,...viralVideoItems].forEach(item=>{if(item&&item.id){const id=String(item.id);if(!byId.has(id))byId.set(id,item)}});
-  const refreshed=incoming.filter(item=>item&&item.id);
-  const older=viralVideoItems.filter(item=>item&&item.id&&!refreshed.some(next=>String(next.id)===String(item.id)));
-  viralVideoItems=[...refreshed,...older];
-  watchNewsHasMore=incoming.length>=30;
-  watchNewsVisibleCount=Math.max(8,Math.min(watchNewsVisibleCount,viralVideoItems.length));
-  watchHasMore=watchNewsHasMore||watchNewsVisibleCount<viralVideoItems.length;
-  watchLastDiscoveryRefresh=Date.now();
-  try{const cached=await localGet("last-live-news");if(cached)await localSet("last-live-news",{...cached,videos:viralVideoItems,savedAt:Date.now()})}catch(error){console.warn("Watch discovery cache update deferred:",error)}
-  if(active==="watch"&&watchSectionMode==="discovery")renderKeepingFeedPosition();
-  const nextStatus=document.getElementById("watchLoadStatus");if(nextStatus)nextStatus.textContent=refreshed.length?"Discovery checked just now.":"No new videos yet. We'll check again automatically.";
-  return true;
- }catch(error){console.warn("Watch discovery refresh failed:",error);const nextStatus=document.getElementById("watchLoadStatus");if(nextStatus&&!silent)nextStatus.textContent="Couldn't refresh videos. Your current list is still available.";return false}
- finally{watchDiscoveryRefreshBusy=false;const nextButton=document.getElementById("watchDiscoveryRefresh");if(nextButton){nextButton.disabled=false;nextButton.textContent="↻ Refresh"} }
 }
 const NEWS_READ_STORAGE_KEY="gomogie.news.read.v1";
 function getReadNewsIds(){try{return new Set(JSON.parse(localStorage.getItem(NEWS_READ_STORAGE_KEY)||"[]"))}catch{return new Set()}}
@@ -1532,7 +1507,7 @@ function pulse(){
 function watch(){
  const readVideoNewsIds=getReadNewsIds();
  const videoDiscoveryItems=dedupeViralNews([...new Map(viralVideoItems.filter(item=>item&&(item.content_type==="video"||item.content_type==="documentary"||!!item.embed_url)&&!readVideoNewsIds.has(String(item.id))).map(item=>[String(item.id),item])).values()]);
- const videoDiscovery=watchSectionMode==="discovery"&&videoDiscoveryItems.length?'<section class="watch-discovery"><div class="viral-news-heading"><div><span class="viral-news-kicker">CONTENT DISCOVERY</span><h3>▶ Videos for you</h3><p class="pulse-intro">Discover videos from publishers and creators.</p></div><button type="button" id="watchDiscoveryRefresh" aria-label="Refresh video discovery">↻ Refresh</button></div>'+videoDiscoveryItems.slice(0,watchNewsVisibleCount).map(viralNewsCard).join("")+'</section>':"";
+ const videoDiscovery=watchSectionMode==="discovery"&&videoDiscoveryItems.length?'<section class="watch-discovery"><div class="viral-news-heading"><div><span class="viral-news-kicker">CONTENT DISCOVERY</span><h3>▶ Videos for you</h3><p class="pulse-intro">Discover videos from publishers and creators.</p></div></div>'+videoDiscoveryItems.slice(0,watchNewsVisibleCount).map(viralNewsCard).join("")+'</section>':"";
  const seenMedia=new Set();
  const watchPostSource=watchMode==="following"?followingFeedPosts:posts;
  const vids=watchPostSource.filter(p=>p.type==="video"&&!p.isWatchDuplicate&&(watchMode==="for-you"||followed.has(p.authorId))&&p.mediaUrl&&!seenMedia.has(p.mediaUrl)&&seenMedia.add(p.mediaUrl));
@@ -1541,8 +1516,7 @@ function watch(){
  const watchSentinel=document.createElement("div");watchSentinel.id="watchLoadSentinel";watchSentinel.className="feed-load-sentinel";watchSentinel.setAttribute("aria-hidden","true");(view.querySelector("#watchStream")||view.querySelector(".watch-page"))?.append(watchSentinel);const watchStatus=document.createElement("p");watchStatus.id="watchLoadStatus";watchStatus.className="feed-load-status";watchStatus.setAttribute("aria-live","polite");watchStatus.textContent="";view.querySelector(".watch-page")?.append(watchStatus);setupWatchAutoLoad(watchSectionMode==="discovery"?videoDiscoveryItems.length:0,watchSectionMode==="reels"?vids.length:0);
  const reelsTab=document.getElementById("watchReelsTab"),discoveryTab=document.getElementById("watchDiscoveryTab");
  if(reelsTab)reelsTab.onclick=()=>{if(watchSectionMode==="reels")return;watchSectionMode="reels";watchPostVisibleCount=8;watchPostsHasMore=true;watchHasMore=true;render()};
- if(discoveryTab)discoveryTab.onclick=()=>{if(watchSectionMode==="discovery")return;watchSectionMode="discovery";watchNewsVisibleCount=8;watchNewsHasMore=true;watchHasMore=true;render();refreshWatchDiscovery({silent:true})};
- const refreshDiscoveryButton=document.getElementById("watchDiscoveryRefresh");if(refreshDiscoveryButton)refreshDiscoveryButton.onclick=()=>refreshWatchDiscovery();
+ if(discoveryTab)discoveryTab.onclick=()=>{if(watchSectionMode==="discovery")return;watchSectionMode="discovery";watchNewsVisibleCount=8;watchNewsHasMore=true;watchHasMore=true;render()};
  const fy=document.getElementById("forYouTab"),ft=document.getElementById("followingTab");
  if(fy)fy.onclick=()=>{watchMode="for-you";watchPostVisibleCount=8;watchPostsHasMore=true;watchHasMore=true;render()};
  if(ft)ft.onclick=()=>{watchMode="following";watchPostVisibleCount=8;watchPostsHasMore=true;watchHasMore=true;render()};
@@ -3169,8 +3143,6 @@ document.addEventListener("error",event=>{
  }
 },{capture:true});
 
-document.addEventListener("visibilitychange",()=>{if(!document.hidden&&active==="watch"&&watchSectionMode==="discovery"&&Date.now()-watchLastDiscoveryRefresh>5*60*1000)refreshWatchDiscovery({silent:true})});
-setInterval(()=>{if(!document.hidden&&active==="watch"&&watchSectionMode==="discovery"&&Date.now()-watchLastDiscoveryRefresh>10*60*1000)refreshWatchDiscovery({silent:true})},60*1000);
 async function loadGomoGieData(){
  accounts=[];posts=[];localPendingPosts=[];
  let liveAccounts=[],livePosts=[];

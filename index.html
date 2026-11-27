@@ -1822,7 +1822,7 @@ async function searchPublicMusicVideos(term="",genre="all",page=1){
    const adultContent=/(\btopless\b|\bnude\b|\bnudity\b|\bnaked\b|\bporn(?:ography)?\b|\bxxx\b|\berotic\b|\bsex(?:ual)?\b|\bstrip(?:per|tease)?\b|\bfetish\b|\badult content\b|\bexplicit\b|\bprovocative\b)/i;
    if(!title||adultContent.test(hay))return null;
    // "Music video" alone is not proof that an item is a music performance.
-   const musicEvidence=/(\bconcert\b|\bsong\b|\bsinger\b|\bsinging\b|\bsongwriter\b|\bband\b|\bmusician\b|\borchestra\b|\brecital\b|\bmusical performance\b|\blive performance\b|\bmusic recording\b|\binstrumental\b|\bguitar\b|\bpiano\b|\bdrum(?:s)?\b|\bchoir\b|\bvocal(?:s)?\b|\bkaraoke\b|\balbum\b|\bsoundtrack\b|\bmusic video\b)/i;
+   const musicEvidence=/(\bconcert\b|\bsong\b|\bsinger\b|\bsinging\b|\bsongwriter\b|\bband\b|\bmusician\b|\borchestra\b|\brecital\b|\bmusical performance\b|\blive performance\b|\bmusic recording\b|\binstrumental\b|\bguitar\b|\bpiano\b|\bdrum(?:s)?\b|\bchoir\b|\bvocal(?:s)?\b|\bkaraoke\b|\balbum\b|\bsoundtrack\b)/i;
    if(!musicEvidence.test(hay)||/(lecture|interview|audiobook|sermon|tutorial|commercial|advertisement)/i.test(hay))return null;
    const files=(meta.files||[]).filter(x=>x.name&&/\.mp4$/i.test(x.name)&&(!x.size||Number(x.size)>0)).sort((a,b)=>Number(b.size||0)-Number(a.size||0));
    if(!files.length)return null;

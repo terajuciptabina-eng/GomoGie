@@ -2450,7 +2450,7 @@ async function searchYouTubeMusic(term){
  for(let attempt=0;attempt<MUSIC_YOUTUBE_APIS.length;attempt++){
   const base=MUSIC_YOUTUBE_APIS[(musicYoutubeApiCursor+attempt)%MUSIC_YOUTUBE_APIS.length];
   try{
-   const response=await fetch(base+"/search?"+new URLSearchParams({q:query+" music",filter:"videos"}).toString(),{headers:{accept:"application/json"}});
+   const response=await fetchMusicWithTimeout(base+"/search?"+new URLSearchParams({q:query+" music",filter:"videos"}).toString(),{headers:{accept:"application/json"}},8000);
    if(!response.ok)throw new Error("Piped HTTP "+response.status);
    const data=await response.json(),items=Array.isArray(data.items)?data.items:[];
    const tracks=items.map(item=>{const videoId=String(item.url||"").match(/[?&]v=([^&]+)/)?.[1]||item.videoId||"";if(!videoId)return null;return {id:"youtube:"+videoId,videoId,title:String(item.title||"YouTube video"),artist:String(item.uploaderName||item.uploader||"YouTube channel"),year:String(item.uploadedDate||"").slice(0,4),license:"YouTube · official player",source:"YouTube",mediaType:"video",art:item.thumbnail||"",url:"https://www.youtube.com/watch?v="+encodeURIComponent(videoId)}}).filter(Boolean);
@@ -2460,7 +2460,7 @@ async function searchYouTubeMusic(term){
  }
  for(const base of MUSIC_INVIDIOUS_APIS){
   try{
-   const response=await fetch(base+"/api/v1/search?"+new URLSearchParams({q:query+" music",type:"video"}).toString(),{headers:{accept:"application/json"}});
+   const response=await fetchMusicWithTimeout(base+"/api/v1/search?"+new URLSearchParams({q:query+" music",type:"video"}).toString(),{headers:{accept:"application/json"}},8000);
    if(!response.ok)throw new Error("Invidious HTTP "+response.status);
    const items=await response.json();
    const tracks=(Array.isArray(items)?items:[]).filter(item=>item.type==="video"&&item.videoId).map(item=>({id:"youtube:"+item.videoId,videoId:item.videoId,title:String(item.title||"YouTube video"),artist:String(item.author||"YouTube channel"),year:item.published?String(new Date(item.published*1000).getFullYear()):"",license:"YouTube · official player",source:"YouTube",mediaType:"video",art:item.videoThumbnails?.find(x=>x.quality==="medium")?.url||item.videoThumbnails?.[0]?.url||"",url:"https://www.youtube.com/watch?v="+encodeURIComponent(item.videoId)}));
@@ -2810,6 +2810,42 @@ function runMusicSearchWithCache(term,genre="all"){
   if(status)status.textContent=musicResults.filter(musicSearchRelevance).length+" matching results, including YouTube videos.";
  }).catch(error=>console.warn("YouTube Music search failed",error));
 }
+async function searchYouTubeGenreMusic(genre){
+ const label=String(genre||"all").toLowerCase();
+ const searches={
+  rock:["rock music official music videos","classic rock official music videos","hard rock official music videos","alternative rock official music videos","indie rock official music videos","punk rock official music videos","grunge rock official music videos","progressive rock official music videos","70s rock greatest hits official videos","80s rock official music videos","90s rock official music videos","2000s rock official music videos"],
+  pop:["pop music official music videos","classic pop hits official music videos","80s pop official music videos","90s pop official music videos"],
+  jazz:["jazz music live performance","classic jazz songs","smooth jazz instrumental","bebop jazz performance"],
+  electronic:["electronic music official videos","house music official videos","techno music live set","trance music official videos"],
+  classical:["classical music orchestra performance","piano classical music performance","symphony orchestra concert"],
+  "hip-hop":["hip hop official music videos","classic hip hop official videos","rap music official videos"],
+  "r&b":["r&b official music videos","soul music official videos","classic rhythm and blues songs"],
+  country:["country music official music videos","classic country songs","modern country official videos"],
+  folk:["folk music live performance","traditional folk songs","acoustic folk music"],
+  metal:["heavy metal official music videos","thrash metal official music videos","power metal official music videos","death metal official music videos"],
+  reggae:["reggae official music videos","roots reggae live performance","ska music official videos"],
+  dangdut:["dangdut official music videos","dangdut koplo official videos"],
+  world:["world music live performance","latin music official videos","african music performance","indian classical music performance"],
+  ambient:["ambient music instrumental","ambient electronic live performance"],
+  instrumental:["instrumental guitar music","instrumental piano music","orchestral instrumental music"]
+ };
+ const queries=searches[label]||[label+" music official videos",label+" live music performance",label+" classic songs"];
+ const collected=[],seen=new Set();
+ // Run only three focused searches at a time to balance catalogue breadth and
+ // public-instance load. Each request has a bounded timeout and fallback.
+ for(let i=0;i<queries.length;i+=3){
+  const batchResults=await Promise.allSettled(queries.slice(i,i+3).map(query=>searchYouTubeMusic(query)));
+  for(let j=0;j<batchResults.length;j++){
+   const result=batchResults[j];
+   if(result.status!=="fulfilled"){console.warn("YouTube genre query unavailable:",queries[i+j],result.reason);continue}
+   for(const track of result.value){
+    if(!track?.videoId||seen.has(track.videoId))continue;
+    seen.add(track.videoId);collected.push(track);
+   }
+  }
+ }
+ return collected;
+}
 async function discoverMusicGenre(genre="all"){
  const allowed=musicGenres.map(g=>g.toLowerCase());genre=allowed.includes(String(genre).toLowerCase())?String(genre).toLowerCase():"all";
  musicDiscoveryMode=true;musicDiscoveryRequestId++;const requestId=musicDiscoveryRequestId;musicGenre=genre;musicSearchTerm="";
@@ -2826,7 +2862,8 @@ async function discoverMusicGenre(genre="all"){
  await searchPublicMusic("",genre,false);
  if(requestId!==musicDiscoveryRequestId||!musicDiscoveryMode||musicGenre!==genre)return;
  try{
-  const videos=await searchYouTubeMusic(query);
+  if(status)status.textContent="Finding "+label+" music across subgenres…";
+  const videos=await searchYouTubeGenreMusic(genre);
   if(requestId!==musicDiscoveryRequestId||!musicDiscoveryMode||musicGenre!==genre)return;
   const known=new Set(musicResults.map(t=>t.id));musicResults=musicResults.concat(videos.filter(t=>!known.has(t.id)));
   if(musicQueueMode!=="playlist")musicQueue=musicResults.slice();

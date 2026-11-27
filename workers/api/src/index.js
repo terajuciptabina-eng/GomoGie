@@ -1373,7 +1373,7 @@ async function route(request, env) {
       const messages=[];
       for(const row of (rows.results||[]).reverse()){
         const attached=await env.DB.prepare("SELECT a.attachment_type,a.media_id,a.video_id,a.file_id,f.file_name FROM gomogie_message_attachments a LEFT JOIN gomogie_message_files f ON f.id=a.file_id WHERE a.message_id=? ORDER BY a.position ASC").bind(row.id).all();
-        const attachments=(attached.results||[]).map(item=>({type:item.attachment_type,id:item.media_id||item.video_id||item.file_id,url:item.attachment_type==="image"?mediaUrl(item.media_id):item.attachment_type==="video"?videoUrl(item.video_id):"/v1/message-files/"+item.file_id,downloadUrl:item.attachment_type==="file"?"/v1/message-files/"+item.file_id+"?download=1":null}));
+        const attachments=(attached.results||[]).map(item=>({type:item.attachment_type,id:item.media_id||item.video_id||item.file_id,url:item.attachment_type==="image"?mediaUrl(item.media_id):item.attachment_type==="video"?videoUrl(item.video_id):"/v1/message-files/"+item.file_id,name:item.file_name||null,downloadUrl:item.attachment_type==="file"?"/v1/message-files/"+item.file_id+"?download=1":null}));
         messages.push({id:row.id,conversationId:row.conversation_id,senderId:row.sender_id,content:row.content,mediaId:row.media_id,attachments,status:row.status,createdAt:row.created_at,editedAt:row.edited_at,sender:{username:row.username,displayName:row.display_name||row.username,avatarUrl:row.avatar_url}});
       }
       return json({items:messages});

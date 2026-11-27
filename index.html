@@ -923,7 +923,29 @@ body{background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;te
 .chat-empty,.chat-loading{min-height:220px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#7b8b91}.chat-empty span{font-size:30px;color:#00a994}.chat-empty strong{color:#263840}.chat-empty small{font-size:13px}
 .chat-composer{padding:12px 14px calc(14px + env(safe-area-inset-bottom));border-top:1px solid #edf1f2;background:#fff}.chat-composer-tools{display:flex;align-items:center;gap:8px;margin-bottom:10px}.chat-attach-button{width:36px;height:36px;border:0;border-radius:12px;background:#eff7f5;color:#008f80;font-size:21px}.chat-attach-hint{font-size:11px;color:#89969b}.chat-upload-status{margin-left:auto;font-size:11px;color:#008f80}.chat-compose-row{display:flex;align-items:flex-end;gap:9px}.chat-compose-row textarea{flex:1;min-width:0;max-height:120px;min-height:48px;resize:none;border:1px solid #dce6e7;border-radius:17px;padding:13px 15px;font:inherit;font-size:15px;line-height:1.4;background:#f9fbfb;outline:none}.chat-compose-row textarea:focus{border-color:#8bd8cc;box-shadow:0 0 0 3px #dff7f2}.chat-send-button{width:48px;height:48px;flex:0 0 48px;border:0;border-radius:16px;background:#10212d;color:white;font-size:26px}.chat-send-button:disabled{opacity:.5}.chat-attachment-preview{display:flex;gap:7px;overflow:auto;padding:3px 0 10px}.chat-selected-file{display:flex;align-items:center;gap:6px;flex:0 0 auto;max-width:220px;padding:7px 9px;border-radius:10px;background:#eff7f5;color:#38545a;font-size:11px}.chat-selected-file button{border:0;border-radius:50%;background:#dbece8;color:#35545a}
 @media(max-width:700px){.connect-shell{padding:15px;border-radius:21px}.connect-heading{align-items:flex-start;flex-direction:column}.connect-heading>.primary{width:100%}.connect-thread{margin-bottom:12px}.chat-history{max-height:55dvh;min-height:220px;padding:15px 12px}.chat-bubble{max-width:88%}.chat-head{padding:14px 15px}.chat-composer{padding:10px 11px calc(12px + env(safe-area-inset-bottom))}}
-.connect-shell.chat-active{display:none}@media(min-width:701px){.connect-shell.chat-active{display:block}}</style>
+.connect-shell.chat-active{display:none}@media(min-width:701px){.connect-shell.chat-active{display:block}}
+/* Mobile chat is a locked viewport card; only the message history scrolls. */
+@media(max-width:700px){
+ body.connect-chat-open{overflow:hidden!important;overscroll-behavior:none}
+ body.connect-chat-open .layout{overflow:visible}
+ body.connect-chat-open .connect-thread:not([hidden]){
+  position:fixed!important;z-index:18!important;left:10px!important;right:10px!important;top:70px!important;
+  bottom:calc(78px + env(safe-area-inset-bottom))!important;width:auto!important;height:auto!important;
+  min-height:0!important;max-height:none!important;margin:0!important;padding:0!important;
+  display:flex!important;flex-direction:column!important;overflow:hidden!important;
+  border-radius:24px!important;box-shadow:0 12px 40px rgba(16,38,46,.12)!important;
+ }
+ body.connect-chat-open .chat-head{flex:0 0 auto}
+ body.connect-chat-open .chat-history{
+  flex:1 1 0!important;min-height:0!important;height:auto!important;max-height:none!important;
+  overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior-y:contain!important;
+  -webkit-overflow-scrolling:touch!important;touch-action:pan-y!important;
+ }
+ body.connect-chat-open .chat-composer{flex:0 0 auto!important;padding-bottom:calc(10px + env(safe-area-inset-bottom))!important}
+ body.connect-chat-open .chat-compose-row textarea{max-height:92px}
+}
+.connect-thread[hidden]{display:none!important}
+</style>
 </head>
 <body>
 <div class="connection-notice" id="connectionNotice" role="status" aria-live="polite">You are offline. Showing your last loaded feed.</div>
@@ -1602,7 +1624,7 @@ async function uploadMessageFile(file){
  return payload.file;
 }
 async function openConversation(id,title){
- const panel=document.getElementById("messageThread");if(!panel)return;panel.hidden=false;document.querySelector(".connect-shell")?.classList.add("chat-active");
+ const panel=document.getElementById("messageThread");if(!panel)return;panel.hidden=false;document.querySelector(".connect-shell")?.classList.add("chat-active");document.body.classList.add("connect-chat-open");
  panel.innerHTML='<header class="chat-head"><div><h3>'+esc(title)+'</h3><small>Private conversation</small></div><button type="button" class="chat-close" id="closeMessageThread" aria-label="Close conversation">×</button></header><div class="chat-loading">Loading conversation…</div>';
  try{
   const data=await apiRequest("/v1/conversations/"+encodeURIComponent(id)+"/messages"),items=data.items||[];
@@ -1621,7 +1643,7 @@ async function openConversation(id,title){
   document.getElementById("chatFileInput").onchange=e=>{addFiles(e.target.files,"file");e.target.value=""};
   preview.onclick=e=>{const b=e.target.closest("[data-remove-chat-file]");if(b){selected.splice(Number(b.dataset.removeChatFile),1);renderSelected()}};
   panel.addEventListener("click",async event=>{const download=event.target.closest("[data-download-message-file]");if(!download)return;download.disabled=true;try{const token=await getToken(),response=await fetch(API_BASE+download.dataset.downloadMessageFile,{headers:{authorization:"Bearer "+token}});if(!response.ok)throw new Error("Unable to download attachment.");const blob=await response.blob(),url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=download.dataset.fileName||"attachment";document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000)}catch(error){alert(error.message)}finally{download.disabled=false}});
-  document.getElementById("closeMessageThread").onclick=()=>{panel.hidden=true;document.querySelector(".connect-shell")?.classList.remove("chat-active")};
+  document.getElementById("closeMessageThread").onclick=()=>{panel.hidden=true;document.querySelector(".connect-shell")?.classList.remove("chat-active");document.body.classList.remove("connect-chat-open")};
   input.addEventListener("input",()=>{input.style.height="auto";input.style.height=Math.min(input.scrollHeight,120)+"px"});
   form.onsubmit=async e=>{e.preventDefault();const content=input.value.trim();if(!content&&!selected.length)return;const button=form.querySelector(".chat-send-button");button.disabled=true;status.textContent="Sending…";
    try{const attachments=[];for(let index=0;index<selected.length;index++){const item=selected[index];status.textContent="Uploading "+(index+1)+"/"+selected.length;let asset;if(item.type==="image")asset=await uploadImage(item.file,"message");else if(item.type==="video")asset=await uploadVideo(item.file);else asset=await uploadMessageFile(item.file);attachments.push({type:item.type,id:asset.id,name:item.file.name})}

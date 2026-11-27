@@ -996,6 +996,11 @@ body{background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;te
  .music-dock-controls button svg{width:24px;height:24px}
 }
 
+
+/* Recent searches: two compact rows, horizontally scrollable */
+.music-search-memory .music-memory-group:first-child .music-memory-chips{display:grid;grid-auto-flow:column;grid-template-rows:repeat(2,minmax(0,auto));grid-auto-columns:max-content;align-items:center;justify-content:start;gap:7px 8px;overflow-x:auto;overflow-y:hidden}
+.music-search-memory .music-memory-group:first-child .music-memory-item{max-width:min(68vw,300px)}
+.music-search-memory .music-memory-group:first-child .music-memory-chip{max-width:min(56vw,250px)}
 /* Compact horizontal swipe rows for search history and music categories */
 .music-search-memory .music-memory-chips{display:flex;flex-wrap:nowrap;align-items:center;gap:8px;width:100%;max-width:100%;overflow-x:auto;overflow-y:hidden;padding:2px 1px 9px;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;touch-action:pan-x;scrollbar-width:none;scroll-snap-type:x proximity}
 .music-search-memory .music-memory-chips::-webkit-scrollbar,.music-media-filters::-webkit-scrollbar,.music-genres::-webkit-scrollbar{display:none}

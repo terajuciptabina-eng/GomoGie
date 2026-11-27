@@ -903,12 +903,13 @@ async function route(request, env) {
       "CASE WHEN n.type IN ('comment','mention') THEN COALESCE((SELECT c.post_id FROM comments c WHERE c.id=n.entity_id),(SELECT po.id FROM posts po WHERE po.id=n.entity_id)) WHEN n.type='reaction' THEN n.entity_id END AS post_id,"+
       "(SELECT substr(po.content,1,160) FROM posts po WHERE po.id=CASE WHEN n.type IN ('comment','mention') THEN COALESCE((SELECT c.post_id FROM comments c WHERE c.id=n.entity_id),(SELECT px.id FROM posts px WHERE px.id=n.entity_id)) WHEN n.type='reaction' THEN n.entity_id END) AS post_preview,"+
       "(SELECT substr(c.content,1,160) FROM comments c WHERE c.id=n.entity_id AND n.type IN ('comment','mention')) AS comment_preview,"+
+      "(SELECT c.parent_id FROM comments c WHERE c.id=n.entity_id AND n.type='comment') AS comment_parent_id,"+
       "(SELECT substr(m.content,1,160) FROM messages m WHERE m.conversation_id=n.entity_id AND n.type IN ('message','message_request') ORDER BY m.created_at DESC LIMIT 1) AS message_preview,"+
       "(SELECT r.reaction_type FROM reactions r WHERE r.post_id=n.entity_id AND r.user_id=n.actor_id AND n.type='reaction') AS reaction_type "+
       "FROM notifications n LEFT JOIN users u ON u.id=n.actor_id LEFT JOIN profiles p ON p.user_id=n.actor_id WHERE n.recipient_id=? ORDER BY n.created_at DESC LIMIT ?"
     ).bind(auth.sub, limit).all();
     const unread = await env.DB.prepare("SELECT COUNT(*) AS count FROM notifications WHERE recipient_id=? AND is_read=0").bind(auth.sub).first();
-    return json({ items: (rows.results || []).map(row => ({ id: row.id, type: row.type, entityId: row.entity_id, postId: row.post_id||null, postPreview:row.post_preview||"", commentPreview:row.comment_preview||"", messagePreview:row.message_preview||"", reactionType:row.reaction_type||null, isRead: Boolean(row.is_read), createdAt: row.created_at, actor: row.actor_id ? { id: row.actor_id, username: row.username, displayName: row.display_name, avatarUrl: row.avatar_url } : null })), unreadCount: Number(unread?.count || 0) });
+    return json({ items: (rows.results || []).map(row => ({ id: row.id, type: row.type, entityId: row.entity_id, postId: row.post_id||null, postPreview:row.post_preview||"", commentPreview:row.comment_preview||"", isReply:!!row.comment_parent_id, messagePreview:row.message_preview||"", reactionType:row.reaction_type||null, isRead: Boolean(row.is_read), createdAt: row.created_at, actor: row.actor_id ? { id: row.actor_id, username: row.username, displayName: row.display_name, avatarUrl: row.avatar_url } : null })), unreadCount: Number(unread?.count || 0) });
   }
   const notificationReadMatch = path.match(/^\/v1\/notifications\/([0-9a-f-]+)\/read$/i);
   if (notificationReadMatch && method === "PATCH") {

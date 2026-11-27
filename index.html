@@ -1994,7 +1994,7 @@ async function playMusicVideo(track){
    }
    ytFrame.src="https://www.youtube.com/embed/"+encodeURIComponent(track.videoId)+"?playsinline=1&rel=0&enablejsapi=1&autoplay=1&origin="+encodeURIComponent(window.location.origin);
    musicYouTubePlayer=new YT.Player(ytFrame,{events:{
-    onReady:event=>{if(musicCurrent?.id!==track.id||musicYouTubeCurrentTrackId!==track.id)return;try{event.target.playVideo()}catch{musicResumeNeeded=true;musicPlayerMessage("Autoplay may be blocked. Tap Resume Playback.")}},
+    onReady:event=>{if(musicCurrent?.id!==track.id||musicYouTubeCurrentTrackId!==track.id)return;try{event.target.playVideo();scheduleYouTubeResumeRetries(track.id)}catch{musicResumeNeeded=true;musicPlayerMessage("Autoplay may be blocked. Tap Resume Playback.")}},
     onStateChange:onYouTubePlayerStateChange,
     onAutoplayBlocked:()=>{if(musicCurrent?.id!==track.id)return;musicResumeNeeded=false;musicPlayerMessage("Autoplay was blocked. Trying again automatically…");scheduleYouTubeResumeRetries(track.id)},
     onError:()=>{if(musicCurrent?.id!==track.id)return;musicResumeNeeded=true;musicPlayerMessage("This YouTube video cannot be played here. Tap Resume Playback or use Next.")}

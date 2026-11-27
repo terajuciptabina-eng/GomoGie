@@ -2846,31 +2846,49 @@ function runMusicSearchWithCache(term,genre="all"){
  }).catch(error=>console.warn("YouTube Music search failed",error));
 }
 function musicGenreVideoRelevance(track,genre){
- const text=(String(track?.title||"")+" "+String(track?.artist||"")).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase();
- if(genre==="metal"){
-  // Search engines often return generic chart playlists for broad Metal queries.
-  // Keep only videos whose metadata identifies Metal/subgenres or a recognised
-  // Metal act; query provenance alone is not sufficient evidence of relevance.
-  const metalTerms=[
-   "metal","metalcore","heavy metal","thrash","death metal","black metal","doom metal",
-   "power metal","symphonic metal","progressive metal","nu metal","djent","grindcore",
-   "melodic death","folk metal","speed metal","industrial metal","alternative metal",
-   "groove metal","sludge metal","stoner metal","post-metal","metal cover"
-  ];
-  const metalArtists=[
-   "metallica","iron maiden","black sabbath","judas priest","megadeth","slayer","anthrax",
-   "pantera","sepultura","slipknot","korn","system of a down","linkin park","disturbed",
-   "avenged sevenfold","bullet for my valentine","trivium","killswitch engage","parkway drive",
-   "bring me the horizon","architects","spiritbox","gojira","mastodon","lamb of god","opeth",
-   "dream theater","nightwish","rammstein","sabaton","powerwolf","ghost","babymetal",
-   "deftones","evanescence","alice in chains","soundgarden","tool","meshuggah","behemoth",
-   "children of bodom","in flames","amon amarth","cradle of filth","dimmu borgir",
-   "within temptation","epica","dragonforce","haken","animals as leaders","motley crue",
-   "def leppard","motörhead","motorhead","rhapsody","blind guardian","judas priest"
-  ];
-  return metalTerms.some(term=>text.includes(term))||metalArtists.some(artist=>text.includes(artist));
- }
- return true;
+ const normalized=(String(track?.title||"")+" "+String(track?.artist||""))
+  .normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLocaleLowerCase();
+ const g=String(genre||"all").toLowerCase();
+ if(!g||g==="all")return true;
+ // Discovery queries are intentionally broad to improve coverage. Validate
+ // every returned item against its selected genre before it reaches the UI.
+ // A generic chart/playlist title is never genre evidence by itself.
+ const rules={
+  pop:{terms:["pop music","pop song","pop video","dance pop","synth pop","electropop","teen pop","k-pop","j-pop","mandopop","cantopop"],artists:["justin bieber","taylor swift","ariana grande","dua lipa","miley cyrus","selena gomez","katy perry","lady gaga","bruno mars","ed sheeran","rihanna","beyonce","billie eilish","olivia rodrigo","shawn mendes","harry styles","the weeknd","madonna","michael jackson","britney spears","backstreet boys","one direction","maroon 5","charlie puth","sabrina carpenter","chappell roan"]},
+  rock:{terms:["rock music","rock band","classic rock","hard rock","soft rock","progressive rock","arena rock","rock and roll","rock n roll"],artists:["queen","the beatles","rolling stones","led zeppelin","pink floyd","ac dc","guns n roses","aerosmith","bon jovi","journey","foo fighters","red hot chili peppers","u2","the who","deep purple","dire straits","scorpions","the doors","cream","fleetwood mac"]},
+  alternative:{terms:["alternative rock","alternative music","alt rock","post-punk","shoegaze","post-rock","grunge"],artists:["radiohead","nirvana","pixies","the cure","blur","oasis","smashing pumpkins","weezer","placebo","muse","arctic monkeys","the strokes","interpol","yeah yeah yeahs","the killers","deftones","sonic youth","r.e.m.","rem","alice in chains","soundgarden"]},
+  indie:{terms:["indie music","indie rock","indie pop","independent music","indie folk"],artists:["vampire weekend","arcade fire","bon iver","the 1975","tame impala","mac demarco","phoenix","mitski","beach house","fleet foxes","of monsters and men","boygenius","the xx","tv on the radio","modest mouse","death cab for cutie"]},
+  punk:{terms:["punk rock","punk music","pop punk","hardcore punk","post-punk","street punk","anarcho-punk","skate punk","crust punk","ska punk"],artists:["ramones","sex pistols","the clash","dead kennedys","bad brains","black flag","misfits","nofx","bad religion","rancid","green day","the offspring","offspring","blink-182","blink 182","sum 41","paramore","my chemical romance","new found glory","simple plan","good charlotte","rise against","pennywise","descendents","buzzcocks","the damned","social distortion","the exploited","minor threat","fugazi","refused","afi","anti-flag","anti flag","iggy pop","the stooges","dropkick murphys","operation ivy","lagwagon","millencolin","all time low","fall out boy","yellowcard","alkaline trio"]},
+  metal:{terms:["metal music","heavy metal","thrash metal","death metal","black metal","doom metal","power metal","symphonic metal","progressive metal","nu metal","metalcore","djent","grindcore","melodic death metal","folk metal","speed metal","industrial metal","alternative metal","groove metal","sludge metal","stoner metal","post-metal","metal cover"],artists:["metallica","iron maiden","black sabbath","judas priest","megadeth","slayer","anthrax","pantera","sepultura","slipknot","korn","system of a down","linkin park","disturbed","avenged sevenfold","bullet for my valentine","trivium","killswitch engage","parkway drive","bring me the horizon","architects","spiritbox","gojira","mastodon","lamb of god","opeth","dream theater","nightwish","rammstein","sabaton","powerwolf","ghost","babymetal","meshuggah","behemoth","children of bodom","in flames","amon amarth","cradle of filth","dimmu borgir","within temptation","epica","dragonforce","blind guardian","motörhead","motorhead"]},
+  jazz:{terms:["jazz music","jazz trio","jazz quartet","bebop","smooth jazz","jazz fusion","vocal jazz","big band jazz","swing jazz","modal jazz"],artists:["miles davis","john coltrane","ella fitzgerald","louis armstrong","duke ellington","bill evans","charlie parker","thelonious monk","herbie hancock","chet baker","dizzy gillespie","nina simone","oscar peterson","dave brubeck","count basie","sarah vaughan","stan getz","wes montgomery"]},
+  blues:{terms:["blues music","electric blues","delta blues","chicago blues","blues rock","acoustic blues"],artists:["b.b. king","bb king","muddy waters","robert johnson","howlin wolf","john lee hooker","buddy guy","stevie ray vaughan","eric clapton","gary moore","bessie smith","son house","lightnin hopkins","albert king","freddie king","joe bonamassa"]},
+  "r&b":{terms:["r&b","rnb","rhythm and blues","contemporary r&b","alternative r&b","quiet storm"],artists:["usher","alicia keys","mary j blige","mary j. blige","chris brown","bryson tiller","sza","frank ocean","daniel caesar","h.e.r.","jhené aiko","jhene aiko","the weeknd","toni braxton","janet jackson","brandy","monica","boyz ii men","destiny's child"]},
+  soul:{terms:["soul music","neo soul","motown","northern soul","southern soul","funk soul"],artists:["aretha franklin","marvin gaye","stevie wonder","otis redding","al green","sam cooke","etta james","bill withers","donny hathaway","diana ross","the temptations","the supremes","sade","d angelo","erykah badu","leon bridges"]},
+  "hip-hop":{terms:["hip hop","hip-hop","rap music","trap music","boom bap","drill rap","conscious rap"],artists:["kendrick lamar","eminem","tupac","2pac","notorious b.i.g.","biggie","nas","jay-z","drake","j cole","ice cube","snoop dogg","50 cent","missy elliott","outkast","wu-tang clan","run dmc","rakim"," kanye west","kanye","cardi b","nicki minaj","travis scott","future","lil wayne","tyler the creator"]},
+  electronic:{terms:["electronic music","edm","electronica","electro music","electronic dance","drum and bass","dnb","dubstep","trance music","idm"],artists:["the chemical brothers","daft punk","aphex twin","the prodigy","fatboy slim","deadmau5","skrillex","porter robinson","flume","moby","underworld","massive attack","the crystal method","orbital","above and beyond"]},
+  disco:{terms:["disco music","disco hits","disco funk","nu-disco","dance disco"],artists:["abba","bee gees","chic","donna summer","gloria gaynor","earth wind and fire","kc and the sunshine band","village people","sister sledge","boney m","kool and the gang"]},
+  funk:{terms:["funk music","funk band","funky music","p-funk","funk rock"],artists:["james brown","parliament","funkadelic","bootsy collins","sly and the family stone","kool and the gang","earth wind and fire","prince","tower of power","the meters","commodores"]},
+  house:{terms:["house music","deep house","tech house","progressive house","afro house","chicago house","classic house"],artists:["frankie knuckles","marshall jefferson","kerri chandler","black coffee","purple disco machine","calvin harris","disclosure","david guetta","swedish house mafia","fisher"]},
+  techno:{terms:["techno music","detroit techno","melodic techno","minimal techno","hard techno","industrial techno"],artists:["carl cox","richie hawtin","jeff mills","charlotte de witte","amelie lens","adam beyer","ben klock","paul kalkbrenner","boris brejcha","underworld"]},
+  classical:{terms:["classical music","symphony","orchestra","concerto","sonata","opera aria","baroque music","chamber music"],artists:["beethoven","mozart","bach","chopin","vivaldi","tchaikovsky","debussy","rachmaninoff","handel","mahler","puccini","verdi","wagner","stravinsky","liszt","schubert","dvorak"]},
+  country:{terms:["country music","country song","bluegrass","americana","country folk","honky tonk"],artists:["johnny cash","dolly parton","shania twain","garth brooks","taylor swift","luke bryan","carrie underwood","blake shelton","chris stapleton","willie nelson","kacey musgraves","morgan wallen","jimmie rodgers","hank williams"]},
+  folk:{terms:["folk music","folk song","traditional folk","indie folk","celtic folk","singer songwriter"],artists:["bob dylan","joan baez","joni mitchell","simon and garfunkel","cat stevens","nick drake","the lumineers","mumford and sons","fleet foxes","woody guthrie","pete seeger","leonard cohen"]},
+  reggae:{terms:["reggae music","roots reggae","dancehall","rocksteady","dub reggae"],artists:["bob marley","peter tosh","toots and the maytals","jimmy cliff","burning spear","black uhuru","chronixx","damian marley","shaggy","sean paul","inner circle","steel pulse"]},
+  ska:{terms:["ska music","ska punk","2 tone ska","two tone ska","jamaican ska"],artists:["the specials","madness","toots and the maytals","the skatalites","less than jake","reel big fish","streetlight manifesto","save ferris","the selecter","desmond dekker"]},
+  dangdut:{terms:["dangdut","dangdut koplo","dangdut klasik","dangdut melayu"],artists:["rhoma irama","elvy sukaesih","inul daratista","via vallen","siti badriah","koplo","soneta group","lilis karlina","ita purnamasari"]},
+  latin:{terms:["latin music","salsa music","bachata","reggaeton","cumbia","merengue","latin pop","regional mexican"],artists:["bad bunny","shakira","j balvin","daddy yankee","karol g","maluma","romeo santos","marc anthony","celia cruz","ricky martin","enrique iglesias","rosalia","selena quintanilla","mana","juan gabriel"]},
+  "k-pop":{terms:["k-pop","kpop","korean pop","korean music video"],artists:["bts","blackpink","twice","exo","red velvet","stray kids","seventeen","newjeans","aespa","ive","itzy","bigbang","girls generation","snsd","psy","nct","txt","enhypen","le sserafim"]},
+  "j-pop":{terms:["j-pop","jpop","japanese pop","city pop","japanese idol"],artists:["utada hikaru","arashi","yoasobi","aimyon","kenshi yonezu","perfume","akb48","babymetal","one ok rock","official hige dandism","ado","radwimps"]},
+  gospel:{terms:["gospel music","gospel choir","christian gospel","southern gospel","contemporary gospel"],artists:["kirk franklin","cece winans","marvin sapp","yolanda adams","mahalia jackson","the winans","tasha cobbs","donnie mcclurkin","maverick city music"]},
+  world:{terms:["world music","african music","indian classical","middle eastern music","traditional music","world folk"],artists:["fela kuti","youssou n'dour","nusrat fateh ali khan","ali farka toure","salif keita","santana","ravi shankar","anoushka shankar","yo-yo ma"]},
+  ambient:{terms:["ambient music","dark ambient","space ambient","drone music","ambient electronic"],artists:["brian eno","stars of the lid","tim hecker","biosphere","aphex twin","loscil","robert rich","steve roach"]},
+  instrumental:{terms:["instrumental music","instrumental guitar","instrumental piano","piano solo","guitar solo","orchestral instrumental"],artists:["joe satriani","steve vai","yngwie malmsteen","andy mckee","sungha jung","ludovico einaudi","yiruma","evgeny grinko","paco de lucia","tommy emmanuel"]},
+  soundtrack:{terms:["soundtrack","film score","movie score","original score","video game music","game soundtrack","ost"],artists:["hans zimmer","john williams","ennio morricone","howard shore","alan silvestri","danny elfman","ramin djawadi","joe hisaishi","nobuo uematsu","jeremy soule"]},
+  acoustic:{terms:["acoustic music","acoustic version","acoustic session","unplugged","acoustic guitar","live acoustic"],artists:["ed sheeran","jack johnson","john mayer","james taylor","tracy chapman","damien rice","jason mraz","ben howard","vance joy","passenger","elliott smith"]}
+ };
+ const rule=rules[g];
+ if(!rule)return false;
+ return rule.terms.some(term=>normalized.includes(term))||rule.artists.some(artist=>normalized.includes(artist));
 }
 async function searchYouTubeGenreMusic(genre){
  const label=String(genre||"all").toLowerCase();

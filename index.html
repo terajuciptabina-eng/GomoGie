@@ -2246,8 +2246,8 @@ async function refreshNotificationBadge(){
 async function hydratePostLinkPreviews(root=document){const cards=[...root.querySelectorAll("[data-link-preview]")];const seen=new Set();for(const card of cards){const href=card.dataset.linkPreview;if(!href||seen.has(href))continue;seen.add(href);try{const response=await fetch(API_BASE+"/v1/link-preview?url="+encodeURIComponent(href),{headers:{accept:"application/json"},cache:"force-cache"});if(!response.ok)continue;const data=await response.json();if(!data||!data.title)continue;document.querySelectorAll("[data-link-preview]").forEach(node=>{if(node.dataset.linkPreview!==href)return;const copy=node.querySelector(".post-link-preview-copy");if(!copy)return;copy.innerHTML='<strong>'+esc(data.title)+'</strong>'+(data.description?'<em>'+esc(data.description)+'</em>': '')+'<small>'+esc(data.hostname||new URL(href).hostname)+'</small>';if(data.image&&!node.querySelector("img")){const image=document.createElement("img");image.loading="lazy";image.referrerPolicy="no-referrer";image.src=data.image;image.alt="";node.insertBefore(image,node.firstChild)}node.classList.remove("loading")})}catch(error){console.warn("Link preview unavailable:",error)}}}
 
 let musicResults=[],musicCurrent=null,musicSearchTerm="",musicSearchBusy=false,musicDiscoveryMode=false,musicDiscoveryRequestId=0,musicAudio=null,musicDock=null,musicReopen=null,musicDockMinimized=false,musicAudioUrl="",musicQueue=[],musicQueueIndex=-1,musicQueueMode="catalog",musicGenre="all",musicShuffle=false,musicRepeat="off",musicSort="recent",musicMediaFilter="all",musicVideoBusy=false,musicYouTubePlayer=null,musicYouTubePlayerReady=false,musicYouTubePlayerInitPromise=null,musicYouTubeApiLoading=false,musicYouTubeApiReady=false,musicYouTubeCurrentTrackId=null,musicPlaybackIntent=false,musicUserPaused=false,musicResumeNeeded=false,musicYouTubeRetryTimers=[],musicYouTubeRetryTrackId=null;
-const musicGenres=["All","Pop","Rock","Jazz","Electronic","Classical","Hip-Hop","R&B","Country","Folk","Metal","Reggae","Dangdut","World","Ambient","Instrumental"];
-const musicLanguages=[{id:"all",label:"All languages"},{id:"english",label:"English"},{id:"malay",label:"Malay"},{id:"indonesian",label:"Indonesian"},{id:"tamil",label:"Tamil"},{id:"mandarin",label:"Mandarin"},{id:"hindi",label:"Hindi"},{id:"korean",label:"Korean"},{id:"japanese",label:"Japanese"},{id:"spanish",label:"Spanish"},{id:"arabic",label:"Arabic"},{id:"filipino",label:"Filipino"}];
+const musicGenres=["All","Pop","Rock","Alternative","Indie","Punk","Metal","Jazz","Blues","R&B","Soul","Hip-Hop","Electronic","Disco","Funk","House","Techno","Classical","Country","Folk","Reggae","Ska","Dangdut","Latin","K-Pop","J-Pop","Gospel","World","Ambient","Instrumental","Soundtrack","Acoustic"];
+const musicLanguages=[{id:"all",label:"All languages"},{id:"english",label:"English"},{id:"malay",label:"Malay"},{id:"indonesian",label:"Indonesian"},{id:"tamil",label:"Tamil"},{id:"mandarin",label:"Mandarin"},{id:"hindi",label:"Hindi"},{id:"korean",label:"Korean"},{id:"japanese",label:"Japanese"},{id:"spanish",label:"Spanish"},{id:"arabic",label:"Arabic"},{id:"filipino",label:"Filipino"},{id:"thai",label:"Thai"},{id:"vietnamese",label:"Vietnamese"},{id:"portuguese",label:"Portuguese"},{id:"french",label:"French"},{id:"german",label:"German"},{id:"turkish",label:"Turkish"},{id:"bengali",label:"Bengali"},{id:"urdu",label:"Urdu"},{id:"russian",label:"Russian"}];
 let musicLanguage="all";
 function getMusicSessionPosition(){
  if(!musicCurrent)return null;
@@ -2820,37 +2820,72 @@ function runMusicSearchWithCache(term,genre="all"){
 async function searchYouTubeGenreMusic(genre){
  const label=String(genre||"all").toLowerCase();
  const searches={
-  rock:["rock music official music videos","classic rock official music videos","hard rock official music videos","alternative rock official music videos","indie rock official music videos","punk rock official music videos","grunge rock official music videos","progressive rock official music videos","70s rock greatest hits official videos","80s rock official music videos","90s rock official music videos","2000s rock official music videos"],
-  pop:["pop music official music videos","classic pop hits official music videos","80s pop official music videos","90s pop official music videos"],
-  jazz:["jazz music live performance","classic jazz songs","smooth jazz instrumental","bebop jazz performance"],
-  electronic:["electronic music official videos","house music official videos","techno music live set","trance music official videos"],
-  classical:["classical music orchestra performance","piano classical music performance","symphony orchestra concert"],
-  "hip-hop":["hip hop official music videos","classic hip hop official videos","rap music official videos"],
-  "r&b":["r&b official music videos","soul music official videos","classic rhythm and blues songs"],
-  country:["country music official music videos","classic country songs","modern country official videos"],
-  folk:["folk music live performance","traditional folk songs","acoustic folk music"],
-  metal:["heavy metal official music videos","thrash metal official music videos","power metal official music videos","death metal official music videos"],
-  reggae:["reggae official music videos","roots reggae live performance","ska music official videos"],
-  dangdut:["dangdut official music videos","dangdut koplo official videos"],
-  world:["world music live performance","latin music official videos","african music performance","indian classical music performance"],
-  ambient:["ambient music instrumental","ambient electronic live performance"],
-  instrumental:["instrumental guitar music","instrumental piano music","orchestral instrumental music"]
+  all:["popular music official videos","new music official videos","classic songs official videos","live music performances"],
+  pop:["pop music official music videos","classic pop hits official music videos","80s pop hits","90s pop hits","2000s pop hits","dance pop official videos","synth pop official videos","indie pop music videos","chart pop songs"],
+  rock:["rock music official music videos","classic rock official music videos","hard rock official music videos","alternative rock official music videos","indie rock official music videos","punk rock official music videos","grunge rock official music videos","progressive rock official music videos","soft rock classics","70s rock hits","80s rock hits","90s rock hits","2000s rock hits"],
+  alternative:["alternative music official videos","alternative rock classics","90s alternative rock","2000s alternative rock","modern alternative bands"],
+  indie:["indie music official videos","indie rock bands","indie pop songs","independent artists live sessions"],
+  punk:["punk rock official music videos","classic punk bands","pop punk songs","hardcore punk live"],
+  metal:["heavy metal official music videos","thrash metal official music videos","power metal official music videos","death metal official music videos","black metal bands","symphonic metal music videos","progressive metal songs","metalcore official music videos","nu metal classics","doom metal bands","folk metal songs","speed metal classics","melodic death metal"],
+  jazz:["jazz music live performance","classic jazz songs","smooth jazz instrumental","bebop jazz performance","jazz fusion live","vocal jazz classics","big band jazz concert","latin jazz performance"],
+  blues:["blues music live performance","classic blues songs","electric blues guitar","delta blues recordings","blues rock official videos"],
+  "r&b":["r&b official music videos","classic rhythm and blues songs","90s r&b hits","contemporary r&b music","alternative r&b songs"],
+  soul:["soul music classics","neo soul live performance","motown soul hits","funk soul music videos"],
+  "hip-hop":["hip hop official music videos","classic hip hop official videos","rap music official videos","90s hip hop hits","old school hip hop","conscious rap songs","trap music official videos"],
+  electronic:["electronic music official videos","house music official videos","techno music live set","trance music official videos","drum and bass music","dubstep official videos","electro music classics","EDM festival live"],
+  disco:["disco music classics","70s disco hits","80s disco dance music","disco funk songs"],
+  funk:["funk music classics","funk live performance","funk rock songs","modern funk bands"],
+  house:["house music official videos","deep house live set","tech house music","progressive house songs","classic house music"],
+  techno:["techno live set","melodic techno music","detroit techno classics","minimal techno set","hard techno music"],
+  classical:["classical music orchestra performance","piano classical music performance","symphony orchestra concert","opera arias performance","baroque classical music","romantic era orchestra"],
+  country:["country music official music videos","classic country songs","modern country official videos","country rock songs","bluegrass live performance","americana music"],
+  folk:["folk music live performance","traditional folk songs","acoustic folk music","indie folk songs","Celtic folk music"],
+  reggae:["reggae official music videos","roots reggae live performance","ska reggae classics","dancehall music videos","rocksteady music"],
+  ska:["ska music official videos","2 tone ska classics","ska punk bands","Jamaican ska recordings"],
+  dangdut:["dangdut official music videos","dangdut koplo official videos","dangdut klasik Indonesia","dangdut Melayu songs"],
+  latin:["latin music official videos","salsa music live","bachata official music videos","reggaeton official videos","latin pop hits","cumbia music"],
+  "k-pop":["K-pop official music videos","K-pop girl group songs","K-pop boy group songs","Korean pop hits"],
+  "j-pop":["J-pop official music videos","Japanese pop songs","Japanese rock music videos","city pop classics"],
+  gospel:["gospel music live performance","gospel choir songs","contemporary gospel music","traditional gospel classics"],
+  world:["world music live performance","african music performance","indian classical music performance","middle eastern music live","traditional world music"],
+  ambient:["ambient music instrumental","ambient electronic live performance","dark ambient music","space ambient music"],
+  instrumental:["instrumental guitar music","instrumental piano music","orchestral instrumental music","instrumental jazz performance"],
+  soundtrack:["film soundtrack music","movie score orchestra","video game soundtrack music","TV theme music"],
+  acoustic:["acoustic guitar songs","acoustic live sessions","unplugged music performances","acoustic singer songwriter"]
  };
  const languageQueries={
   english:{all:["English songs","English language music videos"]},
-  malay:{all:["lagu Melayu","lagu Malaysia","muzik Melayu"],rock:["lagu rock Melayu","rock kapak Malaysia","band rock Malaysia","lagu rock 80an Malaysia"],pop:["lagu pop Melayu","pop Malaysia"],jazz:["jazz Malaysia","lagu jazz Melayu"],dangdut:["dangdut Malaysia"]},
-  indonesian:{all:["lagu Indonesia","musik Indonesia"],rock:["lagu rock Indonesia","band rock Indonesia","rock Indonesia 80an","lagu rock Indonesia terbaik"],pop:["lagu pop Indonesia","pop Indonesia terbaru"],dangdut:["dangdut Indonesia","dangdut koplo"]},
-  tamil:{all:["Tamil songs","Tamil music video"]},mandarin:{all:["Mandarin songs","Chinese Mandarin music video"]},
-  hindi:{all:["Hindi songs","Bollywood music video"]},korean:{all:["K-pop music video","Korean songs"]},
-  japanese:{all:["J-pop music video","Japanese songs"]},spanish:{all:["canciones en español","música latina video oficial"]},
-  arabic:{all:["اغاني عربية","Arabic music video"]},filipino:{all:["OPM songs","Filipino music video"]}
+  malay:{all:["lagu Melayu","lagu Malaysia","muzik Melayu","lagu popular Malaysia"],rock:["lagu rock Melayu","rock kapak Malaysia","band rock Malaysia","lagu rock 80an Malaysia","rock jiwang Melayu"],metal:["metal Malaysia","band metal Malaysia","lagu metal Melayu"],pop:["lagu pop Melayu","pop Malaysia","lagu pop 90an Malaysia"],dangdut:["dangdut Malaysia","dangdut Melayu"],indie:["indie Malaysia","band indie Melayu"],alternative:["alternative rock Malaysia","rock alternatif Malaysia"]},
+  indonesian:{all:["lagu Indonesia","musik Indonesia","lagu populer Indonesia"],rock:["lagu rock Indonesia","band rock Indonesia","rock Indonesia 80an","lagu rock Indonesia terbaik"],metal:["band metal Indonesia","lagu metal Indonesia","metalcore Indonesia"],pop:["lagu pop Indonesia","pop Indonesia terbaru"],dangdut:["dangdut Indonesia","dangdut koplo"],indie:["indie Indonesia","band indie Indonesia"]},
+  tamil:{all:["Tamil songs","Tamil music video"],rock:["Tamil rock songs","Tamil rock bands"],pop:["Tamil pop songs"]},
+  mandarin:{all:["Mandarin songs","Chinese Mandarin music video"],rock:["Chinese rock music","Mandarin rock songs"],pop:["Mandarin pop music video"]},
+  hindi:{all:["Hindi songs","Bollywood music video"],rock:["Hindi rock songs","Indian rock bands"],pop:["Hindi pop songs"]},
+  korean:{all:["K-pop music video","Korean songs"],rock:["Korean rock bands","K-rock music video"],metal:["Korean metal bands"]},
+  japanese:{all:["J-pop music video","Japanese songs"],rock:["Japanese rock music video","J-rock bands"],metal:["Japanese metal bands"]},
+  spanish:{all:["canciones en español","música latina video oficial"],rock:["rock en español","bandas de rock en español"],pop:["pop latino videos oficiales"]},
+  arabic:{all:["اغاني عربية","Arabic music video"],rock:["Arabic rock bands","روك عربي"],pop:["اغاني بوب عربية"]},
+  filipino:{all:["OPM songs","Filipino music video"],rock:["OPM rock songs","Pinoy rock bands"],pop:["OPM pop songs"]},
+  thai:{all:["เพลงไทย","Thai music video"],rock:["เพลงร็อคไทย","Thai rock bands"],pop:["เพลงป๊อปไทย"]},
+  vietnamese:{all:["nhạc Việt","Vietnamese music video"],rock:["nhạc rock Việt Nam"],pop:["nhạc pop Việt Nam"]},
+  portuguese:{all:["música portuguesa","música brasileira"],rock:["rock brasileiro","rock português"],pop:["pop brasileiro"]},
+  french:{all:["chanson française","musique française clip officiel"],rock:["rock français","groupes rock français"],pop:["pop française"]},
+  german:{all:["deutsche Musik","deutsche Musikvideos"],rock:["deutscher Rock","German rock bands"],pop:["deutscher Pop"]},
+  turkish:{all:["Türkçe şarkılar","Turkish music video"],rock:["Türkçe rock","Turkish rock bands"],pop:["Türkçe pop"]},
+  bengali:{all:["বাংলা গান","Bangla music video"],rock:["Bangla rock songs","বাংলা রক গান"],pop:["Bangla pop songs"]},
+  urdu:{all:["Urdu songs","Pakistani music video"],rock:["Pakistani rock bands","Urdu rock songs"],pop:["Pakistani pop songs"]},
+  russian:{all:["русская музыка","Russian music video"],rock:["русский рок","Russian rock bands"],pop:["русская поп музыка"]}
  };
  const baseQueries=searches[label]||[label+" music official videos",label+" live music performance",label+" classic songs"];
- const localized=(languageQueries[musicLanguage]?.[label]||languageQueries[musicLanguage]?.all||[]);
- const queries=musicLanguage==="all"||musicLanguage==="english"?baseQueries:localized;
+ const languageMap=languageQueries[musicLanguage]||null;
+ const localized=languageMap?(languageMap[label]||languageMap.all||[]):[];
+ // Keep the genre-specific English discovery queries as a fallback for every
+ // language, then add localized genre searches. This prevents a language with
+ // incomplete translations from collapsing to only one or two generic terms.
+ const queries=[...new Set((musicLanguage==="all"?baseQueries:localized.concat(baseQueries.slice(0,4))).map(q=>String(q||"").trim()).filter(Boolean))];
  const collected=[],seen=new Set();
- // Run only three focused searches at a time to balance catalogue breadth and
- // public-instance load. Each request has a bounded timeout and fallback.
+ // Fan out over focused subgenre queries in small batches. Public Piped and
+ // Invidious instances do not expose a dependable shared pagination cursor;
+ // query diversity is used to retrieve more distinct results without an API key.
  for(let i=0;i<queries.length;i+=3){
   const batchResults=await Promise.allSettled(queries.slice(i,i+3).map(query=>searchYouTubeMusic(query)));
   for(let j=0;j<batchResults.length;j++){

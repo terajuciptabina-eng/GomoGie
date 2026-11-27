@@ -221,17 +221,21 @@ async function syncNewsFeedsSingleFlight(env) {
 }
 
 async function syncNewsFeeds(env){
- const now=new Date().toISOString();let inserted=0,checked=0,errors=0;
+ const now=new Date().toISOString();let inserted=0,checked=0,errors=0;const sourceResults=[];
  // Read the active source list once per sync, instead of one D1 query per RSS source.
  const activeRows=await env.DB.prepare("SELECT id FROM gomogie_news_sources WHERE active=1").all();
  const activeSourceIds=new Set((activeRows.results||[]).map(row=>row.id));
  for(const feed of NEWS_FEEDS){
   if(!activeSourceIds.has(feed.id))continue;
+  let httpStatus=0,feedItemCount=0,acceptedCount=0,upsertChanges=0;
   try{
    const res=await fetch(feed.url,{headers:{accept:"application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9","user-agent":"GomoGieContentDiscovery/1.0 (+https://terajuciptabina-eng.github.io/GomoGie/)"},signal:AbortSignal.timeout(12000)});
+   httpStatus=res.status;
    if(!res.ok)throw new Error("Feed HTTP "+res.status);
    const xml=(await res.text()).slice(0,1500000),atom=/<feed\b/i.test(xml);
    const blocks=atom?[...xml.matchAll(/<entry\b[^>]*>([\s\S]*?)<\/entry>/gi)].map(x=>x[1]):[...xml.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)].map(x=>x[1]);
+   feedItemCount=blocks.length;
+   if(!feedItemCount)throw new Error("Feed returned HTTP 200 but no RSS/Atom entries");
    for(const block of blocks.slice(0,40)){
     const title=newsTag(block,"title").slice(0,240),videoId=newsTag(block,"yt:videoId");
     const atomHref=block.match(/<link\b[^>]*rel=["']alternate["'][^>]*href=["']([^"']+)["'][^>]*\/?\s*>/i)?.[1]||block.match(/<link\b[^>]*href=["']([^"']+)["'][^>]*\/?\s*>/i)?.[1]||"";
@@ -245,17 +249,19 @@ async function syncNewsFeeds(env){
     const dateRaw=newsTag(block,"pubDate")||newsTag(block,"published")||newsTag(block,"updated")||newsTag(block,"dc:date");
     const parsed=Date.parse(dateRaw),published=Number.isFinite(parsed)?new Date(parsed).toISOString():now;
     if(Date.now()-Date.parse(published)>(feed.contentType==="video"||feed.contentType==="documentary"?7:3)*24*3600000)continue;
+    acceptedCount++;
     const kind=feed.contentType||"article",embed=videoId?"https://www.youtube-nocookie.com/embed/"+encodeURIComponent(videoId):"";
     const category=feed.id==="aphd-video"?"documentary":newsCategory(title,summary);
     const result=await env.DB.prepare("INSERT INTO gomogie_news_items (id,source_id,external_id,title,summary,body_text,image_url,canonical_url,category,region_code,published_at,fetched_at,status,content_type,embed_url) VALUES (?,?,?,?,?,?,?,?,?,?,?,?, 'published',?,?) ON CONFLICT(canonical_url) DO UPDATE SET summary=CASE WHEN length(excluded.summary)>length(gomogie_news_items.summary) THEN excluded.summary ELSE gomogie_news_items.summary END,body_text=CASE WHEN length(excluded.body_text)>length(COALESCE(gomogie_news_items.body_text,'')) THEN excluded.body_text ELSE gomogie_news_items.body_text END,image_url=COALESCE(NULLIF(excluded.image_url,''),gomogie_news_items.image_url),status='published',content_type=excluded.content_type,embed_url=COALESCE(NULLIF(excluded.embed_url,''),gomogie_news_items.embed_url),fetched_at=excluded.fetched_at").bind(uuid(),feed.id,guid||canonical.href,title,summary,body,image?new URL(image,canonical).href:"",canonical.href,category,newsRegion(title,summary),published,now,kind,embed).run();
-    inserted+=Number(result.meta?.changes||0);checked++;
+    const changes=Number(result.meta?.changes||0);inserted+=changes;upsertChanges+=changes;checked++;
    }
    await env.DB.prepare("UPDATE gomogie_news_sources SET last_checked_at=?,last_error=NULL WHERE id=?").bind(now,feed.id).run();
-  }catch(error){errors++;await env.DB.prepare("UPDATE gomogie_news_sources SET last_checked_at=?,last_error=? WHERE id=?").bind(now,String(error.message||error).slice(0,300),feed.id).run().catch(()=>{})}
+   sourceResults.push({id:feed.id,name:feed.name,status:"ok",httpStatus,feedItemCount,acceptedCount,upsertChanges});
+  }catch(error){errors++;const message=String(error.message||error).slice(0,300);await env.DB.prepare("UPDATE gomogie_news_sources SET last_checked_at=?,last_error=? WHERE id=?").bind(now,message,feed.id).run().catch(()=>{});sourceResults.push({id:feed.id,name:feed.name,status:"error",httpStatus,feedItemCount,acceptedCount,error:message})}
  }
  await env.DB.prepare("UPDATE gomogie_news_items SET status='archived' WHERE status='published' AND content_type='article' AND julianday(published_at)<julianday('now','-72 hours')").run();
  await env.DB.prepare("DELETE FROM gomogie_news_items WHERE julianday(published_at)<julianday('now','-30 days')").run();
- return{inserted,checked,errors,at:now};
+ return{inserted,checked,errors,sources:sourceResults,at:now};
 }
 
 async function hydrateRecentNewsImages(env,limit=12){
@@ -939,9 +945,11 @@ async function route(request, env) {
         rows=await readItems();
       }
     } else if(mode==="videos") {
-      const aphd=await env.DB.prepare("SELECT active,last_checked_at FROM gomogie_news_sources WHERE id='aphd-video'").first();
-      const lastAt=aphd?.last_checked_at?Date.parse(aphd.last_checked_at):0;
-      if(aphd?.active&&(!lastAt||Date.now()-lastAt>15*60*1000)){
+      const videoSourceIds=NEWS_FEEDS.filter(feed=>feed.contentType==="video"||feed.contentType==="documentary").map(feed=>feed.id);
+      const placeholders=videoSourceIds.map(()=>"?").join(",");
+      const videoSources=videoSourceIds.length?await env.DB.prepare("SELECT id,last_checked_at FROM gomogie_news_sources WHERE active=1 AND id IN ("+placeholders+")").bind(...videoSourceIds).all():{results:[]};
+      const staleVideoSource=(videoSources.results||[]).some(source=>{const lastAt=source.last_checked_at?Date.parse(source.last_checked_at):0;return !lastAt||!Number.isFinite(lastAt)||Date.now()-lastAt>15*60*1000});
+      if(staleVideoSource){
         refreshed=true;
         await syncNewsFeedsSingleFlight(env);
         rows=await readItems();
@@ -960,7 +968,9 @@ async function route(request, env) {
       ]);
     }
     const source=await env.DB.prepare("SELECT name,last_checked_at,last_error FROM gomogie_news_sources WHERE id='bernama-en'").first();
-    const sourceStatuses=await env.DB.prepare("SELECT id,name,active,last_checked_at,last_error FROM gomogie_news_sources WHERE id IN ('aphd-video','mlstudios-video','siakapkeli-video') ORDER BY name,id").all();
+    const videoSourceIds=NEWS_FEEDS.filter(feed=>feed.contentType==="video"||feed.contentType==="documentary").map(feed=>feed.id);
+    const videoPlaceholders=videoSourceIds.map(()=>"?").join(",");
+    const sourceStatuses=videoSourceIds.length?await env.DB.prepare("SELECT id,name,active,last_checked_at,last_error FROM gomogie_news_sources WHERE id IN ("+videoPlaceholders+") ORDER BY name,id").bind(...videoSourceIds).all():{results:[]};
     return json({mode,region,interests,refreshed,sourceStatus:{name:source?.name||"BERNAMA",lastCheckedAt:source?.last_checked_at||null,lastError:source?.last_error||null},sourceStatuses:sourceStatuses.results||[],items:(rows.results||[]).map(x=>({...x,title:decodeNewsXml(x.title).replace(/Â/g,""),summary:(x.content_type==="video"||x.content_type==="documentary")?"":decodeNewsXml(x.summary).replace(/Â/g,""),body_text:(x.content_type==="video"||x.content_type==="documentary")?"":decodeNewsXml(x.body_text).replace(/Â/g,""),trendScore:Number(x.trend_score||0)}))});
   }
   if (path === "/v1/feed" && method === "GET") {
@@ -1538,7 +1548,7 @@ async function notifyPushDevices(env,userId,notification){
 }
 
 export default {
-  async scheduled(controller, env, ctx) { ctx.waitUntil((async()=>{try{const sync=await syncNewsFeeds(env);console.log("GomoGie scheduled news sync",sync)}catch(error){console.error("GomoGie news sync failed",error)}try{const images=await hydrateRecentNewsImages(env,12);console.log("GomoGie scheduled news image hydration",images)}catch(error){console.error("GomoGie news image hydration failed",error)}try{const deletions=await processAccountDeletionQueue(env);console.log("GomoGie account deletion processing",deletions)}catch(error){console.error("GomoGie account deletion processing failed",error)}})()); },
+  async scheduled(controller, env, ctx) { ctx.waitUntil((async()=>{try{const sync=await syncNewsFeeds(env);console.log("GomoGie scheduled news sync",JSON.stringify(sync))}catch(error){console.error("GomoGie news sync failed",error)}try{const images=await hydrateRecentNewsImages(env,12);console.log("GomoGie scheduled news image hydration",images)}catch(error){console.error("GomoGie news image hydration failed",error)}try{const deletions=await processAccountDeletionQueue(env);console.log("GomoGie account deletion processing",deletions)}catch(error){console.error("GomoGie account deletion processing failed",error)}})()); },
   async fetch(request, env) {
     const headers = corsHeaders(request, env);
     if (request.method === "OPTIONS") {
@@ -1550,7 +1560,7 @@ export default {
       const isPublicFeed = request.method === "GET" && requestUrl.pathname === "/v1/feed" &&
         requestUrl.searchParams.get("scope") !== "following" && !request.headers.get("Authorization");
       const isPublicNews = request.method === "GET" && requestUrl.pathname === "/v1/news" &&
-        !request.headers.get("Authorization");
+        requestUrl.searchParams.get("mode") !== "videos" && !request.headers.get("Authorization");
       const cacheable = isPublicFeed || isPublicNews;
       const cacheKey = cacheable ? new Request(requestUrl.toString(), { method: "GET" }) : null;
       if (cacheable) {

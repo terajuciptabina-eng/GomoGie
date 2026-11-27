@@ -937,7 +937,9 @@ async function route(request, env) {
         const total=(options.results||[]).reduce((sum,item)=>sum+Number(item.votes||0),0);
         poll={id:row.poll_id,closesAt:row.poll_closes_at,closed:!!row.poll_closes_at&&Date.parse(row.poll_closes_at)<=Date.now(),totalVotes:total,selectedOptionId:vote?.option_id||null,options:(options.results||[]).map(item=>({id:item.id,label:item.label,votes:Number(item.votes||0),percentage:total?Math.round(Number(item.votes||0)*100/total):0}))};
       }
-      return { id:row.id,content:row.content,visibility:row.visibility,createdAt:row.created_at,commentsEnabled:Boolean(row.comments_enabled),author:{id:row.user_id,username:row.username,displayName:row.display_name,avatarUrl:row.avatar_url,coverUrl:row.cover_url},mediaType:row.video_id?"video":row.media_id?"image":poll?"poll":"text",mediaUrl:row.video_id?videoUrl(row.video_id):row.media_id?mediaUrl(row.media_id):"",reactionCount:row.reaction_count,commentCount:row.comment_count,poll };
+      const attachments=await env.DB.prepare("SELECT media_type,media_id,video_id,position FROM gomogie_post_attachments WHERE post_id=? ORDER BY position ASC").bind(row.id).all();
+      const mediaItems=(attachments.results||[]).map(item=>({type:item.media_type,id:item.media_type==="image"?item.media_id:item.video_id,url:item.media_type==="image"?mediaUrl(item.media_id):videoUrl(item.video_id),position:item.position}));
+      return { id:row.id,content:row.content,visibility:row.visibility,createdAt:row.created_at,commentsEnabled:Boolean(row.comments_enabled),author:{id:row.user_id,username:row.username,displayName:row.display_name,avatarUrl:row.avatar_url,coverUrl:row.cover_url},mediaType:mediaItems[0]?.type||(poll?"poll":"text"),mediaUrl:mediaItems[0]?.url||"",mediaItems,reactionCount:row.reaction_count,commentCount:row.comment_count,poll };
     }));
     return json({ scope:followingFeedRequest?"following":"public",items });
   }
@@ -963,7 +965,9 @@ async function route(request, env) {
         const total=(options.results||[]).reduce((sum,item)=>sum+Number(item.votes||0),0);
         poll={id:row.poll_id,closesAt:row.poll_closes_at,closed:!!row.poll_closes_at&&Date.parse(row.poll_closes_at)<=Date.now(),totalVotes:total,selectedOptionId:vote?.option_id||null,options:(options.results||[]).map(item=>({id:item.id,label:item.label,votes:Number(item.votes||0),percentage:total?Math.round(Number(item.votes||0)*100/total):0}))};
       }
-      return {id:row.id,content:row.content,visibility:row.visibility,createdAt:row.created_at,commentsEnabled:Boolean(row.comments_enabled),author:{id:row.user_id,username:row.username,displayName:row.display_name,avatarUrl:row.avatar_url,coverUrl:row.cover_url},mediaType:row.video_id?"video":row.media_id?"image":poll?"poll":"text",mediaUrl:row.video_id?videoUrl(row.video_id):row.media_id?mediaUrl(row.media_id):"",reactionCount:row.reaction_count,commentCount:row.comment_count,poll};
+      const attachments=await env.DB.prepare("SELECT media_type,media_id,video_id,position FROM gomogie_post_attachments WHERE post_id=? ORDER BY position ASC").bind(row.id).all();
+      const mediaItems=(attachments.results||[]).map(item=>({type:item.media_type,id:item.media_type==="image"?item.media_id:item.video_id,url:item.media_type==="image"?mediaUrl(item.media_id):videoUrl(item.video_id),position:item.position}));
+      return {id:row.id,content:row.content,visibility:row.visibility,createdAt:row.created_at,commentsEnabled:Boolean(row.comments_enabled),author:{id:row.user_id,username:row.username,displayName:row.display_name,avatarUrl:row.avatar_url,coverUrl:row.cover_url},mediaType:mediaItems[0]?.type||(poll?"poll":"text"),mediaUrl:mediaItems[0]?.url||"",mediaItems,reactionCount:row.reaction_count,commentCount:row.comment_count,poll};
     }));
     return json({items});
   }
@@ -996,8 +1000,11 @@ async function route(request, env) {
     const pollInput=input?.poll;
     const pollOptions=Array.isArray(pollInput?.options)?pollInput.options.map(x=>String(x||"").trim()).filter(Boolean):[];
     const hasPoll=!!pollInput;
+    const requestedMedia=Array.isArray(input?.mediaItems)?input.mediaItems:(input?.mediaId?[{type:"image",id:input.mediaId}]:input?.videoId?[{type:"video",id:input.videoId}]:[]);
     if (!input || typeof input.content !== "string" || input.content.length > 5000 ||
-        (!input.content.trim() && !text(input.mediaId,64) && !text(input.videoId,64) && !hasPoll)) return json({error:"validation_error",message:"Tulis kandungan atau lampirkan media atau poll."},400);
+        (!input.content.trim() && !requestedMedia.length && !hasPoll)) return json({error:"validation_error",message:"Tulis kandungan atau lampirkan media atau poll."},400);
+    if(requestedMedia.length>10||requestedMedia.some(item=>!item||!["image","video"].includes(item.type)||!text(item.id,64))||new Set(requestedMedia.map(item=>item.id)).size!==requestedMedia.length)return json({error:"invalid_post_media",message:"Pilih maksimum 10 media yang sah dan elakkan fail berulang."},400);
+    if(hasPoll&&requestedMedia.length)return json({error:"invalid_post_media",message:"Poll tidak boleh digabungkan dengan media dalam post yang sama."},400);
     if(hasPoll&&(pollOptions.length<2||pollOptions.length>6||pollOptions.some(x=>x.length>80)||new Set(pollOptions.map(x=>x.toLowerCase())).size!==pollOptions.length))return json({error:"invalid_poll",message:"Poll perlu 2 hingga 6 pilihan unik (maksimum 80 aksara setiap satu)."},400);
     let closesAt=null;
     if(hasPoll&&pollInput.durationHours!==undefined){const hours=Number(pollInput.durationHours);if(![1,6,12,24,72,168,720].includes(hours))return json({error:"invalid_poll_duration"},400);closesAt=new Date(Date.now()+hours*3600000).toISOString()}
@@ -1019,13 +1026,16 @@ async function route(request, env) {
       mentionRecipients=[...byName.values()].filter(x=>x.id!==auth.sub);
     }
     const id=uuid(),now=new Date().toISOString();
-    let media=null,video=null;
-    if(input.mediaId){media=await env.DB.prepare("SELECT id FROM gomogie_media_assets WHERE id=? AND owner_id=? AND purpose='post' AND status='ready'").bind(input.mediaId,auth.sub).first();if(!media)return json({error:"media_not_found",message:"Gambar post tidak ditemui atau bukan milik akaun ini."},404)}
-    if(input.videoId){video=await env.DB.prepare("SELECT id FROM gomogie_video_assets WHERE id=? AND owner_id=? AND status='ready'").bind(input.videoId,auth.sub).first();if(!video)return json({error:"video_not_found",message:"Video tidak ditemui atau bukan milik akaun ini."},404)}
-    if(media&&video||hasPoll&&(media||video))return json({error:"invalid_post_media",message:"Satu post hanya boleh mengandungi satu jenis media atau poll."},400);
+    const verifiedMedia=[];
+    for(const [position,item] of requestedMedia.entries()){
+      const asset=item.type==="image"
+        ? await env.DB.prepare("SELECT id FROM gomogie_media_assets WHERE id=? AND owner_id=? AND purpose='post' AND status='ready'").bind(item.id,auth.sub).first()
+        : await env.DB.prepare("SELECT id FROM gomogie_video_assets WHERE id=? AND owner_id=? AND status='ready'").bind(item.id,auth.sub).first();
+      if(!asset)return json({error:item.type+"_not_found",message:"Salah satu media tidak ditemui, belum siap atau bukan milik akaun ini."},404);
+      verifiedMedia.push({type:item.type,id:asset.id,position});
+    }
     const statements=[env.DB.prepare("INSERT INTO posts (id,user_id,content,visibility,status,comments_enabled,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)").bind(id,auth.sub,input.content.trim(),visibility,"published",input.commentsEnabled===false?0:1,now,now)];
-    if(media)statements.push(env.DB.prepare("INSERT INTO gomogie_post_media (post_id,media_id,position,created_at) VALUES (?,?,?,?)").bind(id,media.id,0,now));
-    if(video)statements.push(env.DB.prepare("INSERT INTO gomogie_post_videos (post_id,video_id,created_at) VALUES (?,?,?)").bind(id,video.id,now));
+    for(const item of verifiedMedia)statements.push(env.DB.prepare("INSERT INTO gomogie_post_attachments (id,post_id,media_type,media_id,video_id,position,created_at) VALUES (?,?,?,?,?,?,?)").bind(uuid(),id,item.type,item.type==="image"?item.id:null,item.type==="video"?item.id:null,item.position,now));
     let pollId=null;
     if(hasPoll){pollId=uuid();statements.push(env.DB.prepare("INSERT INTO gomogie_polls (id,post_id,closes_at,created_at) VALUES (?,?,?,?)").bind(pollId,id,closesAt,now));pollOptions.forEach((label,index)=>statements.push(env.DB.prepare("INSERT INTO gomogie_poll_options (id,poll_id,label,position) VALUES (?,?,?,?)").bind(uuid(),pollId,label,index)))}
     await env.DB.batch(statements);
@@ -1033,7 +1043,8 @@ async function route(request, env) {
       await env.DB.prepare("INSERT INTO notifications (id,recipient_id,actor_id,type,entity_id,is_read,created_at) VALUES (?,?,?,?,?,0,?)").bind(uuid(),recipient.id,auth.sub,"mention",id,now).run();
       await notifyPushDevices(env,recipient.id,{id,title:"You were mentioned on GomoGie",body:"A friend mentioned you in a post."});
     }
-    return json({post:{id,userId:auth.sub,content:input.content.trim(),visibility,status:"published",mediaType:video?"video":media?"image":hasPoll?"poll":"text",mediaUrl:video?videoUrl(video.id):media?mediaUrl(media.id):"",pollId,createdAt:now}},201);
+    const mediaItems=verifiedMedia.map(item=>({type:item.type,id:item.id,url:item.type==="image"?mediaUrl(item.id):videoUrl(item.id),position:item.position}));
+    return json({post:{id,userId:auth.sub,content:input.content.trim(),visibility,status:"published",mediaType:mediaItems[0]?.type|| (hasPoll?"poll":"text"),mediaUrl:mediaItems[0]?.url||"",mediaItems,pollId,createdAt:now}},201);
   }
 
   const postDeleteMatch = path.match(/^\/v1\/posts\/([0-9a-f-]+)$/i);

@@ -14,7 +14,7 @@ on:
       - ".github/workflows/worker-check.yml"
 
 concurrency:
-  group: gomogie-worker-production
+  group: ${{ github.event_name == 'pull_request' && format('gomogie-worker-pr-{0}', github.event.pull_request.number) || 'gomogie-worker-production' }}
   cancel-in-progress: false
 
 permissions:

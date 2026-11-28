@@ -3639,7 +3639,17 @@ function refreshPublicFeedInBackground(){
  liveFeedRefreshPromise=(async()=>{
   feedLoadState="loading";feedLoadError="";
   if(active==="home")render();
-  const liveItems=await fetchPublicApiFeed();
+  // Build initial Home from public discovery and the authenticated relationship feed.
+  // This is the same relationship source used by Following, loaded up front so tab switching is unnecessary.
+  const [publicItems,relationshipItems]=await Promise.all([
+   fetchPublicApiFeed(),
+   currentUser?fetchFollowingApiFeed().catch(error=>{console.warn("Home relationship feed deferred:",error);return [];}):Promise.resolve([])
+  ]);
+  const mergedItemsById=new Map();
+  for(const item of publicItems)if(item?.id)mergedItemsById.set(item.id,item);
+  for(const item of relationshipItems)if(item?.id)mergedItemsById.set(item.id,item);
+  const liveItems=[...mergedItemsById.values()].sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
+  followingFeedPosts=normalizeApiFeedItems(relationshipItems);
   const liveAccounts=[...new Map(liveItems.map(item=>item.author).filter(author=>author&&author.id).map(author=>[author.id,{
    id:author.id,handle:author.username,displayName:author.displayName||author.username,
    avatarUrl:author.avatarUrl||"",coverUrl:author.coverUrl||"",bio:"",location:"",website:"",

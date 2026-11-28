@@ -480,10 +480,45 @@ async function route(request, env) {
   const newsPreferencesRequest = path === "/v1/news/preferences";
   const communityRequest = path === "/v1/communities" || path.startsWith("/v1/communities/");
   const publicRelationshipRead = method === "GET" && /^\/v1\/users\/[a-zA-Z0-9_]{3,24}\/(relationships|followers|following)$/.test(path);
-  const needsAuth = !publicRelationshipRead && (communityRequest || newsPreferencesRequest || followingFeedRequest || optionalFeedAuth || optionalNewsAuth || path === "/v1/auth/me" || (path === "/v1/auth/remember" && method === "POST") || ((path.startsWith("/v1/posts") && !publicCommentsRead) || path.startsWith("/v1/saved")) || (path.startsWith("/v1/media") && !publicMediaRead) || (path.startsWith("/v1/videos") && !publicVideoRead) || path.startsWith("/v1/users/") || path.startsWith("/v1/account/") || path.startsWith("/v1/notifications") || (path.startsWith("/v1/push/") && !(path === "/v1/push/public-key" && method === "GET")) || path.startsWith("/v1/conversations") || path === "/v1/friends" || path === "/v1/friend-requests" || path.startsWith("/v1/friend-requests/") || path === "/v1/message-requests");
+  const needsAuth = !publicRelationshipRead && (communityRequest || newsPreferencesRequest || followingFeedRequest || optionalFeedAuth || optionalNewsAuth || path === "/v1/auth/me" || (path === "/v1/auth/remember" && method === "POST") || ((path.startsWith("/v1/posts") && !publicCommentsRead) || path.startsWith("/v1/saved")) || (path.startsWith("/v1/media") && !publicMediaRead) || (path.startsWith("/v1/videos") && !publicVideoRead) || path.startsWith("/v1/developer/") || path.startsWith("/v1/users/") || path.startsWith("/v1/account/") || path.startsWith("/v1/notifications") || (path.startsWith("/v1/push/") && !(path === "/v1/push/public-key" && method === "GET")) || path.startsWith("/v1/conversations") || path === "/v1/friends" || path === "/v1/friend-requests" || path.startsWith("/v1/friend-requests/") || path === "/v1/message-requests");
   const authDiagnostic = {};
   const auth = needsAuth ? await authenticate(request, env, authDiagnostic) : null;
   if (needsAuth && !auth) return json({ error: "unauthorized", code: authDiagnostic.reason || "authentication_failed", message: "Sesi tidak dapat disahkan." }, 401);
+
+  if (path.startsWith("/v1/developer/")) {
+    if (!auth) return json({ error: "unauthorized" }, 401);
+    const admin = await env.DB.prepare("SELECT role FROM developer_admins WHERE user_id=?").bind(auth.sub).first();
+    if (path === "/v1/developer/bootstrap" && method === "POST") {
+      if (admin) return json({ error: "already_registered" }, 409);
+      const existing = await env.DB.prepare("SELECT COUNT(*) AS total FROM developer_admins").first();
+      const input = await readJson(request, 4096);
+      if (Number(existing?.total || 0) !== 0 || !env.DEVELOPER_BOOTSTRAP_SECRET || typeof input?.secret !== "string" || input.secret.length < 24 || input.secret !== env.DEVELOPER_BOOTSTRAP_SECRET) return json({ error: "bootstrap_not_allowed" }, 403);
+      const now = new Date().toISOString(), id = crypto.randomUUID();
+      await env.DB.batch([
+        env.DB.prepare("INSERT INTO developer_admins(user_id,role,granted_by,created_at) VALUES(?,?,?,?)").bind(auth.sub,"super_admin",auth.sub,now),
+        env.DB.prepare("INSERT INTO developer_audit_logs(id,actor_user_id,action,target_type,target_id,details_json,created_at) VALUES(?,?,?,?,?,?,?)").bind(id,auth.sub,"developer.bootstrap","account",auth.sub,JSON.stringify({role:"super_admin"}),now)
+      ]);
+      return json({ ok:true, role:"super_admin" },201);
+    }
+    if (!admin) return json({ error:"developer_access_required" },403);
+    if (path === "/v1/developer/me" && method === "GET") return json({ role:admin.role, capabilities: admin.role==="super_admin" ? ["system","users","content","analytics","settings","admins","logs"] : admin.role==="admin" ? ["users","content","analytics","logs"] : [admin.role] });
+    if (path === "/v1/developer/overview" && method === "GET") {
+      const [users,activeUsers,posts,news,admins,logs] = await Promise.all([
+        env.DB.prepare("SELECT COUNT(*) AS total FROM users").first(),
+        env.DB.prepare("SELECT COUNT(*) AS total FROM users WHERE status='active'").first(),
+        env.DB.prepare("SELECT COUNT(*) AS total FROM posts").first(),
+        env.DB.prepare("SELECT COUNT(*) AS total FROM viral_news_items").first(),
+        env.DB.prepare("SELECT COUNT(*) AS total FROM developer_admins").first(),
+        env.DB.prepare("SELECT id,action,target_type,target_id,details_json,created_at FROM developer_audit_logs ORDER BY created_at DESC LIMIT 20").all()
+      ]);
+      return json({ metrics:{users:Number(users?.total||0),activeUsers:Number(activeUsers?.total||0),posts:Number(posts?.total||0),news:Number(news?.total||0),administrators:Number(admins?.total||0)},recentActivity:logs.results||[],checkedAt:new Date().toISOString() });
+    }
+    if (path === "/v1/developer/audit" && method === "GET") {
+      const rows=await env.DB.prepare("SELECT id,actor_user_id,action,target_type,target_id,details_json,created_at FROM developer_audit_logs ORDER BY created_at DESC LIMIT 100").all();
+      return json({items:rows.results||[]});
+    }
+    return json({error:"not_found"},404);
+  }
 
   if (path === "/v1/account/username" && method === "PUT") {
     const input = await readJson(request), username = typeof input?.username === "string" ? input.username.trim() : "";

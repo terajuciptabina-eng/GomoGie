@@ -60,6 +60,11 @@
 - Minimise collection and retention of personal data.
 - Review upload handling, rate limits, abuse controls and account deletion.
 - Keep secrets in secure environment configuration.
+- OAuth provider secrets and access tokens stay server-side; never expose them to frontend JavaScript, URLs, logs or Git.
+- Validate OAuth state against a short-lived HttpOnly/Secure/SameSite=Lax cookie; use PKCE and verify Google ID-token signatures, issuer, audience, nonce, expiry and verified email.
+- Use short-lived, single-use OAuth handoff codes; do not put provider tokens or GomoGie JWTs in redirect URLs.
+- New OAuth accounts must obey `ALLOW_REGISTRATION`; do not change that setting without the owner's explicit instruction.
+- Do not automatically link an unverified provider email to an existing account. Account linking must require an authenticated session.
 
 ## Changes and verification
 Before implementation:

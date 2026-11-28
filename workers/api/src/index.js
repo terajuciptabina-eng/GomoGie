@@ -515,6 +515,71 @@ async function route(request, env) {
         : [];
       return json({ metrics:{users:Number(users?.total||0),activeUsers:Number(activeUsers?.total||0),posts:Number(posts?.total||0),news:Number(news?.total||0),administrators:Number(admins?.total||0)},recentActivity,checkedAt:new Date().toISOString() });
     }
+    if (path === "/v1/developer/system" && method === "GET") {
+      if (admin.role !== "super_admin") return json({error:"insufficient_permissions"},403);
+      const checks = { database:"unavailable", mediaStorage:"unavailable" };
+      try { await env.DB.prepare("SELECT 1 AS ready").first(); checks.database="available"; } catch {}
+      try { if (env.MEDIA_BUCKET) { await env.MEDIA_BUCKET.list({limit:1}); checks.mediaStorage="available"; } } catch {}
+      return json({checks,checkedAt:new Date().toISOString(),environment:env.APP_ENV||"unknown"});
+    }
+    if (path === "/v1/developer/users" && method === "GET") {
+      if (!["super_admin","admin","support"].includes(admin.role)) return json({error:"insufficient_permissions"},403);
+      const q=(url.searchParams.get("q")||"").trim().slice(0,80);
+      const status=(url.searchParams.get("status")||"").trim();
+      const limit=Math.max(1,Math.min(50,Number(url.searchParams.get("limit")||25)||25));
+      const offset=Math.max(0,Math.min(10000,Number(url.searchParams.get("offset")||0)||0));
+      const validStatuses=["active","deactivated","pending_deletion","suspended"];
+      if(status&&!validStatuses.includes(status))return json({error:"validation_error",message:"Status filter tidak sah."},400);
+      const rows=await env.DB.prepare(
+        "SELECT u.id,u.username,u.status,u.created_at,p.display_name,p.avatar_url,"+
+        "(SELECT COUNT(*) FROM posts po WHERE po.user_id=u.id AND po.status='published') post_count,"+
+        "EXISTS(SELECT 1 FROM developer_admins da WHERE da.user_id=u.id) is_developer "+
+        "FROM users u LEFT JOIN profiles p ON p.user_id=u.id "+
+        "WHERE (?='' OR u.username LIKE '%'||?||'%' OR p.display_name LIKE '%'||?||'%') "+
+        "AND (?='' OR u.status=?) ORDER BY u.created_at DESC LIMIT ? OFFSET ?"
+      ).bind(q,q,q,status,status,limit,offset).all();
+      const total=await env.DB.prepare(
+        "SELECT COUNT(*) AS total FROM users u LEFT JOIN profiles p ON p.user_id=u.id "+
+        "WHERE (?='' OR u.username LIKE '%'||?||'%' OR p.display_name LIKE '%'||?||'%') AND (?='' OR u.status=?)"
+      ).bind(q,q,q,status,status).first();
+      return json({items:(rows.results||[]).map(u=>({...u,is_developer:Boolean(u.is_developer),post_count:Number(u.post_count||0)})),total:Number(total?.total||0),limit,offset});
+    }
+    if (path === "/v1/developer/reports" && method === "GET") {
+      if (!["super_admin","admin","moderator"].includes(admin.role)) return json({error:"insufficient_permissions"},403);
+      const status=(url.searchParams.get("status")||"open").trim();
+      if(!["open","reviewed","dismissed","actioned","all"].includes(status))return json({error:"validation_error"},400);
+      const rows=await env.DB.prepare(
+        "SELECT r.id,r.community_id,r.reporter_id,r.target_type,r.target_id,r.reason,r.status,r.created_at,r.reviewed_at,"+
+        "c.name community_name,u.username reporter_username "+
+        "FROM community_reports r JOIN communities c ON c.id=r.community_id JOIN users u ON u.id=r.reporter_id "+
+        "WHERE (?='all' OR r.status=?) ORDER BY CASE r.status WHEN 'open' THEN 0 ELSE 1 END,r.created_at DESC LIMIT 100"
+      ).bind(status,status).all();
+      return json({items:rows.results||[]});
+    }
+    const reportMatch=path.match(/^\\/v1\\/developer\\/reports\\/([0-9a-f-]+)$/i);
+    if(reportMatch&&method==="PATCH"){
+      if(!["super_admin","admin","moderator"].includes(admin.role))return json({error:"insufficient_permissions"},403);
+      const input=await readJson(request,4096),status=input?.status;
+      if(!["reviewed","dismissed","actioned"].includes(status))return json({error:"validation_error",message:"Status laporan tidak sah."},400);
+      const id=reportMatch[1],now=new Date().toISOString();
+      const target=await env.DB.prepare("SELECT id,status FROM community_reports WHERE id=?").bind(id).first();
+      if(!target)return json({error:"report_not_found"},404);
+      await env.DB.prepare("UPDATE community_reports SET status=?,reviewed_by=?,reviewed_at=? WHERE id=?").bind(status,auth.sub,now,id).run();
+      await env.DB.prepare("INSERT INTO developer_audit_logs(id,actor_user_id,action,target_type,target_id,details_json,created_at) VALUES(?,?,?,?,?,?,?)").bind(crypto.randomUUID(),auth.sub,"developer.report."+status,"community_report",id,JSON.stringify({from:target.status,to:status}),now).run();
+      return json({ok:true,id,status,reviewedAt:now});
+    }
+    if (path === "/v1/developer/analytics" && method === "GET") {
+      if (!["super_admin","admin","analyst"].includes(admin.role)) return json({error:"insufficient_permissions"},403);
+      const [users,posts,communities,openReports,trendUsers,trendPosts]=await Promise.all([
+        env.DB.prepare("SELECT COUNT(*) total FROM users").first(),
+        env.DB.prepare("SELECT COUNT(*) total FROM posts WHERE status='published'").first(),
+        env.DB.prepare("SELECT COUNT(*) total FROM communities").first(),
+        env.DB.prepare("SELECT COUNT(*) total FROM community_reports WHERE status='open'").first(),
+        env.DB.prepare("SELECT date(created_at) day,COUNT(*) total FROM users WHERE created_at>=datetime('now','-13 days') GROUP BY date(created_at) ORDER BY day").all(),
+        env.DB.prepare("SELECT date(created_at) day,COUNT(*) total FROM posts WHERE created_at>=datetime('now','-13 days') GROUP BY date(created_at) ORDER BY day").all()
+      ]);
+      return json({totals:{users:Number(users?.total||0),publishedPosts:Number(posts?.total||0),communities:Number(communities?.total||0),openReports:Number(openReports?.total||0)},daily:{users:trendUsers.results||[],posts:trendPosts.results||[]},checkedAt:new Date().toISOString()});
+    }
     if (path === "/v1/developer/audit" && method === "GET") {
       if (!["super_admin","admin","analyst"].includes(admin.role)) return json({error:"insufficient_permissions"},403);
       const rows=await env.DB.prepare("SELECT id,actor_user_id,action,target_type,target_id,details_json,created_at FROM developer_audit_logs ORDER BY created_at DESC LIMIT 100").all();

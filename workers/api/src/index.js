@@ -507,7 +507,7 @@ async function route(request, env) {
         env.DB.prepare("SELECT COUNT(*) AS total FROM users").first(),
         env.DB.prepare("SELECT COUNT(*) AS total FROM users WHERE status='active'").first(),
         env.DB.prepare("SELECT COUNT(*) AS total FROM posts").first(),
-        env.DB.prepare("SELECT COUNT(*) AS total FROM viral_news_items").first(),
+        env.DB.prepare("SELECT COUNT(*) AS total FROM gomogie_news_items").first(),
         env.DB.prepare("SELECT COUNT(*) AS total FROM developer_admins").first(),
         env.DB.prepare("SELECT id,action,target_type,target_id,details_json,created_at FROM developer_audit_logs ORDER BY created_at DESC LIMIT 20").all()
       ]);

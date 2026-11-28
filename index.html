@@ -1369,9 +1369,19 @@ async function fetchPublicApiFeed(){
  finally{clearTimeout(timeoutId)}
 }
 async function fetchFollowingApiFeed(){
- const payload=await apiRequest("/v1/feed?scope=following&limit=30");
- if(!Array.isArray(payload.items))throw new Error("Invalid Following feed response");
- return payload.items;
+ const controller=new AbortController();let timeoutId;
+ const timeoutPromise=new Promise((resolve,reject)=>{
+  timeoutId=setTimeout(()=>{
+   controller.abort();
+   reject(new Error("Following feed request timed out after 12 seconds. Please retry."));
+  },12000);
+ });
+ const request=apiRequest("/v1/feed?scope=following&limit=30",{signal:controller.signal});
+ try{
+  const payload=await Promise.race([request,timeoutPromise]);
+  if(!Array.isArray(payload.items))throw new Error("Invalid Following feed response");
+  return payload.items;
+ }finally{clearTimeout(timeoutId)}
 }
 function normalizeApiFeedItems(items){
  return items.map(item=>({id:item.id,authorId:item.author?.id,type:item.mediaType==="video"?"video":item.mediaType==="image"?"image":"text",text:item.content||"",hashtags:Array.isArray(item.hashtags)?item.hashtags:[],mediaUrl:item.mediaUrl||"",mediaItems:Array.isArray(item.mediaItems)?item.mediaItems.map(media=>({...media,thumbnailUrl:media.thumbnailUrl||media.thumbnail_url||media.posterUrl||media.poster_url||""})):[],music:item.music||null,fallbackMediaUrl:item.fallbackMediaUrl||item.backupMediaUrl||item.alternateMediaUrl||"",thumbnailUrl:item.thumbnailUrl||item.thumbnail_url||"",likes:Number(item.reactionCount||0),comments:Number(item.commentCount||0),shares:0,createdAt:item.createdAt,isSynthetic:false}));

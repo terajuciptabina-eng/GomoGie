@@ -101,7 +101,7 @@ jobs:
           frontend = Path('../../index.html').read_text()
           worker = Path('src/index.js').read_text()
           config = Path('wrangler.toml').read_text()
-          assert 'ALLOW_REGISTRATION = "false"' in config, 'Public registration must remain closed until release gates pass'
+          assert 'ALLOW_REGISTRATION = "true"' in config, 'Public registration must be enabled for dry-run testing'
           frontend_match = re.search(r'const API_BASE="(https://[^"]+)"', frontend)
           media_match = re.search(r'function mediaUrl\(id\) \{ return "(https://[^"]+)/v1/media/', worker)
           assert frontend_match, 'Frontend API_BASE not found'

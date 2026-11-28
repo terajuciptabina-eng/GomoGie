@@ -1,6 +1,6 @@
 const CACHE_PREFIX="gomogie-shell-";
-const CACHE_NAME=CACHE_PREFIX+"v46";
-const APP_SHELL=["./","./index.html","./manifest.webmanifest","./assets/brand/favicon.svg","./assets/brand/apple-touch-icon.png","./assets/brand/icon-192.png","./assets/brand/icon-512.png","./assets/brand/GomoGie-wordmark-transparent.svg","./assets/brand/brand-tokens.css","./data/demo-accounts.json","./data/demo-posts.json"];
+const CACHE_NAME=CACHE_PREFIX+"v47";
+const APP_SHELL=["./","./index.html","./manifest.webmanifest","./assets/brand/favicon.svg","./assets/brand/apple-touch-icon.png","./assets/brand/icon-192.png","./assets/brand/icon-512.png","./assets/brand/GomoGie-wordmark-transparent.svg","./assets/brand/brand-tokens.css"];
 const scopedURL=path=>new URL(path,self.registration.scope).href;
 const normalizedDataURL=value=>{const clean=new URL(value);clean.search="";clean.hash="";return clean.href};
 self.addEventListener("install",event=>{event.waitUntil((async()=>{
@@ -20,13 +20,6 @@ self.addEventListener("activate",event=>{event.waitUntil((async()=>{
 self.addEventListener("fetch",event=>{
  const request=event.request,url=new URL(request.url);
  if(request.method!=="GET"||url.origin!==self.location.origin)return;
- if(url.pathname.includes("/data/")){
-  const key=normalizedDataURL(url.href),cachePromise=caches.open(CACHE_NAME);
-  const refreshPromise=cachePromise.then(cache=>fetch(request,{cache:"no-store"}).then(async response=>{if(response.ok)await cache.put(key,response.clone());return response}));
-  event.waitUntil(refreshPromise.catch(()=>{}));
-  event.respondWith(cachePromise.then(cache=>cache.match(key)).then(cached=>cached||refreshPromise));
-  return;
- }
  if(request.mode==="navigate"||request.destination==="document"){
   const key=scopedURL("./index.html"),cachePromise=caches.open(CACHE_NAME);
   const refreshPromise=cachePromise.then(cache=>fetch(request,{cache:"no-store"}).then(async response=>{if(response.ok)await cache.put(key,response.clone());return response}));
@@ -35,10 +28,13 @@ self.addEventListener("fetch",event=>{
   return;
  }
  if(["style","script","image","font"].includes(request.destination)){
-  const cachePromise=caches.open(CACHE_NAME);
-  const refreshPromise=cachePromise.then(cache=>fetch(request,{cache:"no-store"}).then(async response=>{if(response.ok)await cache.put(request,response.clone());return response}));
-  event.waitUntil(refreshPromise.catch(()=>{}));
-  event.respondWith(cachePromise.then(cache=>cache.match(request)).then(cached=>cached||refreshPromise));
+  event.respondWith(caches.open(CACHE_NAME).then(async cache=>{
+   const cached=await cache.match(request);
+   if(cached)return cached;
+   const response=await fetch(request);
+   if(response.ok)await cache.put(request,response.clone());
+   return response;
+  }));
  }
 });
 self.addEventListener("push",event=>{

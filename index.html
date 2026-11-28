@@ -3639,37 +3639,50 @@ function refreshPublicFeedInBackground(){
  liveFeedRefreshPromise=(async()=>{
   feedLoadState="loading";feedLoadError="";
   if(active==="home")render();
-  // Build initial Home from public discovery and the authenticated relationship feed.
-  // This is the same relationship source used by Following, loaded up front so tab switching is unnecessary.
-  const [publicItems,relationshipItems]=await Promise.all([
-   fetchPublicApiFeed(),
-   currentUser?fetchFollowingApiFeed().catch(error=>{console.warn("Home relationship feed deferred:",error);return [];}):Promise.resolve([])
-  ]);
-  const mergedItemsById=new Map();
-  for(const item of publicItems)if(item?.id)mergedItemsById.set(item.id,item);
-  for(const item of relationshipItems)if(item?.id)mergedItemsById.set(item.id,item);
-  const liveItems=[...mergedItemsById.values()].sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
-  followingFeedPosts=normalizeApiFeedItems(relationshipItems);
-  const liveAccounts=[...new Map(liveItems.map(item=>item.author).filter(author=>author&&author.id).map(author=>[author.id,{
-   id:author.id,handle:author.username,displayName:author.displayName||author.username,
-   avatarUrl:author.avatarUrl||"",coverUrl:author.coverUrl||"",bio:"",location:"",website:"",
-   joined:"GomoGie",followers:0,following:0,isSynthetic:false
-  }])).values()];
-  const livePosts=normalizeApiFeedItems(liveItems);
-  feedLoadState="loaded";feedLoadError="";
   const demoAccounts=accounts.filter(account=>account.isSynthetic);
   const demoPosts=posts.filter(post=>post.isSynthetic);
-  accounts=[...liveAccounts,...demoAccounts];
-  posts=[...livePosts,...demoPosts].sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
-  ensureCurrentUserInAccounts();
-  accounts=[...new Map(accounts.filter(account=>account&&account.id).map(account=>[account.id,account])).values()];
-  // Rendering must never wait for optional device-cache persistence.
-  extras();
-  const handledDeepLink=handleNotificationDeepLink();
-  if(active==="home"){if(!handledDeepLink)render()}
-  else invalidateCachedHomeView();
-  updateConnectionState();
-  void localSet("last-live-feed",{accounts:liveAccounts,posts:livePosts,items:liveItems,savedAt:Date.now()})
+  let publicItems=[],relationshipItems=[],publicLoaded=false,relationshipLoaded=false;
+  let latestSnapshot={accounts:[],posts:[],items:[]};
+  const applyAvailableFeed=()=>{
+   const mergedItemsById=new Map();
+   for(const item of publicItems)if(item?.id)mergedItemsById.set(item.id,item);
+   for(const item of relationshipItems)if(item?.id)mergedItemsById.set(item.id,item);
+   const liveItems=[...mergedItemsById.values()].sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
+   const liveAccounts=[...new Map(liveItems.map(item=>item.author).filter(author=>author&&author.id).map(author=>[author.id,{
+    id:author.id,handle:author.username,displayName:author.displayName||author.username,
+    avatarUrl:author.avatarUrl||"",coverUrl:author.coverUrl||"",bio:"",location:"",website:"",
+    joined:"GomoGie",followers:0,following:0,isSynthetic:false
+   }])).values()];
+   const livePosts=normalizeApiFeedItems(liveItems);
+   accounts=[...liveAccounts,...demoAccounts];
+   posts=[...livePosts,...demoPosts].sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
+   ensureCurrentUserInAccounts();
+   accounts=[...new Map(accounts.filter(account=>account&&account.id).map(account=>[account.id,account])).values()];
+   feedLoadState="loaded";feedLoadError="";
+   extras();
+   const handledDeepLink=handleNotificationDeepLink();
+   if(active==="home"){if(!handledDeepLink)render()}
+   else invalidateCachedHomeView();
+   updateConnectionState();
+   latestSnapshot={accounts:liveAccounts,posts:livePosts,items:liveItems};
+  };
+  const pending=[
+   {kind:"public",promise:fetchPublicApiFeed().then(items=>({kind:"public",items}),error=>({kind:"public",error}))}
+  ];
+  if(currentUser)pending.push({kind:"relationship",promise:fetchFollowingApiFeed().then(items=>({kind:"relationship",items}),error=>({kind:"relationship",error}))});
+  const failures=[];
+  while(pending.length){
+   const result=await Promise.race(pending.map(task=>task.promise));
+   const taskIndex=pending.findIndex(task=>task.kind===result.kind);
+   if(taskIndex>=0)pending.splice(taskIndex,1);
+   if(result.error){failures.push(result.error);console.warn("Home "+result.kind+" feed request failed:",result.error);continue;}
+   if(result.kind==="public"){publicItems=result.items;publicLoaded=true;}
+   else{relationshipItems=result.items;relationshipLoaded=true;followingFeedPosts=normalizeApiFeedItems(relationshipItems);}
+   // Render as soon as either source returns; never wait for the slower endpoint.
+   applyAvailableFeed();
+  }
+  if(!publicLoaded&&!relationshipLoaded)throw failures[0]||new Error("Home feed could not be loaded.");
+  void localSet("last-live-feed",{...latestSnapshot,savedAt:Date.now()})
    .catch(error=>console.warn("Live feed cache save deferred:",error));
  }).catch(error=>{
   feedLoadState="error";feedLoadError=String(error?.message||"Network or server error");

@@ -35,7 +35,7 @@ GomoGie is its own social network, not a dashboard that aggregates feeds from Fa
 ## 4. Core product areas
 
 ### Feed
-A personalised and following feed containing text, images, links and polls. Support reactions, comments, replies, sharing, reposts and quote posts.
+A personalised and following feed containing text, images, links and videos. Support reactions, comments, replies, sharing, reposts and quote posts.
 
 ### Pulse
 A public conversation surface for short updates, hashtags, topics and emerging discussions. Trending must be explainable and protected against manipulation.
@@ -69,7 +69,7 @@ Role permissions must be enforced by the backend, not merely hidden in the front
 The first usable prototype should demonstrate:
 - Responsive application shell and navigation.
 - Synthetic demo profiles and content, clearly labelled as demo data.
-- Feed cards for text, image, video preview and poll examples.
+- Feed cards for text, image and video examples.
 - Post composer interaction.
 - Reactions, comments/replies and repost interactions in local prototype state.
 - Pulse topic list and hashtag discovery.

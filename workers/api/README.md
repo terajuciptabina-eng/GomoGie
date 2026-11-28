@@ -162,7 +162,7 @@ Email changes remain disabled until an email-verification delivery flow is confi
 
 ## Google and Facebook OAuth
 
-OAuth is handled by this Worker; provider tokens and client secrets never reach the browser. The frontend receives a short-lived, one-time handoff code and exchanges it for the existing GomoGie JWT. Google ID tokens are signature-verified against Google's published signing keys and must have a verified email. OAuth state is bound to a short-lived HttpOnly/Secure/SameSite=Lax cookie. Login handoff codes expire after two minutes and are single-use.
+OAuth is handled by this Worker; provider tokens and client secrets never reach the browser. The frontend receives a short-lived, one-time handoff code and exchanges it for the existing GomoGie JWT. OAuth state and handoff records are consumed atomically in D1 so concurrent callback or exchange requests cannot reuse the same code. Google ID tokens are signature-verified against Google's published signing keys and must have a verified email. OAuth state is bound to a short-lived HttpOnly/Secure/SameSite=Lax cookie. Login handoff codes expire after two minutes and are single-use.
 
 Apply the additive migration before enabling the provider buttons:
 ```sh
@@ -179,7 +179,7 @@ npx wrangler secret put FACEBOOK_APP_SECRET
 
 Register these exact redirect URIs with the providers:
 - Google: `https://gomogie-api.terajuciptabina.workers.dev/v1/auth/oauth/google/callback`
-- Facebook: `https://gomogie-api.terajucipabina.workers.dev/v1/auth/oauth/facebook/callback`
+- Facebook: `https://gomogie-api.terajuciptabina.workers.dev/v1/auth/oauth/facebook/callback`
 
 The provider app must be configured for the appropriate web OAuth product and production/live mode before public use. Google requests only `openid email profile`; Facebook requests only `email,public_profile`. No Gmail, friend-list, photo or posting permissions are requested.
 

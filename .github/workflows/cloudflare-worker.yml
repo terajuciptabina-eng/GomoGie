@@ -58,8 +58,10 @@ jobs:
           worker = Path("workers/api/src/index.js").read_text()
           migration = Path("workers/api/sql/0028_oauth_identity.sql").read_text()
           frontend = Path("index.html").read_text()
-          for marker in ["verifyGoogleIdToken", "code_challenge_method", "oauth_state_invalid", "gomogie_oauth_identities", "/v1/auth/oauth/exchange", "env.ALLOW_REGISTRATION !== \"true\""]:
+          for marker in ["verifyGoogleIdToken", "code_challenge_method", "oauth_state_invalid", "gomogie_oauth_identities", "/v1/auth/oauth/exchange", "env.ALLOW_REGISTRATION !== \"true\"", "DELETE FROM gomogie_oauth_states WHERE state_hash=? RETURNING", "DELETE FROM gomogie_oauth_handoffs WHERE code_hash=? RETURNING"]:
               assert marker in worker, f"OAuth security or route marker missing: {marker}"
+          assert "SELECT provider,code_verifier,nonce,expires_at FROM gomogie_oauth_states WHERE state_hash=?" not in worker, "OAuth state must be atomically consumed."
+          assert "SELECT user_id,expires_at FROM gomogie_oauth_handoffs WHERE code_hash=?" not in worker, "OAuth handoff must be atomically consumed."
           for table in ["gomogie_oauth_identities", "gomogie_oauth_states", "gomogie_oauth_handoffs"]:
               assert f"CREATE TABLE IF NOT EXISTS {table}" in migration, f"OAuth migration missing {table}"
           assert "id=\"googleSignIn\"" in frontend and "id=\"facebookSignIn\"" in frontend

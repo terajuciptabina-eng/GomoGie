@@ -1612,11 +1612,11 @@ function validPostMusic(input){
  let url;try{url=new URL(stream)}catch{return null}
  const allowedAudioHosts=new Set(["archive.org","www.archive.org","upload.wikimedia.org","mp3d.jamendo.com","cdn.freesound.org","freesound.org","www.freesound.org","freemusicarchive.org","files.freemusicarchive.org","ccmixter.org","dig.ccmixter.org","ccmixter.com"]);
  if(url.protocol!=="https:"||!allowedAudioHosts.has(url.hostname.toLowerCase()))return null;
- const rawLicense=String(input.license||"").trim().replace(/\\s+/g," ").toUpperCase();
+ const rawLicense=String(input.license||"").trim().replace(/\s+/g," ").toUpperCase();
  let license="";
- if(/^(?:PUBLIC DOMAIN|PDM|CC0)(?:\\s|$)/.test(rawLicense))license=rawLicense.startsWith("CC0")?"CC0":"Public domain";
- else if(/^CC BY-SA(?:\\s|$)/.test(rawLicense))license=rawLicense.slice(0,80);
- else if(/^CC BY(?:\\s|$)/.test(rawLicense))license=rawLicense.slice(0,80);
+ if(/^(?:PUBLIC DOMAIN|PDM|CC0)(?:\s|$)/.test(rawLicense))license=rawLicense.startsWith("CC0")?"CC0":"Public domain";
+ else if(/^CC BY-SA(?:\s|$)/.test(rawLicense))license=rawLicense.slice(0,80);
+ else if(/^CC BY(?:\s|$)/.test(rawLicense))license=rawLicense.slice(0,80);
  if(!license)return null;
  const title=String(input.title||"").trim().slice(0,180),artist=String(input.artist||"").trim().slice(0,180);
  if(!title||!artist)return null;

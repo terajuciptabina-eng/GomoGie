@@ -116,7 +116,7 @@ jobs:
           assert 'data-relationship-list="friends"' in frontend and 'profileFriendCount' in frontend, 'Profile friends count UI missing'
           assert 'profileFriendButton.dataset.relationshipState="friends"' in frontend, 'Profile friend-state UI missing'
           assert 'isPendingRequest?"message_request":"message"' in worker, 'New direct-message in-app notification missing'
-          assert 'New message request' in worker and 'New message' in worker, 'Direct-message push notifications missing'
+          assert 'message:{title:"New message from "+name' in worker and 'message_request:{title:"Message request from "+name' in worker, 'Direct-message push notifications missing'
           assert 'message_request_accepted' in worker, 'Message-request acceptance notification missing'
           assert 'if(type==="message_request")' in frontend and 'if(type==="message")' in frontend, 'Frontend message notification labels missing'
           print('Verified Worker origin, authenticated Following feed, visibility filter and follow-state restoration.')

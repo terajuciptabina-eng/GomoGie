@@ -3712,19 +3712,27 @@ function refreshPublicFeedInBackground(){
  }).finally(()=>{liveFeedRefreshPromise=null});
  return liveFeedRefreshPromise;
 }
+let appStartupStage="startup_not_started";
 async function loadGomoGieData(){
+ appStartupStage="reset_state";
  accounts=[];posts=[];localPendingPosts=[];
+ appStartupStage="restore_session_start";
  const sessionTask=restoreSession().catch(error=>console.warn("Session restore deferred:",error));
+ appStartupStage="ensure_current_user";
  ensureCurrentUserInAccounts();
  const sharedProfile=decodeURIComponent(location.hash.replace(/^#profile-/,"")).trim().toLowerCase();
  if(location.hash.startsWith("#profile-")&&sharedProfile){
   const target=accounts.find(account=>String(account.handle||"").toLowerCase()===sharedProfile);
   if(target){active="profile";selectedProfileId=target.id;profileTab="posts";editingProfile=false}
  }
+ appStartupStage="initialize_extras";
  extras();
+ appStartupStage="initial_render";
  if(!handleNotificationDeepLink())render();
+ appStartupStage="connection_state";
  updateConnectionState();
  // Start feed only after the base application UI and state have been initialized.
+ appStartupStage="start_background_feed";
  const initialHomeFeedTask=refreshPublicFeedInBackground();
  void sessionTask.then(async()=>{
   ensureCurrentUserInAccounts();
@@ -3734,7 +3742,9 @@ async function loadGomoGieData(){
   // the restored account context so relationship posts are present without a tab switch.
   await initialHomeFeedTask;
  });
+ appStartupStage="start_background_services";
  void loadViralNews();
+ appStartupStage="startup_complete";
  void refreshNotificationBadge().then(()=>{if(active==="notifications")render()}).catch(error=>console.warn("Notification badge refresh deferred:",error));
 }
 async function refreshGomoGie(){
@@ -3820,7 +3830,7 @@ function showFirstVisitInstallGuide(){
  document.getElementById("installGuideLater")?.addEventListener("click",dismiss,{once:true});
 }
 updateConnectionState();
-loadGomoGieData().then(()=>{showFirstVisitInstallGuide();startGuestAccessTimer()}).catch(()=>{view.innerHTML='<div class="empty">Unable to load GomoGie content. Please check your connection and refresh.</div>'});
+loadGomoGieData().then(()=>{showFirstVisitInstallGuide();startGuestAccessTimer()}).catch(error=>{console.error("GomoGie startup failed at "+appStartupStage+":",error);const detail=String(error?.message||error||"Unknown startup error");view.innerHTML='<section class="empty" role="alert"><strong>GomoGie startup failed.</strong><p>Stage: '+esc(appStartupStage)+'</p><p>'+esc(detail)+'</p><button type="button" class="primary" data-startup-retry>Retry startup</button></section>';view.querySelector("[data-startup-retry]")?.addEventListener("click",()=>{const button=view.querySelector("[data-startup-retry]");if(button)button.disabled=true;void loadGomoGieData().catch(retryError=>{console.error("GomoGie startup retry failed at "+appStartupStage+":",retryError);view.innerHTML='<section class="empty" role="alert"><strong>Startup retry failed.</strong><p>Stage: '+esc(appStartupStage)+'</p><p>'+esc(retryError?.message||retryError)+'</p></section>'})})});
 
 
 const aboutLayer=document.getElementById("aboutLayer");

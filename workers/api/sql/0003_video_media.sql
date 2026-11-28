@@ -1,4 +1,4 @@
--- GomoGie video posts and polls (additive D1 migration)
+-- GomoGie video posts (additive D1 migration)
 -- Apply to the existing gomogie-db before deploying the updated Worker.
 
 CREATE TABLE IF NOT EXISTS gomogie_video_assets (

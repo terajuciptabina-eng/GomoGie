@@ -1436,6 +1436,31 @@ async function route(request, env) {
     return json({ comment: { id, postId: commentMatch[1], userId: auth.sub, parentId: parent?.id || null, content: input.content.trim(), createdAt: now } }, 201);
   }
 
+  // Discover active members without exposing private account fields. Existing follows,
+  // friendships and pending relationship requests are excluded from suggestions.
+  if (path === "/v1/users/discover" && method === "GET") {
+    const rawLimit=Number(url.searchParams.get("limit")||24);
+    const rawOffset=Number(url.searchParams.get("offset")||0);
+    const limit=Number.isFinite(rawLimit)?Math.max(1,Math.min(48,Math.floor(rawLimit))):24;
+    const offset=Number.isFinite(rawOffset)?Math.max(0,Math.min(10000,Math.floor(rawOffset))):0;
+    const q=(url.searchParams.get("q")||"").trim().slice(0,60);
+    const pattern="%"+q.replace(/[\\%_]/g,"\\  // Friends are explicit two-way relationships; follows remain independent one-way relationships.
+  if (path === "/v1/users/search" && method === "GET") {")+"%";
+    const rows=await env.DB.prepare(
+      "SELECT u.id,u.username,u.created_at,p.display_name,p.avatar_url,p.bio,p.location "+
+      "FROM users u LEFT JOIN profiles p ON p.user_id=u.id "+
+      "WHERE u.status='active' AND u.id<>? AND (?='' OR u.username LIKE ? OR p.display_name LIKE ?) "+
+      "AND NOT EXISTS (SELECT 1 FROM follows f WHERE f.follower_id=? AND f.following_id=u.id) "+
+      "AND NOT EXISTS (SELECT 1 FROM friend_requests fr WHERE ((fr.requester_id=? AND fr.recipient_id=u.id) OR (fr.recipient_id=? AND fr.requester_id=u.id)) AND fr.status IN ('accepted','pending')) "+
+      "ORDER BY u.created_at DESC,u.username COLLATE NOCASE ASC LIMIT ? OFFSET ?"
+    ).bind(auth.sub,q,pattern,pattern,auth.sub,auth.sub,auth.sub,limit+1,offset).all();
+    const found=rows.results||[],hasMore=found.length>limit;
+    return json({items:found.slice(0,limit).map(row=>({
+      id:row.id,username:row.username,displayName:row.display_name||row.username,
+      avatarUrl:row.avatar_url||"",bio:row.bio||"",location:row.location||"",createdAt:row.created_at
+    })),hasMore,nextOffset:offset+Math.min(found.length,limit)});
+  }
+
   // Friends are explicit two-way relationships; follows remain independent one-way relationships.
   if (path === "/v1/users/search" && method === "GET") {
     const q=(url.searchParams.get("q")||"").trim().replace(/^@/,"").slice(0,24);

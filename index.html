@@ -3701,7 +3701,7 @@ function refreshPublicFeedInBackground(){
   if(!publicLoaded&&!relationshipLoaded)throw failures[0]||new Error("Home feed could not be loaded.");
   void localSet("last-live-feed",{...latestSnapshot,savedAt:Date.now()})
    .catch(error=>console.warn("Live feed cache save deferred:",error));
- }).catch(error=>{
+ })().catch(error=>{
   feedLoadState="error";feedLoadError=String(error?.message||"Network or server error");
   console.error("Background live feed refresh failed:",error);
   const handledDeepLink=handleNotificationDeepLink();

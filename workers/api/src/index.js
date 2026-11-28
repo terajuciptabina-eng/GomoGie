@@ -557,7 +557,7 @@ async function route(request, env) {
       ).bind(q,q,q,status,status).first();
       return json({items:(rows.results||[]).map(u=>({...u,is_developer:Boolean(u.is_developer),post_count:Number(u.post_count||0)})),total:Number(total?.total||0),limit,offset});
     }
-    const userStatusMatch=path.match(/^\\/v1\\/developer\\/users\\/([0-9a-f-]+)\\/status$/i);
+    const userStatusMatch=path.match(/^\/v1\/developer\/users\/([0-9a-f-]+)\/status$/i);
     if(userStatusMatch&&method==="PATCH"){
       if(!["super_admin","admin"].includes(admin.role))return json({error:"insufficient_permissions"},403);
       let targetId;try{targetId=decodeURIComponent(userStatusMatch[1])}catch{return json({error:"validation_error"},400)}

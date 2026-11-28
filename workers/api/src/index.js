@@ -429,9 +429,9 @@ async function handleOAuthRoute(request, env, url, method, path) {
     };
     if (!state || !cookieState || state !== cookieState || !url.searchParams.get("code")) return fail("oauth_state_invalid");
     const stateHash = await oauthSha256(state);
-    const saved = await env.DB.prepare("SELECT provider,code_verifier,nonce,expires_at FROM gomogie_oauth_states WHERE state_hash=?")
+    // Consume the state in one D1 statement so concurrent callbacks cannot reuse it.
+    const saved = await env.DB.prepare("DELETE FROM gomogie_oauth_states WHERE state_hash=? RETURNING provider,code_verifier,nonce,expires_at")
       .bind(stateHash).first();
-    await env.DB.prepare("DELETE FROM gomogie_oauth_states WHERE state_hash=?").bind(stateHash).run();
     if (!saved || saved.provider !== provider || saved.expires_at <= new Date().toISOString()) return fail("oauth_state_expired");
     try {
       const callback = new URL("/v1/auth/oauth/" + provider + "/callback", url.origin).toString();
@@ -485,9 +485,9 @@ async function handleOAuthRoute(request, env, url, method, path) {
     if (!text(input?.code, 128)) return json({ error: "oauth_code_invalid" }, 400);
     const hash = await oauthSha256(input.code);
     const now = new Date().toISOString();
-    const handoff = await env.DB.prepare("SELECT user_id,expires_at FROM gomogie_oauth_handoffs WHERE code_hash=?")
+    // Atomically consume the one-time handoff; parallel exchanges can mint only one JWT.
+    const handoff = await env.DB.prepare("DELETE FROM gomogie_oauth_handoffs WHERE code_hash=? RETURNING user_id,expires_at")
       .bind(hash).first();
-    await env.DB.prepare("DELETE FROM gomogie_oauth_handoffs WHERE code_hash=?").bind(hash).run();
     if (!handoff || handoff.expires_at <= now) return json({ error: "oauth_code_expired", message: "Log masuk tamat tempoh. Cuba sekali lagi." }, 401);
     const user = await env.DB.prepare("SELECT id,email,username,status,session_version FROM users WHERE id=?").bind(handoff.user_id).first();
     if (!user || user.status !== "active") return json({ error: "account_unavailable" }, 403);

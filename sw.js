@@ -22,12 +22,12 @@ self.addEventListener("fetch",event=>{
  if(request.method!=="GET")return;
  // GomoGie uploaded images use immutable UUID URLs on the API origin.
  // Cache successful CORS-readable image responses so they survive page refreshes.
- if(url.origin==="https://gomogie-api.terajuciptabina.workers.dev"&&/^\\/v1\\/media\\/[0-9a-f-]+$/i.test(url.pathname)&&request.destination==="image"){
+ if(url.origin==="https://gomogie-api.terajuciptabina.workers.dev"&&/^\/v1\/media\/[0-9a-f-]+$/i.test(url.pathname)&&request.destination==="image"){
   event.respondWith(caches.open(CACHE_NAME).then(async cache=>{
    const cached=await cache.match(request);
    if(cached)return cached;
    const response=await fetch(request);
-   if(response.ok&&response.type!=="opaque"&&/^image\\//i.test(response.headers.get("content-type")||""))await cache.put(request,response.clone());
+   if(response.ok&&response.type!=="opaque"&&/^image\//i.test(response.headers.get("content-type")||""))await cache.put(request,response.clone());
    return response;
   }));
   return;

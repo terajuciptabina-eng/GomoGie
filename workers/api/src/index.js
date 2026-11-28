@@ -515,6 +515,19 @@ async function route(request, env) {
         : [];
       return json({ metrics:{users:Number(users?.total||0),activeUsers:Number(activeUsers?.total||0),posts:Number(posts?.total||0),news:Number(news?.total||0),administrators:Number(admins?.total||0)},recentActivity,checkedAt:new Date().toISOString() });
     }
+    if (path === "/v1/developer/settings" && method === "GET") {
+      if (admin.role !== "super_admin") return json({error:"insufficient_permissions"},403);
+      const origins=(env.ALLOWED_ORIGINS||"").split(",").map(value=>value.trim()).filter(Boolean);
+      return json({settings:{
+        environment:env.APP_ENV||"unknown",
+        publicRegistrationEnabled:env.ALLOW_REGISTRATION==="true",
+        allowedOrigins:origins,
+        mediaStorageConfigured:Boolean(env.MEDIA_BUCKET),
+        databaseConfigured:Boolean(env.DB),
+        developerBootstrapConfigured:Boolean(env.DEVELOPER_BOOTSTRAP_SECRET),
+        scheduledJobsConfigured:true
+      },checkedAt:new Date().toISOString()});
+    }
     if (path === "/v1/developer/system" && method === "GET") {
       if (admin.role !== "super_admin") return json({error:"insufficient_permissions"},403);
       const checks = { database:"unavailable", mediaStorage:"unavailable" };

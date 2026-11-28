@@ -2245,11 +2245,11 @@ const edited=new File([blob],"gomogie-edited.mp4",{type:"video/mp4",lastModified
  };
 }
 async function refreshDeveloperAccess(){
- if(!currentUser){developerAccess=false;developerRole="";developerCapabilities=[];developerAccessUserId="";window._developerAccessCheck="";return}
+ if(!currentUser){developerAccess=false;developerRole="";developerCapabilities=[];developerAccessUserId="";window._developerAccessCheck="";syncDeveloperSettingsEntry();return}
  const uid=currentUser.id;
  if(window._developerAccessCheck===uid)return;
  window._developerAccessCheck=uid;
- developerAccess=false;developerRole="";developerCapabilities=[];developerAccessUserId="";nav();
+ developerAccess=false;developerRole="";developerCapabilities=[];developerAccessUserId="";nav();syncDeveloperSettingsEntry();
  try{
   const data=await apiRequest("/v1/developer/me");
   if(currentUser?.id!==uid)return;

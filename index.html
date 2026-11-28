@@ -1203,6 +1203,37 @@ body{background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;te
 .music-languages{display:flex;width:100%;flex-wrap:nowrap;gap:8px;overflow-x:auto;overflow-y:hidden;padding:4px 2px 14px;max-width:100%;min-width:0;white-space:nowrap;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;touch-action:pan-x;scrollbar-width:none;scroll-snap-type:x proximity}
 .music-languages::-webkit-scrollbar{display:none}
 .music-languages .music-chip{flex:0 0 auto;scroll-snap-align:start;touch-action:pan-x}
+
+/* Final composer layout override: keep all four actions on one line at every viewport. */
+.composer .compose-actions{
+ display:grid !important;
+ grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+ flex-wrap:nowrap !important;
+ width:100% !important;
+ margin:12px 0 0 !important;
+ gap:8px !important;
+ align-items:stretch;
+}
+.composer .compose-actions button{
+ display:flex !important;
+ align-items:center;
+ justify-content:center;
+ gap:5px;
+ min-width:0 !important;
+ width:100%;
+ min-height:44px;
+ padding:9px 5px;
+ white-space:nowrap;
+ font-size:clamp(11px,3vw,13px);
+}
+.composer .compose-actions button svg{width:18px;height:18px;flex:0 0 auto}
+.composer .compose-actions button span{overflow:hidden;text-overflow:ellipsis}
+.composer .compose-actions .composer-post-button{background:var(--ink,#10232d);color:#fff}
+@media(max-width:380px){
+ .composer .compose-actions{gap:5px !important}
+ .composer .compose-actions button{gap:3px;padding:8px 2px;font-size:11px}
+ .composer .compose-actions button svg{width:16px;height:16px}
+}
 </style>
 <section class="install-guide-layer" id="installGuideLayer" hidden role="dialog" aria-modal="true" aria-labelledby="installGuideTitle">
  <div class="install-guide-card">
@@ -1498,7 +1529,7 @@ function postCard(p){
  const soundtrack=p.music?'<button type="button" class="post-soundtrack" data-post-soundtrack="'+esc(p.id)+'" aria-label="Play attached music" aria-pressed="false" title="'+esc([p.music.title,p.music.artist,p.music.license,p.music.source].filter(Boolean).join(" · "))+'"><span class="post-soundtrack-status" aria-hidden="true">♫</span></button>':"";
  const quote=quoteId?'<div class="quoted-post"><strong>↗ Quoted post</strong><p>'+esc(quoteBody)+'</p><button type="button" data-open-quoted="'+esc(quoteId)+'">View original post</button></div>':"";
  const tags=[...new Set([...(p.hashtags||[]),...(displayText.match(/#[\p{L}\p{N}_]+/gu)||[]).map(x=>x.slice(1))])];
- return '<article class="card" id="post-'+esc(p.id)+'"><div class="post-head" data-open-profile="'+esc(a.id)+'" style="cursor:pointer"><img class="avatar" src="'+esc(a.avatarUrl||"")+'" alt=""><div class="meta"><div class="name">'+esc(a.displayName||a.handle||"GomoGie member")+' </div><div class="handle">@'+esc(a.handle||"member")+'</div>'+postPrivacyMarkup(p.visibility)'+(a.isSynthetic?'<span class="synthetic-label">DEMO ACCOUNT</span>':'')+'</div>'+(!p.isSynthetic&&currentUser&&currentUser.id===p.authorId?'<details class="post-menu"><summary aria-label="Post options" title="Post options">•••</summary><div class="post-menu-panel"><button type="button" class="post-menu-edit" data-edit-post="'+esc(p.id)+'"><span>✎</span> Edit post</button><button type="button" class="post-menu-delete" data-delete-post="'+esc(p.id)+'"><span>⌫</span> Delete post</button></div></details>':'')+'</div><div class="post-text">'+postTextHtml(mainText)+' '+tags.map(h=>'<button class="topic-inline" type="button" data-topic="'+esc(h)+'">#'+esc(h)+'</button>').join(" ")+'</div>'+quote+postLinkPreview(mainText)+(media?'<div class="post-media-stage">'+media+soundtrack+'</div>':soundtrack)+'<div class="post-actions"><button class="'+(isLiked?'liked':'')+'" data-like="'+esc(p.id)+'">'+(isLiked?'♥':'♡')+' '+(Number(p.likes||0)+(isLiked?1:0)).toLocaleString()+'</button><button data-comment="'+esc(p.id)+'">◯ '+Number(p.comments||0)+' replies</button><button data-repost="'+esc(p.id)+'">↻ Repost</button><button data-quote="'+esc(p.id)+'">↗ Quote</button><button data-share="'+esc(p.id)+'">Share</button><button data-save="'+esc(p.id)+'">'+(savedPosts.has(p.id)?"▣ Saved":"⌑ Save")+'</button></div><div class="post-footer">'+(p.isSynthetic?'<span class="synthetic-post-note">Synthetic demo post · Sample engagement</span>':'GomoGie live post')+'</div></article>';
+ return '<article class="card" id="post-'+esc(p.id)+'"><div class="post-head" data-open-profile="'+esc(a.id)+'" style="cursor:pointer"><img class="avatar" src="'+esc(a.avatarUrl||"")+'" alt=""><div class="meta"><div class="name">'+esc(a.displayName||a.handle||"GomoGie member")+' </div><div class="handle">@'+esc(a.handle||"member")+'</div>'+postPrivacyMarkup(p.visibility)+(a.isSynthetic?'<span class="synthetic-label">DEMO ACCOUNT</span>':'')+'</div>'+(!p.isSynthetic&&currentUser&&currentUser.id===p.authorId?'<details class="post-menu"><summary aria-label="Post options" title="Post options">•••</summary><div class="post-menu-panel"><button type="button" class="post-menu-edit" data-edit-post="'+esc(p.id)+'"><span>✎</span> Edit post</button><button type="button" class="post-menu-delete" data-delete-post="'+esc(p.id)+'"><span>⌫</span> Delete post</button></div></details>':'')+'</div><div class="post-text">'+postTextHtml(mainText)+' '+tags.map(h=>'<button class="topic-inline" type="button" data-topic="'+esc(h)+'">#'+esc(h)+'</button>').join(" ")+'</div>'+quote+postLinkPreview(mainText)+(media?'<div class="post-media-stage">'+media+soundtrack+'</div>':soundtrack)+'<div class="post-actions"><button class="'+(isLiked?'liked':'')+'" data-like="'+esc(p.id)+'">'+(isLiked?'♥':'♡')+' '+(Number(p.likes||0)+(isLiked?1:0)).toLocaleString()+'</button><button data-comment="'+esc(p.id)+'">◯ '+Number(p.comments||0)+' replies</button><button data-repost="'+esc(p.id)+'">↻ Repost</button><button data-quote="'+esc(p.id)+'">↗ Quote</button><button data-share="'+esc(p.id)+'">Share</button><button data-save="'+esc(p.id)+'">'+(savedPosts.has(p.id)?"▣ Saved":"⌑ Save")+'</button></div><div class="post-footer">'+(p.isSynthetic?'<span class="synthetic-post-note">Synthetic demo post · Sample engagement</span>':'GomoGie live post')+'</div></article>';
 }
 function composer(){
  const me=currentUser&&account(currentUser.id);

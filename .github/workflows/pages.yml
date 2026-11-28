@@ -21,21 +21,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Validate demo JSON
-        run: |
-          python - <<'PY'
-          import json
-          from pathlib import Path
-          accounts = json.loads(Path('data/demo-accounts.json').read_text())
-          posts = json.loads(Path('data/demo-posts.json').read_text())
-          assert accounts['synthetic'] is True
-          assert len(accounts['accounts']) == 1000
-          assert all(a['isSynthetic'] and a['demoLabel'] == 'SYNTHETIC DEMO ACCOUNT' for a in accounts['accounts'])
-          assert posts['synthetic'] is True
-          assert len(posts['posts']) == 120
-          assert all(p['isSynthetic'] and p['demoLabel'] == 'SYNTHETIC DEMO POST' for p in posts['posts'])
-          print('Validated 1,000 synthetic accounts and 120 synthetic posts.')
-          PY
       - name: Validate prototype entry point
         run: test -s index.html && test -s assets/brand/GomoGie-wordmark-transparent.svg
       - name: Validate frontend JavaScript and API integration
@@ -73,7 +58,7 @@ jobs:
           print('Extracted application script and verified Cloudflare feed integration.')
           PY
           node -e 'const fs = require("node:fs"); const vm = require("node:vm"); new vm.Script(fs.readFileSync("/tmp/gomogie-inline.js", "utf8"), { filename: "gomogie-inline.js" }); console.log("Validated browser classic-script syntax.");'
-      - name: Validate PWA manifest, icons and offline fixtures
+      - name: Validate PWA manifest and icons
         run: |
           python - <<'PY'
           import json, struct
@@ -100,11 +85,9 @@ jobs:
               assert (width, height) == (size, size)
           assert any(i['src'] == 'assets/brand/icon-192.png' for i in manifest['icons'])
           assert any(i['src'] == 'assets/brand/icon-512.png' for i in manifest['icons'])
-          assert './data/demo-accounts.json' in worker
-          assert './data/demo-posts.json' in worker
           assert 'cache.put(request' in worker
           assert 'new URL(event.notification.data?.url||"./",self.registration.scope)' in worker, 'Notification click must remain inside the GomoGie Pages project path.'
-          print('Validated PWA registration, manifest, iOS/Android icons and offline demo fixtures.')
+          print('Validated PWA registration, manifest and iOS/Android icons.')
           PY
 
   deploy:

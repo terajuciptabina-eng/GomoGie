@@ -1366,11 +1366,25 @@ async function route(request, env) {
   const postEditMatch = path.match(/^\/v1\/posts\/([0-9a-f-]+)$/i);
   if (postEditMatch && method === "PATCH") {
     const input = await readJson(request);
-    if (!input || typeof input.content !== "string" || input.content.length > 20000) return json({ error: "validation_error", message: "Kandungan post tidak sah (maksimum 20,000 aksara)." }, 400);
-    const owned = await env.DB.prepare("SELECT id FROM posts WHERE id=? AND user_id=? AND status='published'").bind(postEditMatch[1], auth.sub).first();
+    if (!input || (input.content !== undefined && (typeof input.content !== "string" || input.content.length > 20000)) ||
+        (input.visibility !== undefined && !["public","followers","friends","private"].includes(input.visibility)) ||
+        (input.content === undefined && input.visibility === undefined)) {
+      return json({ error: "validation_error", message: "Kandungan atau privacy post tidak sah." }, 400);
+    }
+    const owned = await env.DB.prepare("SELECT id,content,visibility FROM posts WHERE id=? AND user_id=? AND status='published'").bind(postEditMatch[1], auth.sub).first();
     if (!owned) return json({ error: "post_not_found", message: "Post tidak ditemui atau bukan milik akaun anda." }, 404);
-    await env.DB.prepare("UPDATE posts SET content=?,updated_at=? WHERE id=? AND user_id=?").bind(input.content.trim(), new Date().toISOString(), postEditMatch[1], auth.sub).run();
-    return json({ updated: true, postId: postEditMatch[1], content: input.content.trim() });
+    const content = input.content === undefined ? owned.content : input.content.trim();
+    const visibility = input.visibility === undefined ? owned.visibility : input.visibility;
+    if (!content) {
+      const [attachment,music] = await Promise.all([
+        env.DB.prepare("SELECT 1 AS found FROM gomogie_post_attachments WHERE post_id=? LIMIT 1").bind(postEditMatch[1]).first(),
+        env.DB.prepare("SELECT 1 AS found FROM gomogie_post_music WHERE post_id=? LIMIT 1").bind(postEditMatch[1]).first()
+      ]);
+      if (!attachment && !music) return json({ error: "validation_error", message: "Post cannot be empty." }, 400);
+    }
+    await env.DB.prepare("UPDATE posts SET content=?,visibility=?,updated_at=? WHERE id=? AND user_id=?")
+      .bind(content, visibility, new Date().toISOString(), postEditMatch[1], auth.sub).run();
+    return json({ updated: true, postId: postEditMatch[1], content, visibility });
   }
 
   const reactionMatch = path.match(/^\/v1\/posts\/([0-9a-f-]+)\/reactions$/i);

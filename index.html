@@ -3679,7 +3679,10 @@ function refreshPublicFeedInBackground(){
   const pending=[
    {kind:"public",promise:fetchPublicApiFeed().then(items=>({kind:"public",items}),error=>({kind:"public",error}))}
   ];
-  if(currentUser)pending.push({kind:"relationship",promise:fetchFollowingApiFeed().then(items=>({kind:"relationship",items}),error=>({kind:"relationship",error}))});
+  // A valid persisted token is available before restoreSession finishes populating currentUser.
+  // Use the token as the auth signal so the first Home request includes relationship posts.
+  const sessionToken=await getToken();
+  if(sessionToken)pending.push({kind:"relationship",promise:fetchFollowingApiFeed().then(items=>({kind:"relationship",items}),error=>({kind:"relationship",error}))});
   const failures=[];
   while(pending.length){
    const result=await Promise.race(pending.map(task=>task.promise));
@@ -3726,7 +3729,6 @@ async function loadGomoGieData(){
   // If auth restoration completed after the first feed request began, refresh once with
   // the restored account context so relationship posts are present without a tab switch.
   await initialHomeFeedTask;
-  if(currentUser)void refreshPublicFeedInBackground();
  });
  void loadViralNews();
  void refreshNotificationBadge().then(()=>{if(active==="notifications")render()}).catch(error=>console.warn("Notification badge refresh deferred:",error));

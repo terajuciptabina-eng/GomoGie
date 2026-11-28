@@ -3708,6 +3708,8 @@ function refreshPublicFeedInBackground(){
 async function loadGomoGieData(){
  accounts=[];posts=[];localPendingPosts=[];
  const sessionTask=restoreSession().catch(error=>console.warn("Session restore deferred:",error));
+ // Start the public/auth-aware Home feed immediately; do not gate first paint on session restoration.
+ const initialHomeFeedTask=refreshPublicFeedInBackground();
  ensureCurrentUserInAccounts();
  const sharedProfile=decodeURIComponent(location.hash.replace(/^#profile-/,"")).trim().toLowerCase();
  if(location.hash.startsWith("#profile-")&&sharedProfile){
@@ -3717,12 +3719,14 @@ async function loadGomoGieData(){
  extras();
  if(!handleNotificationDeepLink())render();
  updateConnectionState();
- void sessionTask.then(()=>{
+ void sessionTask.then(async()=>{
   ensureCurrentUserInAccounts();
   render();
   syncAuthButton();
-  // Start Home feed only after session restoration so the first request uses the current token.
-  void refreshPublicFeedInBackground();
+  // If auth restoration completed after the first feed request began, refresh once with
+  // the restored account context so relationship posts are present without a tab switch.
+  await initialHomeFeedTask;
+  if(currentUser)void refreshPublicFeedInBackground();
  });
  void loadViralNews();
  void refreshNotificationBadge().then(()=>{if(active==="notifications")render()}).catch(error=>console.warn("Notification badge refresh deferred:",error));

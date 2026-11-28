@@ -1400,7 +1400,7 @@ function postTextHtml(value){
 function renderPostMediaGallery(p){
  const items=Array.isArray(p.mediaItems)&&p.mediaItems.length?p.mediaItems:(p.mediaUrl?[{type:p.type,url:p.mediaUrl,thumbnailUrl:p.thumbnailUrl||""}]:[]);
  if(!items.length)return "";
- return '<div class="post-gallery" data-post-gallery="'+esc(p.id)+'"><div class="post-gallery-track">'+items.map((item,index)=>{const poster=item.thumbnailUrl||item.thumbnail_url||item.posterUrl||item.poster_url||p.thumbnailUrl||"";return '<div class="post-gallery-slide">'+(item.type==="video"?'<div class="feed-video-wrap"><video class="post-media" data-feed-video muted loop playsinline preload="auto"'+(poster?' poster="'+esc(poster)+'"':'')+' src="'+esc(item.url)+'" aria-label="Post video '+(index+1)+'"></video><span class="feed-video-preview-mark" aria-hidden="true">▶</span><button class="feed-video-sound" type="button" data-video-sound aria-label="Turn video sound on" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m17 9 5 6m0-6-5 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div>':'<img class="post-media" loading="lazy" src="'+esc(item.url)+'" alt="Post image '+(index+1)+'">')+'</div>'}).join("")+'</div>'+(items.length>1?'<div class="post-gallery-count">1 / '+items.length+'</div><button class="post-gallery-prev" type="button" aria-label="Previous media" disabled>‹</button><button class="post-gallery-next" type="button" aria-label="Next media">›</button><div class="post-gallery-dots">'+items.map((_,i)=>'<span class="'+(i===0?'active':'')+'"></span>').join("")+'</div>':'')+'</div>';
+ return '<div class="post-gallery" data-post-gallery="'+esc(p.id)+'"><div class="post-gallery-track">'+items.map((item,index)=>{const poster=item.thumbnailUrl||item.thumbnail_url||item.posterUrl||item.poster_url||p.thumbnailUrl||"";return '<div class="post-gallery-slide">'+(item.type==="video"?'<div class="feed-video-wrap"><video class="post-media" data-feed-video muted loop playsinline preload="metadata"'+(poster?' poster="'+esc(poster)+'"':'')+' src="'+esc(item.url)+'" aria-label="Post video '+(index+1)+'"></video><span class="feed-video-preview-mark" aria-hidden="true">▶</span><button class="feed-video-sound" type="button" data-video-sound aria-label="Turn video sound on" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m17 9 5 6m0-6-5 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div>':'<img class="post-media" loading="lazy" src="'+esc(item.url)+'" alt="Post image '+(index+1)+'">')+'</div>'}).join("")+'</div>'+(items.length>1?'<div class="post-gallery-count">1 / '+items.length+'</div><button class="post-gallery-prev" type="button" aria-label="Previous media" disabled>‹</button><button class="post-gallery-next" type="button" aria-label="Next media">›</button><div class="post-gallery-dots">'+items.map((_,i)=>'<span class="'+(i===0?'active':'')+'"></span>').join("")+'</div>':'')+'</div>';
 }
 document.addEventListener("click",event=>{
  const button=event.target.closest("[data-post-gallery]");if(button)return;
@@ -1486,32 +1486,58 @@ function composer(){
 
 const NEWS_CATEGORY_LABELS={national:"National",politics:"Politics",business:"Business",technology:"Technology",sports:"Sports",entertainment:"Entertainment",world:"World",lifestyle:"Lifestyle"};
 const NEWS_REGIONS=[["MY","Malaysia"],["MY-PRK","Perak"],["MY-KUL","Kuala Lumpur"],["MY-SEL","Selangor"],["MY-JHR","Johor"],["MY-PNG","Pulau Pinang"],["MY-KDH","Kedah"],["MY-NSN","Negeri Sembilan"],["MY-MLK","Melaka"],["MY-PAH","Pahang"],["MY-TRG","Terengganu"],["MY-KTN","Kelantan"],["MY-PLS","Perlis"],["MY-SBH","Sabah"],["MY-SWK","Sarawak"]];
-async function loadViralNews(){
- try{
-  if(currentUser){try{const pref=await apiRequest("/v1/news/preferences");newsPreferences={region:pref.region||"MY",interests:Array.isArray(pref.interests)?pref.interests:newsPreferences.interests}}catch(error){console.warn("News preferences unavailable:",error)}}
-  const [personal,global,archive,videos]=await Promise.all([apiRequest("/v1/news?mode=for-you&limit=30"),apiRequest("/v1/news?mode=global&limit=30"),apiRequest("/v1/news?mode=archive&limit=30"),apiRequest("/v1/news?mode=videos&limit=30")]);
+let newsRefreshPromise=null;
+function refreshViralNewsInBackground(){
+ if(newsRefreshPromise)return newsRefreshPromise;
+ newsRefreshPromise=(async()=>{
+  if(currentUser){
+   try{
+    const pref=await apiRequest("/v1/news/preferences");
+    newsPreferences={region:pref.region||"MY",interests:Array.isArray(pref.interests)?pref.interests:newsPreferences.interests};
+   }catch(error){console.warn("News preferences refresh deferred:",error)}
+  }
+  const [personal,global,archive,videos]=await Promise.all([
+   apiRequest("/v1/news?mode=for-you&limit=30"),
+   apiRequest("/v1/news?mode=global&limit=30"),
+   apiRequest("/v1/news?mode=archive&limit=30"),
+   apiRequest("/v1/news?mode=videos&limit=30")
+  ]);
   viralNewsItems=Array.isArray(personal.items)?personal.items:[];
   viralNewsGlobalItems=Array.isArray(global.items)?global.items:[];
   viralNewsArchiveItems=Array.isArray(archive.items)?archive.items:[];
   viralVideoItems=Array.isArray(videos.items)?videos.items:[];
-  try{await localSet("last-live-news",{personal:viralNewsItems,global:viralNewsGlobalItems,archive:viralNewsArchiveItems,videos:viralVideoItems,savedAt:Date.now()})}catch(error){console.warn("News cache save deferred:",error)}
-  const imageTargets=[...new Map([...viralNewsItems,...viralNewsGlobalItems,...viralNewsArchiveItems].map(item=>[item.canonical_url,item])).values()].slice(0,18);
-  await Promise.all(imageTargets.map(async item=>{
-   try{const preview=await apiRequest("/v1/link-preview?url="+encodeURIComponent(item.canonical_url));if(!item.image_url&&preview?.image&&(preview.image.startsWith("https://")||preview.image.startsWith("http://")))item.image_url=preview.image;}catch(error){console.debug("News image preview unavailable",error)}
-  }));
- }catch(error){
-  console.warn("Viral News unavailable; restoring last successful news snapshot:",error);
+  await localSet("last-live-news",{personal:viralNewsItems,global:viralNewsGlobalItems,archive:viralNewsArchiveItems,videos:viralVideoItems,savedAt:Date.now()})
+   .catch(error=>console.warn("News cache save deferred:",error));
+  if(active==="pulse")render();
+ }).catch(async error=>{
+  console.warn("Background Viral News refresh failed; cached content retained:",error);
   if(/had bacaan harian D1|daily row read limit/i.test(String(error.message||"")))backendDegraded=true;
-  let cached=null;try{cached=await localGet("last-live-news")}catch(cacheError){console.warn("News cache unavailable:",cacheError)}
+  if(!viralNewsItems.length&&!viralNewsGlobalItems.length&&!viralNewsArchiveItems.length&&!viralVideoItems.length){
+   try{
+    const cached=await localGet("last-live-news");
+    if(cached&&Date.now()-Number(cached.savedAt||0)<7*24*60*60*1000){
+     viralNewsItems=Array.isArray(cached.personal)?cached.personal:[];
+     viralNewsGlobalItems=Array.isArray(cached.global)?cached.global:[];
+     viralNewsArchiveItems=Array.isArray(cached.archive)?cached.archive:[];
+     viralVideoItems=Array.isArray(cached.videos)?cached.videos:[];
+     if(active==="pulse")render();
+    }
+   }catch(cacheError){console.warn("News cache unavailable:",cacheError)}
+  }
+ }).finally(()=>{newsRefreshPromise=null});
+ return newsRefreshPromise;
+}
+async function loadViralNews(){
+ try{
+  const cached=await localGet("last-live-news");
   if(cached&&Date.now()-Number(cached.savedAt||0)<7*24*60*60*1000){
    viralNewsItems=Array.isArray(cached.personal)?cached.personal:[];
    viralNewsGlobalItems=Array.isArray(cached.global)?cached.global:[];
    viralNewsArchiveItems=Array.isArray(cached.archive)?cached.archive:[];
    viralVideoItems=Array.isArray(cached.videos)?cached.videos:[];
-  }else{
-   viralNewsItems=[];viralNewsGlobalItems=[];viralNewsArchiveItems=[];viralVideoItems=[];
   }
- }
+ }catch(error){console.warn("News cache read deferred:",error)}
+ void refreshViralNewsInBackground();
 }
 const NEWS_READ_STORAGE_KEY="gomogie.news.read.v1";
 function getReadNewsIds(){try{return new Set(JSON.parse(localStorage.getItem(NEWS_READ_STORAGE_KEY)||"[]"))}catch{return new Set()}}
@@ -1609,7 +1635,7 @@ function watch(){
  const watchPostSource=watchMode==="following"?followingFeedPosts:posts;
  const vids=watchPostSource.filter(p=>p.type==="video"&&!p.isWatchDuplicate&&(watchMode==="for-you"||followed.has(p.authorId))&&p.mediaUrl&&!seenMedia.has(p.mediaUrl)&&seenMedia.add(p.mediaUrl));
  const safePoster="https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg?auto=compress&cs=tinysrgb&w=1200";
- view.innerHTML='<section class="watch-page">' + discoveryHeader("Watch","Videos and documentaries from publishers and creators.",'<div class="watch-tabs discovery-tabs watch-section-tabs" role="tablist" aria-label="Watch content type"><button type="button" id="watchDiscoveryTab" class="'+(watchSectionMode==="discovery"?"selected":"")+'" role="tab" aria-selected="'+(watchSectionMode==="discovery"?"true":"false")+'">Content Discovery</button><button type="button" id="watchReelsTab" class="'+(watchSectionMode==="reels"?"selected":"")+'" role="tab" aria-selected="'+(watchSectionMode==="reels"?"true":"false")+'">Reels</button></div>'+(watchSectionMode==="reels"?'<div class="watch-tabs discovery-tabs watch-feed-tabs" role="tablist" aria-label="Reels feed"><button type="button" id="forYouTab" class="'+(watchMode==="for-you"?"selected":"")+'" role="tab" aria-selected="'+(watchMode==="for-you"?"true":"false")+'">For You</button><button type="button" id="followingTab" class="'+(watchMode==="following"?"selected":"")+'" role="tab" aria-selected="'+(watchMode==="following"?"true":"false")+'">Following</button></div>':"")) +(watchSectionMode==="discovery"?videoDiscoveryItems.length?videoDiscovery:'<section class="watch-discovery"><div class="viral-news-heading"><div><span class="viral-news-kicker">CONTENT DISCOVERY</span><h3>Videos and documentaries</h3></div></div><div class="empty">No discovery videos available yet. Check back soon.</div></section>':(vids.length?'<div class="watch-stream" id="watchStream">'+vids.slice(0,watchPostVisibleCount).map(p=>{const a=account(p.authorId)||{id:p.authorId,displayName:"GomoGie member"};return '<article class="watch-slide" data-video-id="'+esc(p.id)+'" data-fallback-media-url="'+esc(p.fallbackMediaUrl||"")+'"><video class="watch-video" muted playsinline webkit-playsinline preload="auto" poster="'+esc(p.thumbnailUrl||safePoster)+'" src="'+esc(p.mediaUrl||"")+'" aria-label="Video by '+esc(a.displayName)+'"></video><button class="watch-play" aria-label="Play video">▶</button><button class="watch-speaker" type="button" aria-label="Enable sound" aria-pressed="false">🔇</button><div class="watch-shade"></div><div class="watch-caption"><strong>'+esc(a.displayName)+' </strong><p>'+esc(p.text)+'</p><small class="watch-video-status" aria-live="polite">Loading video…</small></div><div class="watch-actions"><button data-watch-like="'+esc(p.id)+'">♡<small>'+(Number(p.likes||0)+(liked.has(p.id)?1:0)).toLocaleString()+'</small></button><button data-watch-comment="'+esc(p.id)+'">◯<small>'+Number(p.comments||0)+'</small></button><button data-watch-share="'+esc(p.id)+'">↗<small>Share</small></button><button data-watch-save="'+esc(p.id)+'">⌑<small>Save</small></button><button data-watch-follow="'+esc(a.id)+'">'+(followed.has(a.id)?"✓":"＋")+'<small>'+(followed.has(a.id)?"Following":"Follow")+'</small></button></div></article>'}).join("")+'</div>':'<div class="empty">Your Following video feed is empty. Follow creators from Profile to see their videos here.</div>'))+'</section>';
+ view.innerHTML='<section class="watch-page">' + discoveryHeader("Watch","Videos and documentaries from publishers and creators.",'<div class="watch-tabs discovery-tabs watch-section-tabs" role="tablist" aria-label="Watch content type"><button type="button" id="watchDiscoveryTab" class="'+(watchSectionMode==="discovery"?"selected":"")+'" role="tab" aria-selected="'+(watchSectionMode==="discovery"?"true":"false")+'">Content Discovery</button><button type="button" id="watchReelsTab" class="'+(watchSectionMode==="reels"?"selected":"")+'" role="tab" aria-selected="'+(watchSectionMode==="reels"?"true":"false")+'">Reels</button></div>'+(watchSectionMode==="reels"?'<div class="watch-tabs discovery-tabs watch-feed-tabs" role="tablist" aria-label="Reels feed"><button type="button" id="forYouTab" class="'+(watchMode==="for-you"?"selected":"")+'" role="tab" aria-selected="'+(watchMode==="for-you"?"true":"false")+'">For You</button><button type="button" id="followingTab" class="'+(watchMode==="following"?"selected":"")+'" role="tab" aria-selected="'+(watchMode==="following"?"true":"false")+'">Following</button></div>':"")) +(watchSectionMode==="discovery"?videoDiscoveryItems.length?videoDiscovery:'<section class="watch-discovery"><div class="viral-news-heading"><div><span class="viral-news-kicker">CONTENT DISCOVERY</span><h3>Videos and documentaries</h3></div></div><div class="empty">No discovery videos available yet. Check back soon.</div></section>':(vids.length?'<div class="watch-stream" id="watchStream">'+vids.slice(0,watchPostVisibleCount).map(p=>{const a=account(p.authorId)||{id:p.authorId,displayName:"GomoGie member"};return '<article class="watch-slide" data-video-id="'+esc(p.id)+'" data-fallback-media-url="'+esc(p.fallbackMediaUrl||"")+'"><video class="watch-video" muted playsinline webkit-playsinline preload="metadata" poster="'+esc(p.thumbnailUrl||safePoster)+'" src="'+esc(p.mediaUrl||"")+'" aria-label="Video by '+esc(a.displayName)+'"></video><button class="watch-play" aria-label="Play video">▶</button><button class="watch-speaker" type="button" aria-label="Enable sound" aria-pressed="false">🔇</button><div class="watch-shade"></div><div class="watch-caption"><strong>'+esc(a.displayName)+' </strong><p>'+esc(p.text)+'</p><small class="watch-video-status" aria-live="polite">Loading video…</small></div><div class="watch-actions"><button data-watch-like="'+esc(p.id)+'">♡<small>'+(Number(p.likes||0)+(liked.has(p.id)?1:0)).toLocaleString()+'</small></button><button data-watch-comment="'+esc(p.id)+'">◯<small>'+Number(p.comments||0)+'</small></button><button data-watch-share="'+esc(p.id)+'">↗<small>Share</small></button><button data-watch-save="'+esc(p.id)+'">⌑<small>Save</small></button><button data-watch-follow="'+esc(a.id)+'">'+(followed.has(a.id)?"✓":"＋")+'<small>'+(followed.has(a.id)?"Following":"Follow")+'</small></button></div></article>'}).join("")+'</div>':'<div class="empty">Your Following video feed is empty. Follow creators from Profile to see their videos here.</div>'))+'</section>';
  const watchSentinel=document.createElement("div");watchSentinel.id="watchLoadSentinel";watchSentinel.className="feed-load-sentinel";watchSentinel.setAttribute("aria-hidden","true");(view.querySelector("#watchStream")||view.querySelector(".watch-page"))?.append(watchSentinel);const watchStatus=document.createElement("p");watchStatus.id="watchLoadStatus";watchStatus.className="feed-load-status";watchStatus.setAttribute("aria-live","polite");watchStatus.textContent="";view.querySelector(".watch-page")?.append(watchStatus);setupWatchAutoLoad(watchSectionMode==="discovery"?videoDiscoveryItems.length:0,watchSectionMode==="reels"?vids.length:0);
  const reelsTab=document.getElementById("watchReelsTab"),discoveryTab=document.getElementById("watchDiscoveryTab");
  if(reelsTab)reelsTab.onclick=()=>{if(watchSectionMode==="reels")return;watchSectionMode="reels";watchPostVisibleCount=8;watchPostsHasMore=true;watchHasMore=true;render()};
@@ -3503,31 +3529,73 @@ document.addEventListener("error",event=>{
  }
 },{capture:true});
 
+let liveFeedRefreshPromise=null;
+function ensureCurrentUserInAccounts(){
+ if(currentUser&&!accounts.some(account=>account.id===currentUser.id)){
+  accounts.unshift({id:currentUser.id,handle:currentUser.username,displayName:currentUser.displayName||currentUser.username,avatarUrl:currentUser.avatarUrl||"",coverUrl:currentUser.coverUrl||"",bio:currentUser.bio||"",location:currentUser.location||"",website:currentUser.website||"",joined:"GomoGie",followers:0,following:0,isSynthetic:false});
+ }
+ const me=currentUser&&accounts.find(account=>account.id===currentUser.id);
+ if(me&&currentUser)Object.assign(me,{handle:currentUser.username,displayName:currentUser.displayName||currentUser.username,avatarUrl:currentUser.avatarUrl||me.avatarUrl,bio:currentUser.bio||"",location:currentUser.location||"",website:currentUser.website||"",coverUrl:currentUser.coverUrl||me.coverUrl});
+}
+function refreshPublicFeedInBackground(){
+ if(liveFeedRefreshPromise)return liveFeedRefreshPromise;
+ liveFeedRefreshPromise=(async()=>{
+  const liveItems=await fetchPublicApiFeed();
+  const liveAccounts=[...new Map(liveItems.map(item=>item.author).filter(author=>author&&author.id).map(author=>[author.id,{
+   id:author.id,handle:author.username,displayName:author.displayName||author.username,
+   avatarUrl:author.avatarUrl||"",coverUrl:author.coverUrl||"",bio:"",location:"",website:"",
+   joined:"GomoGie",followers:0,following:0,isSynthetic:false
+  }])).values()];
+  const livePosts=normalizeApiFeedItems(liveItems);
+  const demoAccounts=accounts.filter(account=>account.isSynthetic);
+  const demoPosts=posts.filter(post=>post.isSynthetic);
+  accounts=[...liveAccounts,...demoAccounts];
+  posts=[...livePosts,...demoPosts].sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
+  ensureCurrentUserInAccounts();
+  accounts=[...new Map(accounts.filter(account=>account&&account.id).map(account=>[account.id,account])).values()];
+  await localSet("last-live-feed",{accounts:liveAccounts,posts:livePosts,items:liveItems,savedAt:Date.now()})
+   .catch(error=>console.warn("Live feed cache save deferred:",error));
+  extras();
+  if(!handleNotificationDeepLink())render();
+  updateConnectionState();
+ }).catch(error=>{
+  console.error("Background live feed refresh failed; cached feed retained:",error);
+  updateConnectionState();
+ }).finally(()=>{liveFeedRefreshPromise=null});
+ return liveFeedRefreshPromise;
+}
 async function loadGomoGieData(){
  accounts=[];posts=[];localPendingPosts=[];
- let liveAccounts=[],livePosts=[];
- try{
-  const liveItems=await fetchPublicApiFeed();
-  liveAccounts=[...new Map(liveItems.map(item=>item.author).filter(author=>author&&author.id).map(author=>[author.id,{id:author.id,handle:author.username,displayName:author.displayName||author.username,avatarUrl:author.avatarUrl||"",coverUrl:author.coverUrl||"",bio:"",location:"",website:"",joined:"GomoGie",followers:0,following:0,isSynthetic:false}])).values()];
-  livePosts=normalizeApiFeedItems(liveItems);
-  try{await localSet("last-live-feed",{accounts:liveAccounts,posts:livePosts,savedAt:Date.now()})}catch(e){console.warn("Live feed cache unavailable:",e)}
- }catch(error){
-  console.error("Live GomoGie feed failed:",error);
-  let cached=null;try{cached=await localGet("last-live-feed")}catch(e){console.warn("Live feed cache unavailable:",e)}
-  if(cached&&Array.isArray(cached.accounts)&&Array.isArray(cached.posts)){liveAccounts=cached.accounts;livePosts=cached.posts}
+ let cachedFeed=null;
+ try{cachedFeed=await localGet("last-live-feed")}catch(error){console.warn("Live feed cache read deferred:",error)}
+ if(cachedFeed&&Array.isArray(cachedFeed.accounts)&&Array.isArray(cachedFeed.posts)){
+  accounts=cachedFeed.accounts;
+  posts=cachedFeed.posts;
+  extras();
+  render();
  }
- let demoAccounts=[],demoPosts=[];
- try{const fixtures=await fetchSyntheticFixtures();demoAccounts=fixtures.accounts;demoPosts=fixtures.posts}catch(error){console.warn("Synthetic demo accounts unavailable:",error)}
- accounts=[...liveAccounts,...demoAccounts];
- posts=[...livePosts,...demoPosts].sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
- await restoreSession();await loadViralNews();await refreshNotificationBadge();
- if(currentUser&&!accounts.some(a=>a.id===currentUser.id))accounts.unshift({id:currentUser.id,handle:currentUser.username,displayName:currentUser.displayName||currentUser.username,avatarUrl:currentUser.avatarUrl||"",coverUrl:currentUser.coverUrl||"",bio:currentUser.bio||"",location:currentUser.location||"",website:currentUser.website||"",joined:"GomoGie",followers:0,following:0,isSynthetic:false});
- const me=currentUser&&accounts.find(a=>a.id===currentUser.id);
- if(me&&currentUser)Object.assign(me,{handle:currentUser.username,displayName:currentUser.displayName||currentUser.username,avatarUrl:currentUser.avatarUrl||me.avatarUrl,bio:currentUser.bio||"",location:currentUser.location||"",website:currentUser.website||"",coverUrl:currentUser.coverUrl||me.coverUrl});
- accounts=[...new Map(accounts.filter(a=>a&&a.id).map(a=>[a.id,a])).values()];
+ const fixtureTask=fetchSyntheticFixtures().catch(error=>{console.warn("Synthetic demo accounts unavailable:",error);return {accounts:[],posts:[]}});
+ const sessionTask=restoreSession().catch(error=>console.warn("Session restore deferred:",error));
+ const fixtures=await fixtureTask;
+ const demoAccounts=fixtures.accounts||[],demoPosts=fixtures.posts||[];
+ const cachedAccounts=accounts.filter(account=>!account.isSynthetic);
+ const cachedPosts=posts.filter(post=>!post.isSynthetic);
+ accounts=[...cachedAccounts,...demoAccounts];
+ posts=[...cachedPosts,...demoPosts].sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
+ ensureCurrentUserInAccounts();
+ accounts=[...new Map(accounts.filter(account=>account&&account.id).map(account=>[account.id,account])).values()];
  const sharedProfile=decodeURIComponent(location.hash.replace(/^#profile-/,"")).trim().toLowerCase();
- if(location.hash.startsWith("#profile-")&&sharedProfile){const target=accounts.find(a=>String(a.handle||"").toLowerCase()===sharedProfile);if(target){active="profile";selectedProfileId=target.id;profileTab="posts";editingProfile=false}}
- extras();if(!handleNotificationDeepLink())render();updateConnectionState();
+ if(location.hash.startsWith("#profile-")&&sharedProfile){
+  const target=accounts.find(account=>String(account.handle||"").toLowerCase()===sharedProfile);
+  if(target){active="profile";selectedProfileId=target.id;profileTab="posts";editingProfile=false}
+ }
+ extras();
+ if(!handleNotificationDeepLink())render();
+ updateConnectionState();
+ void sessionTask.then(()=>{ensureCurrentUserInAccounts();render();syncAuthButton()});
+ void refreshPublicFeedInBackground();
+ void loadViralNews();
+ void refreshNotificationBadge().then(()=>{if(active==="notifications")render()}).catch(error=>console.warn("Notification badge refresh deferred:",error));
 }
 async function refreshGomoGie(){
  if(isRefreshing)return;

@@ -405,7 +405,7 @@ async function handleOAuthRoute(request, env, url, method, path) {
     if (provider === "google") {
       authorize.searchParams.set("scope", "openid email profile");
       authorize.searchParams.set("nonce", nonce);
-      authorize.searchParams.set("code_challenge", b64url(await crypto.subtle.digest("SHA-256", encoder.encode(verifier))));
+      authorize.searchParams.set("code_challenge", b64url(new Uint8Array(await crypto.subtle.digest("SHA-256", encoder.encode(verifier)))));
       authorize.searchParams.set("code_challenge_method", "S256");
       authorize.searchParams.set("prompt", "select_account");
     } else {
@@ -459,8 +459,8 @@ async function handleOAuthRoute(request, env, url, method, path) {
         if (!tokenResponse.ok || !tokens.access_token) throw new Error("facebook_token_exchange_failed");
         const profileUrl = new URL("https://graph.facebook.com/v23.0/me");
         profileUrl.searchParams.set("fields", "id,name,email");
-        profileUrl.searchParams.set("access_token", tokens.access_token);
-        const profileResponse = await fetch(profileUrl.toString(), { headers: { accept: "application/json" } });
+        
+        const profileResponse = await fetch(profileUrl.toString(), { headers: { accept: "application/json", authorization: "Bearer " + tokens.access_token } });
         const profile = await profileResponse.json();
         if (!profileResponse.ok || !text(profile.id, 255)) throw new Error("facebook_profile_unavailable");
         if (!text(profile.email, 254) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email)) throw new Error("facebook_email_required");

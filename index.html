@@ -528,7 +528,7 @@ body.pull-releasing .top,body.pull-releasing .layout{transform:translate3d(0,0,0
  font-size:clamp(10px,3vw,13px);
 }
 .composer .compose-actions button svg{width:17px;height:17px;flex:0 0 auto}
-.composer .compose-actions button span{overflow:hidden;text-overflow:ellipsis}
+.composer .compose-actions button span{white-space:nowrap;overflow:visible;text-overflow:clip;flex:0 0 auto}
 .composer .compose-actions .composer-post-button{background:var(--ink,#10232d);color:#fff}
 @media(max-width:380px){
  .composer .compose-actions{gap:4px !important}
@@ -1221,9 +1221,9 @@ body{background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;te
 .composer .compose-actions button span{overflow:hidden;text-overflow:ellipsis}
 .composer .compose-actions .composer-post-button{background:var(--ink,#10232d);color:#fff}
 @media(max-width:380px){
- .composer .compose-actions{gap:5px !important}
- .composer .compose-actions button{gap:3px;padding:8px 2px;font-size:11px}
- .composer .compose-actions button svg{width:16px;height:16px}
+ .composer .compose-actions{gap:4px !important}
+ .composer .compose-actions button{gap:2px;padding:7px 1px;font-size:10px;letter-spacing:-.25px}
+ .composer .compose-actions button svg{width:14px;height:14px;flex-basis:14px}
 }
 
 /* Shared privacy picker: identical SVG icon source in composer, editor, menu and post labels. */
@@ -1253,14 +1253,14 @@ body{background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;te
 .composer .compose-actions>.composer-privacy-action .privacy-picker-trigger{display:flex!important;align-items:center;justify-content:center;width:100%;min-width:0;min-height:44px;height:100%;gap:4px;padding:9px 3px;border:1px solid var(--line,#dce4e7);border-radius:999px;background:#f5f7f8;color:var(--ink,#17252b);font-family:inherit;font-size:clamp(9px,2.5vw,12px);font-weight:650;white-space:nowrap}
 .composer .compose-actions>.composer-privacy-action .privacy-picker-current-icon{width:15px;height:15px;flex:0 0 15px}
 .composer .compose-actions>.composer-privacy-action .privacy-picker-current-icon .post-privacy svg{width:15px;height:15px;min-width:15px;flex:0 0 15px}
-.composer .compose-actions>.composer-privacy-action .privacy-picker-current-label{min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:inherit}
+.composer .compose-actions>.composer-privacy-action .privacy-picker-current-label{min-width:0;overflow:visible;text-overflow:clip;white-space:nowrap;font-size:inherit}
 .composer .compose-actions>.composer-privacy-action .privacy-picker-chevron{width:11px;height:11px;flex:0 0 11px}
 .composer .compose-actions>.composer-privacy-action .privacy-picker-list{right:0;left:auto;min-width:155px}
 @media(max-width:380px){
  .composer .compose-actions{gap:4px!important}
- .composer .compose-actions>.composer-privacy-action .privacy-picker-trigger{gap:2px;padding-inline:2px;font-size:9px}
- .composer .compose-actions>.composer-privacy-action .privacy-picker-current-icon{width:13px;height:13px;flex-basis:13px}
- .composer .compose-actions>.composer-privacy-action .privacy-picker-current-icon .post-privacy svg{width:13px;height:13px;min-width:13px;flex-basis:13px}
+ .composer .compose-actions>.composer-privacy-action .privacy-picker-trigger{gap:1px;padding-inline:1px;font-size:9px;letter-spacing:-.25px}
+ .composer .compose-actions>.composer-privacy-action .privacy-picker-current-icon{width:12px;height:12px;flex-basis:12px}
+ .composer .compose-actions>.composer-privacy-action .privacy-picker-current-icon .post-privacy svg{width:12px;height:12px;min-width:12px;flex-basis:12px}
  .composer .compose-actions>.composer-privacy-action .privacy-picker-chevron{width:9px;height:9px;flex-basis:9px}
 }
 </style>

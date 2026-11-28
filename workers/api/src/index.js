@@ -517,6 +517,56 @@ async function route(request, env) {
       const rows=await env.DB.prepare("SELECT id,actor_user_id,action,target_type,target_id,details_json,created_at FROM developer_audit_logs ORDER BY created_at DESC LIMIT 100").all();
       return json({items:rows.results||[]});
     }
+    if (path === "/v1/developer/admins" && method === "GET") {
+      if (admin.role !== "super_admin") return json({error:"insufficient_permissions"},403);
+      const rows=await env.DB.prepare("SELECT da.user_id,da.role,da.granted_by,da.created_at,u.username,p.display_name FROM developer_admins da JOIN users u ON u.id=da.user_id LEFT JOIN profiles p ON p.user_id=da.user_id ORDER BY CASE da.role WHEN 'super_admin' THEN 0 WHEN 'admin' THEN 1 WHEN 'moderator' THEN 2 WHEN 'support' THEN 3 ELSE 4 END,da.created_at ASC").all();
+      return json({items:rows.results||[]});
+    }
+    if (path === "/v1/developer/admins" && method === "POST") {
+      if (admin.role !== "super_admin") return json({error:"insufficient_permissions"},403);
+      const input=await readJson(request,4096),username=typeof input?.username==="string"?input.username.trim():"",role=input?.role;
+      if (!/^[a-zA-Z0-9_]{3,24}$/.test(username) || !["admin","moderator","support","analyst"].includes(role)) return json({error:"validation_error",message:"Username atau role tidak sah."},400);
+      const target=await env.DB.prepare("SELECT id,username FROM users WHERE username=? COLLATE NOCASE").bind(username).first();
+      if (!target) return json({error:"user_not_found",message:"Akaun GomoGie tidak ditemui."},404);
+      const now=new Date().toISOString(),id=crypto.randomUUID();
+      let result;
+      try {
+        result=await env.DB.prepare("INSERT INTO developer_admins(user_id,role,granted_by,created_at) SELECT ?,?,?,? WHERE EXISTS (SELECT 1 FROM developer_admins WHERE user_id=? AND role='super_admin')").bind(target.id,role,auth.sub,now,auth.sub).run();
+      } catch(error) {
+        return json({error:"already_developer_admin",message:"Pengguna ini sudah mempunyai akses Developer."},409);
+      }
+      if (!Number(result?.meta?.changes||0)) return json({error:"already_developer_admin",message:"Pengguna ini sudah mempunyai akses Developer."},409);
+      await env.DB.prepare("INSERT INTO developer_audit_logs(id,actor_user_id,action,target_type,target_id,details_json,created_at) VALUES(?,?,?,?,?,?,?)").bind(id,auth.sub,"developer.admin.grant","account",target.id,JSON.stringify({username:target.username,role}),now).run();
+      return json({ok:true,user:{id:target.id,username:target.username,role}},201);
+    }
+    const adminRoleMatch=path.match(/^\\/v1\\/developer\\/admins\\/([^/]+)\\/role$/);
+    if (adminRoleMatch && method === "PUT") {
+      if (admin.role !== "super_admin") return json({error:"insufficient_permissions"},403);
+      let targetId;try{targetId=decodeURIComponent(adminRoleMatch[1])}catch{return json({error:"validation_error"},400)}
+      const input=await readJson(request,4096),role=input?.role;
+      if (!["admin","moderator","support","analyst"].includes(role)) return json({error:"validation_error",message:"Role tidak sah."},400);
+      const target=await env.DB.prepare("SELECT user_id,role FROM developer_admins WHERE user_id=?").bind(targetId).first();
+      if (!target) return json({error:"developer_admin_not_found"},404);
+      if (target.role==="super_admin") return json({error:"owner_role_protected",message:"Role Owner utama tidak boleh diubah melalui pengurusan administrator."},409);
+      const now=new Date().toISOString();
+      const result=await env.DB.prepare("UPDATE developer_admins SET role=? WHERE user_id=? AND role<>'super_admin' AND EXISTS (SELECT 1 FROM developer_admins WHERE user_id=? AND role='super_admin')").bind(role,targetId,auth.sub).run();
+      if (!Number(result?.meta?.changes||0)) return json({error:"update_not_applied"},409);
+      await env.DB.prepare("INSERT INTO developer_audit_logs(id,actor_user_id,action,target_type,target_id,details_json,created_at) VALUES(?,?,?,?,?,?,?)").bind(crypto.randomUUID(),auth.sub,"developer.admin.role_changed","account",targetId,JSON.stringify({from:target.role,to:role}),now).run();
+      return json({ok:true,user_id:targetId,role});
+    }
+    const adminTargetMatch=path.match(/^\\/v1\\/developer\\/admins\\/([^/]+)$/);
+    if (adminTargetMatch && method === "DELETE") {
+      if (admin.role !== "super_admin") return json({error:"insufficient_permissions"},403);
+      let targetId;try{targetId=decodeURIComponent(adminTargetMatch[1])}catch{return json({error:"validation_error"},400)}
+      const target=await env.DB.prepare("SELECT user_id,role FROM developer_admins WHERE user_id=?").bind(targetId).first();
+      if (!target) return json({error:"developer_admin_not_found"},404);
+      if (target.role==="super_admin") return json({error:"owner_role_protected",message:"Akses Owner utama tidak boleh ditarik balik melalui pengurusan administrator."},409);
+      const now=new Date().toISOString();
+      const result=await env.DB.prepare("DELETE FROM developer_admins WHERE user_id=? AND role<>'super_admin' AND EXISTS (SELECT 1 FROM developer_admins WHERE user_id=? AND role='super_admin')").bind(targetId,auth.sub).run();
+      if (!Number(result?.meta?.changes||0)) return json({error:"revoke_not_applied"},409);
+      await env.DB.prepare("INSERT INTO developer_audit_logs(id,actor_user_id,action,target_type,target_id,details_json,created_at) VALUES(?,?,?,?,?,?,?)").bind(crypto.randomUUID(),auth.sub,"developer.admin.revoked","account",targetId,JSON.stringify({previous_role:target.role}),now).run();
+      return json({ok:true,user_id:targetId});
+    }
     return json({error:"not_found"},404);
   }
 

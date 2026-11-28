@@ -1413,23 +1413,37 @@ function stories(){
  const demo=accounts.filter(a=>a.isSynthetic).slice(0,6),live=accounts.filter(a=>!a.isSynthetic).slice(0,6),people=[...demo,...live];
  return people.length?'<div class="stories">'+people.map(a=>'<div class="story" data-open-profile="'+esc(a.id)+'"><img src="'+esc(a.avatarUrl||"")+'" alt=""><div>'+esc((a.displayName||a.handle||"Member").split(" ")[0])+'</div>'+(a.isSynthetic?'<small class="story-demo-label">Demo</small>':'')+'</div>').join("")+'</div>':"";
 }
-// A single soundtrack controller prevents overlapping post music and stops audio when its post leaves view.
+// One shared audio element handles post soundtracks. After the user starts music once,
+// scrolling to another soundtrack post attempts to switch to that post without overlapping audio.
 const postMusicAutoplayController=(()=>{
- let audio=null,activeId="",observer=null,domObserver=null;
- const setPlaying=(id,playing)=>{const node=document.querySelector('[data-post-soundtrack="'+CSS.escape(id)+'"]');if(node){node.classList.toggle("is-playing",playing);node.setAttribute("aria-label",playing?"Pause attached music":"Play attached music");node.setAttribute("aria-pressed",String(playing))}};
- const stop=()=>{if(audio){audio.pause();audio.removeAttribute("src");audio.load();audio=null}if(activeId)setPlaying(activeId,false);activeId=""};
- const play=async node=>{const id=node?.dataset.postSoundtrack;if(!id)return;const post=posts.find(p=>p.id===id),stream=post?.music?.stream;if(!stream)return;
-  if(activeId===id&&audio){if(!audio.paused){audio.pause();setPlaying(id,false);return}try{await audio.play();setPlaying(id,true)}catch(error){console.info("Post soundtrack playback needs a user gesture",error)}return}
+ let audio=null,activeId="",observer=null,domObserver=null,userEnabledPlayback=false,visiblePosts=new Map(),switchToken=0;
+ const getButton=id=>document.querySelector('[data-post-soundtrack="'+CSS.escape(id)+'"]');
+ const setPlaying=(id,playing)=>{const node=getButton(id);if(node){node.classList.toggle("is-playing",playing);node.setAttribute("aria-label",playing?"Pause attached music":"Play attached music");node.setAttribute("aria-pressed",String(playing))}};
+ const stop=()=>{switchToken++;if(audio){audio.pause();audio.removeAttribute("src");audio.load()}if(activeId)setPlaying(activeId,false);activeId=""};
+ const play=async(node,automatic=false)=>{
+  const id=node?.dataset.postSoundtrack;if(!id)return;
+  const post=posts.find(p=>p.id===id),stream=post?.music?.stream;if(!stream)return;
+  if(automatic&&!userEnabledPlayback)return;
+  if(activeId===id&&audio&&!audio.paused){return}
   if(typeof stopComposerMusicPreview==="function")stopComposerMusicPreview();
-  stop();activeId=id;const current=new Audio(stream);audio=current;current.preload="none";current.playsInline=true;
-  current.addEventListener("ended",()=>{if(audio===current){setPlaying(id,false);activeId="";audio=null}},{once:true});
-  current.addEventListener("error",()=>{if(audio===current){setPlaying(id,false);activeId="";audio=null}},{once:true});
-  try{await current.play();if(audio===current)setPlaying(id,true)}catch(error){console.info("Post soundtrack playback could not start",error);if(audio===current){setPlaying(id,false);activeId="";audio=null}}
+  const token=++switchToken;
+  if(!audio){audio=new Audio();audio.preload="none";audio.playsInline=true;audio.addEventListener("ended",()=>{if(activeId){setPlaying(activeId,false);activeId=""}});audio.addEventListener("error",()=>{if(activeId){setPlaying(activeId,false);activeId=""}})}
+  audio.pause();if(activeId)setPlaying(activeId,false);
+  activeId=id;audio.src=stream;audio.load();
+  try{await audio.play();if(token===switchToken&&activeId===id)setPlaying(id,true)}
+  catch(error){if(token===switchToken&&activeId===id){setPlaying(id,false);if(automatic){console.info("Automatic next-post music was blocked by browser playback policy",error)}else{activeId=""}}}
  };
- const observe=()=>{if(!observer){observer=new IntersectionObserver(entries=>{for(const entry of entries){if(entry.target.dataset.postSoundtrack===activeId&&!entry.isIntersecting){stop();break}}},{threshold:0.05,rootMargin:"0px"})}
-  document.querySelectorAll("[data-post-soundtrack]:not([data-music-observed])").forEach(node=>{node.dataset.musicObserved="1";observer.observe(node)});
+ const chooseVisible=()=>{
+  if(!userEnabledPlayback)return;
+  const candidates=[...visiblePosts.entries()].filter(([id,item])=>item.ratio>=0.25&&getButton(id)).sort((a,b)=>b[1].ratio-a[1].ratio);
+  const best=candidates[0];if(best&&best[0]!==activeId)play(getButton(best[0]),true);
+  else if(!best&&activeId){const current=visiblePosts.get(activeId);if(!current||current.ratio<0.05)stop()}
  };
- document.addEventListener("click",event=>{const node=event.target.closest("[data-post-soundtrack]");if(node){event.preventDefault();play(node)}});
+ const observe=()=>{
+  if(!observer){observer=new IntersectionObserver(entries=>{for(const entry of entries){const id=entry.target.dataset.musicPostId;if(!id)continue;if(entry.isIntersecting)visiblePosts.set(id,{ratio:entry.intersectionRatio});else visiblePosts.delete(id)}chooseVisible()},{threshold:[0,0.05,0.15,0.25,0.4,0.55,0.7],rootMargin:"-8% 0px -12% 0px"})}
+  document.querySelectorAll("[data-post-soundtrack]:not([data-music-observed])").forEach(node=>{const card=node.closest("article.card");if(!card)return;node.dataset.musicObserved="1";card.dataset.musicPostId=node.dataset.postSoundtrack;observer.observe(card)});
+ };
+ document.addEventListener("click",event=>{const node=event.target.closest("[data-post-soundtrack]");if(node){event.preventDefault();userEnabledPlayback=true;play(node,false)}});
  document.addEventListener("visibilitychange",()=>{if(document.hidden)stop()});
  window.addEventListener("pagehide",stop);
  if(document.body){observe();domObserver=new MutationObserver(observe);domObserver.observe(document.body,{childList:true,subtree:true})}

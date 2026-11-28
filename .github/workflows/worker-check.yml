@@ -69,6 +69,12 @@ jobs:
           '
           feed_status="$(curl --silent --show-error --connect-timeout 8 --max-time 20 --retry 2 --retry-delay 2 -o /tmp/gomogie-feed.json -w '%{http_code}' 'https://gomogie-api.terajuciptabina.workers.dev/v1/feed?limit=1')"
           news_status="$(curl --silent --show-error --connect-timeout 8 --max-time 20 --retry 2 --retry-delay 2 -o /tmp/gomogie-news.json -w '%{http_code}' 'https://gomogie-api.terajuciptabina.workers.dev/v1/news?mode=for-you&limit=1')"
+          developer_status="$(curl --silent --show-error --connect-timeout 8 --max-time 20 --retry 2 --retry-delay 2 -o /tmp/gomogie-developer.json -w '%{http_code}' 'https://gomogie-api.terajuciptabina.workers.dev/v1/developer/me')"
+          if [ "$developer_status" != "401" ]; then
+            echo "::error::Unauthenticated Developer API must return HTTP 401, received $developer_status."
+            cat /tmp/gomogie-developer.json
+            exit 1
+          fi
           if [ "$feed_status" = "200" ]; then
             FEED_JSON="$(cat /tmp/gomogie-feed.json)" node -e 'const x=JSON.parse(process.env.FEED_JSON);if(!Array.isArray(x.items))process.exit(1);console.log("Public feed items:",x.items.length)'
           else

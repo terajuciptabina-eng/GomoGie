@@ -22,7 +22,7 @@ GomoGie is its own social network. It is not an aggregator for Facebook, YouTube
 
 ## Core product areas
 
-1. **Feed** — text, image, link and poll posts; reactions, comments, sharing and reposts.
+1. **Feed** — text, image, link, and video posts; reactions, comments, sharing and reposts.
 2. **Pulse** — short updates, topics, hashtags and discovery.
 3. **Watch** — short and long videos, creator channels and playlists.
 4. **Communities** — public/private communities, membership and moderation.

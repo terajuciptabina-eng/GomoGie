@@ -3350,7 +3350,7 @@ function formatCompactCount(value){return new Intl.NumberFormat("en",{notation:"
 function extras(){
  const trends=document.getElementById("trends"),suggestions=document.getElementById("suggestions");
  if(trends){const counts=new Map();posts.forEach(p=>{const tags=String(p.text||"").match(/#[\p{L}\p{N}_]+/gu)||[];tags.forEach(tag=>{const key=tag.slice(1).toLowerCase();counts.set(key,(counts.get(key)||0)+1)})});const top=[...counts].sort((a,b)=>b[1]-a[1]).slice(0,6);trends.innerHTML=top.length?top.map(([tag,count],i)=>'<button class="trend-topic" type="button" data-topic="'+esc(tag)+'"><span>'+(i+1)+'. #'+esc(tag)+'</span><small>'+count+' posts</small></button>').join(""):'<div class="empty">Topics will trend as members publish with hashtags.</div>'}
- if(suggestions)suggestions.innerHTML='<button type="button" class="discover-sidebar-link" data-page="discover">Find people to follow or add as friends →</button>';
+ if(suggestions){suggestions.innerHTML='<button type="button" class="discover-sidebar-link">Find people to follow or add as friends →</button>';suggestions.querySelector(".discover-sidebar-link")?.addEventListener("click",()=>{active="discover";render()})}
 }
 document.addEventListener("click",async e=>{
  const button=e.target.closest("[data-open-profile-username]");if(!button)return;

@@ -37,6 +37,18 @@
 - Use semantic HTML, keyboard support and accessible labels.
 - Test responsive layouts on desktop, iPad Safari and iPhone.
 
+## Frontend runtime and startup verification
+- A successful syntax check or API smoke test alone does not prove that the application starts correctly. Verify the complete browser startup path.
+- Exercise critical startup flows in a real browser runtime or a reliable browser automation environment, including iPhone Safari and the supported desktop viewport.
+- Test asynchronous functions and Promise chains at runtime. When using an async IIFE, verify that it is actually invoked before chaining `.then()`, `.catch()` or `.finally()`; a function object is not the returned Promise.
+- Keep startup failures observable: log the failing stage and actionable error details, and provide a safe retry path where appropriate. Do not expose secrets, tokens or private user data in diagnostics.
+- Test the complete Home feed flow from app initialization through session restoration, public-feed loading, relationship-feed loading and rendering.
+- Verify feed visibility for Friends, Followers, Following and Public using accounts with representative relationship states; do not treat a successful unauthenticated Public Feed response as proof that authenticated relationship feeds work.
+- Test session persistence across refresh, app relaunch and tab navigation. A feed failure must not silently log out a valid user or destroy the session.
+- Verify loading, empty, partial-success, timeout, offline and recoverable-error states. A failure in one optional feed source should not unnecessarily hide content successfully returned by another source.
+- Add regression coverage for every production incident after fixing its root cause. The test must fail if the same defect is reintroduced.
+- Before marking a fix complete, verify the deployed build in the actual target experience; green CI, successful deployment and backend health checks are necessary but not sufficient.
+
 ## Demo-data integrity
 - Synthetic users, posts, messages, metrics and activity must be labelled as demo data.
 - Never imply prototype actions are persisted or delivered to real users.

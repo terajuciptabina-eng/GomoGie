@@ -139,6 +139,8 @@ jobs:
           assert 'if (admin.role !== "super_admin") return json({error:"insufficient_permissions"},403)' in worker, 'Administrator management must be Owner-only'
           assert 'path === "/v1/developer/system"' in worker and 'env.MEDIA_BUCKET.list({limit:1})' in worker, 'Owner system health endpoint missing'
           assert 'path === "/v1/developer/settings"' in worker and 'publicRegistrationEnabled' in worker, 'Owner runtime settings endpoint missing'
+          assert 'scheduledJobsDeclared:true' in worker and 'scheduledJobsRuntimeVerified:false' in worker, 'Cron declaration must not be reported as execution verified'
+          assert 'Cron execution verified' in frontend, 'Developer settings must disclose cron execution verification state'
           assert 'id="developerPlatformSettings"' in frontend and 'const canSettings=developerCapabilities.includes("settings")' in frontend, 'Owner platform settings panel missing'
           assert 'path === "/v1/developer/users"' in worker and 'is_developer' in worker, 'Role-protected developer user directory missing'
           assert 'const userStatusMatch=path.match' in worker and 'session_version=session_version+1' in worker and 'developer.user.status_changed' in worker, 'Audited account status control and session revocation missing'

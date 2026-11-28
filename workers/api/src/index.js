@@ -1207,13 +1207,27 @@ async function route(request, env) {
       "";
     const rows = followingFeedRequest
       ? await env.DB.prepare(select +
-          "WHERE p.status='published' AND u.status='active' AND (p.user_id=? OR EXISTS (" +
-          "SELECT 1 FROM follows f WHERE f.follower_id=? AND f.following_id=p.user_id AND f.status='accepted' " +
-          "AND p.visibility IN ('public','followers'))) ORDER BY p.created_at DESC LIMIT ?"
-        ).bind(auth.sub, auth.sub, limit).all()
-      : await env.DB.prepare(select +
-          "WHERE p.status='published' AND p.visibility='public' AND u.status='active' ORDER BY p.created_at DESC LIMIT ?"
-        ).bind(limit).all();
+          "WHERE p.status='published' AND u.status='active' AND (" +
+          "p.user_id=? OR " +
+          "(p.visibility IN ('public','followers','friends') AND EXISTS (" +
+          "SELECT 1 FROM friend_requests fr WHERE fr.status='accepted' AND " +
+          "((fr.requester_id=? AND fr.recipient_id=p.user_id) OR (fr.recipient_id=? AND fr.requester_id=p.user_id)))) OR " +
+          "(p.visibility IN ('public','followers') AND EXISTS (" +
+          "SELECT 1 FROM follows f WHERE f.follower_id=? AND f.following_id=p.user_id AND f.status='accepted'))" +
+          ") ORDER BY p.created_at DESC LIMIT ?"
+        ).bind(auth.sub, auth.sub, auth.sub, auth.sub, limit).all()
+      : auth
+        ? await env.DB.prepare(select +
+            "WHERE p.status='published' AND u.status='active' AND (" +
+            "p.visibility='public' OR p.user_id=? OR " +
+            "(p.visibility='followers' AND EXISTS (SELECT 1 FROM follows f WHERE f.follower_id=? AND f.following_id=p.user_id AND f.status='accepted')) OR " +
+            "(p.visibility='friends' AND EXISTS (SELECT 1 FROM friend_requests fr WHERE fr.status='accepted' AND " +
+            "((fr.requester_id=? AND fr.recipient_id=p.user_id) OR (fr.recipient_id=? AND fr.requester_id=p.user_id))))" +
+            ") ORDER BY p.created_at DESC LIMIT ?"
+          ).bind(auth.sub, auth.sub, auth.sub, auth.sub, limit).all()
+        : await env.DB.prepare(select +
+            "WHERE p.status='published' AND p.visibility='public' AND u.status='active' ORDER BY p.created_at DESC LIMIT ?"
+          ).bind(limit).all();
     const feedRows = rows.results || [];
     const postIds = feedRows.map(row => row.id);
     const placeholders = values => values.map(() => "?").join(",");
@@ -1292,7 +1306,7 @@ async function route(request, env) {
     if(requestedMedia.length>10||requestedMedia.some(item=>!item||!["image","video"].includes(item.type)||!text(item.id,64))||new Set(requestedMedia.map(item=>item.id)).size!==requestedMedia.length)return json({error:"invalid_post_media",message:"Pilih maksimum 10 media yang sah dan elakkan fail berulang."},400);
     const postMusic=input.music?validPostMusic(input.music):null;
     if(input.music&&!postMusic)return json({error:"invalid_post_music",message:"Pilih trek audio yang mempunyai sumber HTTPS dan lesen penggunaan yang disahkan."},400);
-    const visibility=["public","followers","private"].includes(input.visibility)?input.visibility:"public";
+    const visibility=["public","followers","friends","private"].includes(input.visibility)?input.visibility:"public";
     const mentionNames=[...new Set([...input.content.matchAll(/(?:^|[\s(])@([A-Za-z0-9_]{3,24})\b/g)].map(m=>m[1].toLowerCase()))];
     let mentionRecipients=[];
     if(mentionNames.length){

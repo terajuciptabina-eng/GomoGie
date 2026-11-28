@@ -2228,9 +2228,11 @@ async function developerPage(){
   const canManageUsers=developerCapabilities.includes("users");
   const canModerate=developerCapabilities.includes("content");
   const canAnalytics=developerCapabilities.includes("analytics");
+  const canLogs=developerCapabilities.includes("logs");
   const canSystem=developerCapabilities.includes("system");
   if(canManageUsers)moduleMarkup.push('<section class="panel developer-admin-panel"><div class="row-between"><div><h3>User Management</h3><p>Search accounts and inspect account status. Sensitive credentials are never shown.</p></div><span class="pill">Read only</span></div><form id="developerUserSearch" class="developer-admin-form"><div class="developer-admin-field"><label for="developerUserQuery">Username or display name</label><input id="developerUserQuery" maxlength="80" placeholder="Search accounts"></div><div class="developer-admin-field"><label for="developerUserStatus">Account status</label><select id="developerUserStatus"><option value="">All statuses</option><option value="active">Active</option><option value="deactivated">Deactivated</option><option value="pending_deletion">Pending deletion</option><option value="suspended">Suspended</option></select></div><button type="submit">Search users</button></form><p id="developerUsersSummary" class="developer-admin-help" aria-live="polite">Loading accounts…</p><div id="developerUsersList" class="developer-admin-list"></div></section>');
   if(canModerate)moduleMarkup.push('<section class="panel developer-admin-panel"><div class="row-between"><div><h3>Content & Reports</h3><p>Review reports submitted against communities, posts and members.</p></div><span class="pill">Moderation</span></div><div class="developer-admin-field"><label for="developerReportFilter">Report status</label><select id="developerReportFilter"><option value="open">Open</option><option value="reviewed">Reviewed</option><option value="actioned">Actioned</option><option value="dismissed">Dismissed</option><option value="all">All reports</option></select></div><div id="developerReportsList" class="developer-admin-list">Loading reports…</div></section>');
+  if(canLogs)moduleMarkup.push('<section class="panel developer-admin-panel"><div class="row-between"><div><h3>Audit Logs</h3><p>Search administrative actions and inspect recorded targets. Private message content is excluded.</p></div><span class="pill">Latest activity</span></div><form id="developerAuditSearch" class="developer-admin-form"><div class="developer-admin-field"><label for="developerAuditQuery">Search action, target or actor ID</label><input id="developerAuditQuery" maxlength="100" placeholder="e.g. developer.admin"></div><div class="developer-admin-field"><label for="developerAuditAction">Action filter</label><input id="developerAuditAction" maxlength="80" placeholder="e.g. status_changed"></div><button type="submit">Search logs</button></form><p id="developerAuditSummary" class="developer-admin-help" aria-live="polite">Loading audit history…</p><div id="developerAuditList" class="developer-admin-list"></div><div class="developer-admin-actions"><button type="button" id="developerAuditMore" class="secondary">Load more</button></div></section>');
   if(canAnalytics)moduleMarkup.push('<section class="panel developer-admin-panel"><div class="row-between"><div><h3>Platform Analytics</h3><p>Aggregate platform activity. No private message content is included.</p></div><span class="pill">Last 14 days</span></div><div id="developerAnalytics" class="developer-metrics">Loading analytics…</div></section>');
   const canSettings=developerCapabilities.includes("settings");
   if(canSettings)moduleMarkup.push('<section class="panel developer-admin-panel"><div class="row-between"><div><h3>Platform Settings</h3><p>Safe runtime configuration. Secrets and credentials are never exposed.</p></div><span class="pill">Owner only</span></div><div id="developerPlatformSettings" class="developer-modules">Loading configuration…</div></section>');
@@ -2248,6 +2250,24 @@ async function developerPage(){
   document.getElementById("developerUserSearch")?.addEventListener("submit",event=>{event.preventDefault();loadDeveloperUsers()});
   document.getElementById("developerUsersList")?.addEventListener("click",async event=>{const button=event.target.closest("[data-user-status]");if(!button)return;const next=button.dataset.nextStatus;if(!confirm((next==="deactivated"?"Deactivate":"Reactivate")+" this member account? Existing sessions will be revoked."))return;button.disabled=true;try{await apiRequest("/v1/developer/users/"+encodeURIComponent(button.dataset.userStatus)+"/status",{method:"PATCH",body:JSON.stringify({status:next})});await loadDeveloperUsers()}catch(error){alert(error.message||"Unable to update account status.");button.disabled=false}});
 
+  let developerAuditOffset=0,developerAuditTotal=0;
+  const loadDeveloperAudit=async(append=false)=>{
+   const list=document.getElementById("developerAuditList"),summary=document.getElementById("developerAuditSummary"),more=document.getElementById("developerAuditMore");if(!list)return;
+   if(!append){developerAuditOffset=0;list.textContent="Loading audit history…"}
+   const q=document.getElementById("developerAuditQuery")?.value.trim()||"",action=document.getElementById("developerAuditAction")?.value.trim()||"";
+   try{
+    const params=new URLSearchParams({q,action,limit:"50",offset:String(developerAuditOffset)});
+    const result=await apiRequest("/v1/developer/audit?"+params.toString());
+    const rows=result.items||[];developerAuditTotal=Number(result.total||0);
+    const html=rows.map(item=>{let details={};try{details=JSON.parse(item.details_json||"{}")}catch{};return '<div class="developer-admin-row"><div class="developer-admin-identity"><strong>'+esc(item.action)+'</strong><small>'+esc(item.target_type||"")+' · '+esc(item.target_id||"")+' · Actor '+esc(item.actor_user_id||"")+'</small><small>'+esc(Object.entries(details).map(([key,value])=>key+": "+String(value)).join(" · "))+'</small></div><time class="developer-admin-help">'+esc(new Date(item.created_at).toLocaleString())+'</time></div>'}).join("");
+    if(append)list.insertAdjacentHTML("beforeend",html);else list.innerHTML=html||'<p class="developer-admin-empty">No audit events match this search.</p>';
+    developerAuditOffset+=rows.length;if(summary)summary.textContent=developerAuditTotal.toLocaleString()+" events found · showing "+developerAuditOffset+".";
+    if(more)more.hidden=developerAuditOffset>=developerAuditTotal||rows.length===0;
+   }catch(error){if(!append)list.textContent=error.message||"Unable to load audit history.";if(more)more.hidden=true}
+  };
+  document.getElementById("developerAuditSearch")?.addEventListener("submit",event=>{event.preventDefault();loadDeveloperAudit()});
+  document.getElementById("developerAuditMore")?.addEventListener("click",()=>loadDeveloperAudit(true));
+  if(canLogs)await loadDeveloperAudit();
   if(canManageUsers)await loadDeveloperUsers();
   const loadDeveloperReports=async()=>{
    const list=document.getElementById("developerReportsList");if(!list)return;list.textContent="Loading reports…";

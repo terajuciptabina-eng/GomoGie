@@ -14,7 +14,7 @@ migrations_dir = "sql"
 [vars]
 APP_ENV = "production"
 ALLOWED_ORIGINS = "https://terajuciptabina-eng.github.io"
-OAUTH_FRONTEND_URL = "https://terajuciptabina-eng.github.io/terajuciptabina/"
+OAUTH_FRONTEND_URL = "https://terajuciptabina-eng.github.io/GomoGie/"
 ALLOW_REGISTRATION = "true"
 
 [triggers]

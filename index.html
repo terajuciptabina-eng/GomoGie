@@ -3708,8 +3708,6 @@ function refreshPublicFeedInBackground(){
 async function loadGomoGieData(){
  accounts=[];posts=[];localPendingPosts=[];
  const sessionTask=restoreSession().catch(error=>console.warn("Session restore deferred:",error));
- // Start the public/auth-aware Home feed immediately; do not gate first paint on session restoration.
- const initialHomeFeedTask=refreshPublicFeedInBackground();
  ensureCurrentUserInAccounts();
  const sharedProfile=decodeURIComponent(location.hash.replace(/^#profile-/,"")).trim().toLowerCase();
  if(location.hash.startsWith("#profile-")&&sharedProfile){
@@ -3719,6 +3717,8 @@ async function loadGomoGieData(){
  extras();
  if(!handleNotificationDeepLink())render();
  updateConnectionState();
+ // Start feed only after the base application UI and state have been initialized.
+ const initialHomeFeedTask=refreshPublicFeedInBackground();
  void sessionTask.then(async()=>{
   ensureCurrentUserInAccounts();
   render();

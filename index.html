@@ -1424,7 +1424,6 @@ const postMusicAutoplayController=(()=>{
   try{await audio.play();setPlaying(id,true)}catch(error){console.info("Post soundtrack playback could not start",error);setPlaying(id,false);activeId="";audio=null}
  };
  document.addEventListener("click",event=>{const node=event.target.closest("[data-post-soundtrack]");if(node){event.preventDefault();play(node)}});
- document.addEventListener("keydown",event=>{if((event.key==="Enter"||event.key===" ")&&event.target.matches("[data-post-soundtrack]")){event.preventDefault();play(event.target)}});
  return {stop};
 })();
 function postCard(p){

@@ -103,7 +103,7 @@ jobs:
           assert any(i['src'] == 'assets/brand/icon-512.png' for i in manifest['icons'])
           assert 'cache.put(request' in worker
           assert 'https://gomogie-api.terajuciptabina.workers.dev' in worker and 'request.destination==="image"' in worker, 'Uploaded GomoGie images must persist in the service-worker cache'
-          assert 'const CACHE_NAME=CACHE_PREFIX+"v50"' in worker, 'Service worker cache must be versioned for the media cache change'
+          assert 'const CACHE_NAME=CACHE_PREFIX+"v51"' in worker, 'Service worker cache must be versioned for the media cache change'
           assert 'new URL(event.notification.data?.url||"./",self.registration.scope)' in worker, 'Notification click must remain inside the GomoGie Pages project path.'
           print('Validated PWA registration, manifest and iOS/Android icons.')
           PY

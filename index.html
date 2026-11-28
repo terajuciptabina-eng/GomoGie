@@ -3630,11 +3630,12 @@ function refreshPublicFeedInBackground(){
   posts=[...livePosts,...demoPosts].sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
   ensureCurrentUserInAccounts();
   accounts=[...new Map(accounts.filter(account=>account&&account.id).map(account=>[account.id,account])).values()];
-  await localSet("last-live-feed",{accounts:liveAccounts,posts:livePosts,items:liveItems,savedAt:Date.now()})
-   .catch(error=>console.warn("Live feed cache save deferred:",error));
+  // Rendering must never wait for optional device-cache persistence.
   extras();
   if(!handleNotificationDeepLink())render();
   updateConnectionState();
+  void localSet("last-live-feed",{accounts:liveAccounts,posts:livePosts,items:liveItems,savedAt:Date.now()})
+   .catch(error=>console.warn("Live feed cache save deferred:",error));
  }).catch(error=>{
   feedLoadState="error";feedLoadError=String(error?.message||"Network or server error");
   console.error("Background live feed refresh failed:",error);

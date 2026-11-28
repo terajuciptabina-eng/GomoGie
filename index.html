@@ -3684,8 +3684,13 @@ async function loadGomoGieData(){
  extras();
  if(!handleNotificationDeepLink())render();
  updateConnectionState();
- void sessionTask.then(()=>{ensureCurrentUserInAccounts();render();syncAuthButton()});
- void refreshPublicFeedInBackground();
+ void sessionTask.then(()=>{
+  ensureCurrentUserInAccounts();
+  render();
+  syncAuthButton();
+  // Start Home feed only after session restoration so the first request uses the current token.
+  void refreshPublicFeedInBackground();
+ });
  void loadViralNews();
  void refreshNotificationBadge().then(()=>{if(active==="notifications")render()}).catch(error=>console.warn("Notification badge refresh deferred:",error));
 }

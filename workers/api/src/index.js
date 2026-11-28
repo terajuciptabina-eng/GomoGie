@@ -525,7 +525,8 @@ async function route(request, env) {
         mediaStorageConfigured:Boolean(env.MEDIA_BUCKET),
         databaseConfigured:Boolean(env.DB),
         developerBootstrapConfigured:Boolean(env.DEVELOPER_BOOTSTRAP_SECRET),
-        scheduledJobsConfigured:true
+        scheduledJobsDeclared:true,
+        scheduledJobsRuntimeVerified:false
       },checkedAt:new Date().toISOString()});
     }
     if (path === "/v1/developer/system" && method === "GET") {

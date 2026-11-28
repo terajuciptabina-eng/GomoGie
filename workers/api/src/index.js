@@ -1,3 +1,4 @@
+// Production deployment aligned with frontend baseline 81c69cff4fc736508e931416755258756eeb1aeb.
 const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(data), {
   status,
   headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", ...headers }

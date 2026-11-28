@@ -138,6 +138,8 @@ jobs:
           assert 'if (!admin) return json({ error:"developer_access_required" },403)' in worker, 'Developer API must deny authenticated non-admin accounts'
           assert 'if (admin.role !== "super_admin") return json({error:"insufficient_permissions"},403)' in worker, 'Administrator management must be Owner-only'
           assert 'path === "/v1/developer/system"' in worker and 'env.MEDIA_BUCKET.list({limit:1})' in worker, 'Owner system health endpoint missing'
+          assert 'path === "/v1/developer/settings"' in worker and 'publicRegistrationEnabled' in worker, 'Owner runtime settings endpoint missing'
+          assert 'id="developerPlatformSettings"' in frontend and 'const canSettings=developerCapabilities.includes("settings")' in frontend, 'Owner platform settings panel missing'
           assert 'path === "/v1/developer/users"' in worker and 'is_developer' in worker, 'Role-protected developer user directory missing'
           assert 'path === "/v1/developer/reports"' in worker and 'community_reports' in worker, 'Developer community report queue missing'
           assert 'path === "/v1/developer/analytics"' in worker and 'trendUsers' in worker and 'trendPosts' in worker, 'Developer analytics endpoint missing'

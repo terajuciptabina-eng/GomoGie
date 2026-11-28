@@ -1120,7 +1120,7 @@ async function route(request, env) {
     const result = await env.DB.prepare("DELETE FROM notifications WHERE recipient_id=?").bind(auth.sub).run();
     return json({ deleted: Number(result.meta?.changes || 0) });
   }
-  const notificationDeleteMatch = path.match(/^\\/v1\\/notifications\\/([0-9a-f-]+)$/i);
+  const notificationDeleteMatch = path.match(/^\/v1\/notifications\/([0-9a-f-]+)$/i);
   if (notificationDeleteMatch && method === "DELETE") {
     const result = await env.DB.prepare("DELETE FROM notifications WHERE id=? AND recipient_id=?").bind(notificationDeleteMatch[1], auth.sub).run();
     if (!result.meta?.changes) return json({ error: "notification_not_found" }, 404);

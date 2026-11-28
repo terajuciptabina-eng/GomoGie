@@ -2247,7 +2247,7 @@ async function developerPage(){
    const preview=document.getElementById("developerQaPreview");
    const summary=document.getElementById("developerQaSummary");
    if(preview)preview.innerHTML=modules.map(([key,label,description])=>'<div class="developer-qa-capability '+(allowed.includes(key)?"is-allowed":"is-denied")+'"><span><strong>'+label+'</strong><br><small>'+description+'</small></span><small>'+(allowed.includes(key)?"ALLOWED":"RESTRICTED")+'</small></div>').join("");
-   if(summary)summary.textContent=role.replace("_"," ").replace(/\\b\\w/g,c=>c.toUpperCase())+" · "+allowed.length+" of "+modules.length+" modules available in the role model.";
+   if(summary)summary.textContent=role.replace("_"," ").replace(/\b\w/g,c=>c.toUpperCase())+" · "+allowed.length+" of "+modules.length+" modules available in the role model.";
   };
   qaRoleSelect?.addEventListener("change",renderDeveloperQaPreview);
   renderDeveloperQaPreview();

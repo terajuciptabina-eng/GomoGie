@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: gomogie-worker-production
+  cancel-in-progress: false
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -90,6 +94,20 @@ jobs:
           assert "gomogie_news_source_runs" in worker and "gomogie_news_source_runs" in diagnostics
           assert 'crons = ["*/15 * * * *"]' in config
           print("Validated 8 video sources, active-source refresh, per-source diagnostics and 15-minute Cron.")
+          PY
+
+      - name: Verify retired feature is absent from active source
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          worker = Path("workers/api/src/index.js").read_text().lower()
+          page = Path("index.html").read_text().lower()
+          assert "poll" not in worker, "Retired feature reference remains in Worker source."
+          for token in ["poll-card", "poll-builder", "data-poll", 'mediatype==="poll"', "poll:item.poll"]:
+              assert token not in page, f"Retired feature reference remains in frontend: {token}"
+          assert not Path("workers/api/sql/0003_video_polls.sql").exists(), "Retired migration filename remains."
+          assert "drop table if exists gomogie_polls" in Path("workers/api/sql/0027_cleanup_deprecated_schema.sql").read_text().lower()
+          print("Verified the retired feature is absent from active app/API source and its D1 cleanup is declared.")
           PY
 
       - name: Validate contextual social notifications and privacy
@@ -204,6 +222,26 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: wrangler d1 execute gomogie-db --remote --file=sql/0027_cleanup_deprecated_schema.sql
+      - name: Verify retired feature tables are absent from D1
+        working-directory: workers/api
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          wrangler d1 execute gomogie-db --remote --command="SELECT COUNT(*) AS remaining FROM sqlite_master WHERE type='table' AND name IN ('gomogie_polls','gomogie_poll_options','gomogie_poll_votes');" --json | node -e '
+            let input="";
+            process.stdin.on("data",chunk=>input+=chunk);
+            process.stdin.on("end",()=>{
+              const payload=JSON.parse(input);
+              const rows=(Array.isArray(payload)?payload:[]).flatMap(item=>item.results||[]);
+              const row=rows.find(item=>item.remaining!==undefined);
+              if(!row||Number(row.remaining)!==0){
+                console.error("Retired feature tables remain in D1:",rows);
+                process.exit(1);
+              }
+              console.log("Verified: no retired feature tables remain in D1.");
+            });
+          '
       - name: Deploy Worker before checking existing Push keys
         working-directory: workers/api
         env:

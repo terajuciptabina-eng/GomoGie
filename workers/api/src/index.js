@@ -501,7 +501,7 @@ async function route(request, env) {
       return json({ ok:true, role:"super_admin" },201);
     }
     if (!admin) return json({ error:"developer_access_required" },403);
-    if (path === "/v1/developer/me" && method === "GET") return json({ role:admin.role, capabilities: admin.role==="super_admin" ? ["system","users","content","analytics","settings","admins","logs"] : admin.role==="admin" ? ["users","content","analytics","logs"] : [admin.role] });
+    if (path === "/v1/developer/me" && method === "GET") return json({ role:admin.role, capabilities: admin.role==="super_admin" ? ["system","users","content","analytics","settings","admins","logs"] : admin.role==="admin" ? ["users","content","analytics","logs"] : admin.role==="moderator" ? ["content"] : admin.role==="support" ? ["users"] : ["analytics","logs"] });
     if (path === "/v1/developer/overview" && method === "GET") {
       const [users,activeUsers,posts,news,admins,logs] = await Promise.all([
         env.DB.prepare("SELECT COUNT(*) AS total FROM users").first(),
@@ -514,6 +514,7 @@ async function route(request, env) {
       return json({ metrics:{users:Number(users?.total||0),activeUsers:Number(activeUsers?.total||0),posts:Number(posts?.total||0),news:Number(news?.total||0),administrators:Number(admins?.total||0)},recentActivity:logs.results||[],checkedAt:new Date().toISOString() });
     }
     if (path === "/v1/developer/audit" && method === "GET") {
+      if (!["super_admin","admin","analyst"].includes(admin.role)) return json({error:"insufficient_permissions"},403);
       const rows=await env.DB.prepare("SELECT id,actor_user_id,action,target_type,target_id,details_json,created_at FROM developer_audit_logs ORDER BY created_at DESC LIMIT 100").all();
       return json({items:rows.results||[]});
     }

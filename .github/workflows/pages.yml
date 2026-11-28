@@ -46,6 +46,8 @@ jobs:
           assert 'accounts.filter(a=>!a.isSynthetic).slice(0,6)' in html, 'Stories must use live members only'
           assert 'const results=document.getElementById("discoverResults")' in html and 'results.onclick=async event=>' in html, 'Discover actions must use delegation for asynchronously rendered member cards'
           assert 'preload="none"' in html, 'Feed videos must not preload media before playback'
+          assert 'data-feed-video muted loop playsinline preload="none"' in html, 'Feed videos must defer network loading until playback'
+          assert '.post-gallery{position:relative;overflow:hidden;border-radius:14px;background:#fff;touch-action:pan-x pan-y}' in html, 'Post galleries must allow native horizontal swipe and vertical page scrolling'
           assert 'decoding="async"' in html, 'Feed images must decode asynchronously'
           assert 'function cacheHomeView()' in html and 'function restoreHomeView()' in html, 'Home view DOM must persist across tab navigation'
           assert 'lastRenderedPage!=="home"' in html and 'restoredHome=restoreHomeView()' in html, 'Returning to Home must restore existing media elements instead of rebuilding them'

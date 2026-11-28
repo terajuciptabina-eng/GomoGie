@@ -1,5 +1,5 @@
 const CACHE_PREFIX="gomogie-shell-";
-const CACHE_NAME=CACHE_PREFIX+"v49";
+const CACHE_NAME=CACHE_PREFIX+"v50";
 const APP_SHELL=["./","./index.html","./manifest.webmanifest","./assets/brand/favicon.svg","./assets/brand/apple-touch-icon.png","./assets/brand/icon-192.png","./assets/brand/icon-512.png","./assets/brand/GomoGie-wordmark-transparent.svg","./assets/brand/brand-tokens.css"];
 const scopedURL=path=>new URL(path,self.registration.scope).href;
 const normalizedDataURL=value=>{const clean=new URL(value);clean.search="";clean.hash="";return clean.href};
@@ -19,7 +19,20 @@ self.addEventListener("activate",event=>{event.waitUntil((async()=>{
 })())});
 self.addEventListener("fetch",event=>{
  const request=event.request,url=new URL(request.url);
- if(request.method!=="GET"||url.origin!==self.location.origin)return;
+ if(request.method!=="GET")return;
+ // GomoGie uploaded images use immutable UUID URLs on the API origin.
+ // Cache successful CORS-readable image responses so they survive page refreshes.
+ if(url.origin==="https://gomogie-api.terajuciptabina.workers.dev"&&/^\\/v1\\/media\\/[0-9a-f-]+$/i.test(url.pathname)&&request.destination==="image"){
+  event.respondWith(caches.open(CACHE_NAME).then(async cache=>{
+   const cached=await cache.match(request);
+   if(cached)return cached;
+   const response=await fetch(request);
+   if(response.ok&&response.type!=="opaque"&&/^image\\//i.test(response.headers.get("content-type")||""))await cache.put(request,response.clone());
+   return response;
+  }));
+  return;
+ }
+ if(url.origin!==self.location.origin)return;
  if(request.mode==="navigate"||request.destination==="document"){
   const key=scopedURL("./index.html"),cachePromise=caches.open(CACHE_NAME);
   const refreshPromise=cachePromise.then(cache=>fetch(request,{cache:"no-store"}).then(async response=>{if(response.ok)await cache.put(key,response.clone());return response}));

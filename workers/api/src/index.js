@@ -297,7 +297,7 @@ function oauthCookie(request, name) {
   return item ? decodeURIComponent(item.slice(prefix.length)) : "";
 }
 function oauthFrontend(env) {
-  return env.OAUTH_FRONTEND_URL || "https://terajuciptabina-eng.github.io/terajuciptabina/";
+  return env.OAUTH_FRONTEND_URL || "https://terajuciptabina-eng.github.io/GomoGie/";
 }
 function oauthRedirect(env, values = {}) {
   const target = new URL(oauthFrontend(env));

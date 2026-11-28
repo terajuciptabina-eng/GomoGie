@@ -58,6 +58,11 @@ jobs:
           worker = Path("workers/api/src/index.js").read_text()
           migration = Path("workers/api/sql/0028_oauth_identity.sql").read_text()
           frontend = Path("index.html").read_text()
+          config = Path("workers/api/wrangler.toml").read_text()
+          operations = Path("workers/api/README.md").read_text()
+          assert 'OAUTH_FRONTEND_URL = "https://terajuciptabina-eng.github.io/GomoGie/"' in config, "OAuth must return to the GomoGie Pages project URL."
+          assert "https://gomogie-api.terajuciptabina.workers.dev/v1/auth/oauth/google/callback" in operations
+          assert "https://gomogie-api.terajuciptabina.workers.dev/v1/auth/oauth/facebook/callback" in operations
           for marker in ["verifyGoogleIdToken", "code_challenge_method", "oauth_state_invalid", "gomogie_oauth_identities", "/v1/auth/oauth/exchange", "env.ALLOW_REGISTRATION !== \"true\""]:
               assert marker in worker, f"OAuth security or route marker missing: {marker}"
           for table in ["gomogie_oauth_identities", "gomogie_oauth_states", "gomogie_oauth_handoffs"]:

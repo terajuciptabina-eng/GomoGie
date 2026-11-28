@@ -990,6 +990,7 @@ async function route(request, env) {
     return json({mode,region,interests,refreshed,sourceStatus:{name:source?.name||"BERNAMA",lastCheckedAt:source?.last_checked_at||null,lastError:source?.last_error||null},sourceStatuses:sourceStatuses.results||[],items:(rows.results||[]).map(x=>({...x,title:decodeNewsXml(x.title).replace(/Â/g,""),summary:(x.content_type==="video"||x.content_type==="documentary")?"":decodeNewsXml(x.summary).replace(/Â/g,""),body_text:(x.content_type==="video"||x.content_type==="documentary")?"":decodeNewsXml(x.body_text).replace(/Â/g,""),trendScore:Number(x.trend_score||0)}))});
   }
   if (path === "/v1/feed" && method === "GET") {
+    await ensurePostMusicTable(env);
     const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit") || 20)));
     const select = "SELECT p.id,p.user_id,p.content,p.visibility,p.created_at,p.comments_enabled,u.username,pr.display_name,pr.avatar_url,pr.cover_url," +
       "(SELECT COUNT(*) FROM reactions r WHERE r.post_id=p.id) AS reaction_count," +
@@ -1018,8 +1019,9 @@ async function route(request, env) {
         poll={id:row.poll_id,closesAt:row.poll_closes_at,closed:!!row.poll_closes_at&&Date.parse(row.poll_closes_at)<=Date.now(),totalVotes:total,selectedOptionId:vote?.option_id||null,options:(options.results||[]).map(item=>({id:item.id,label:item.label,votes:Number(item.votes||0),percentage:total?Math.round(Number(item.votes||0)*100/total):0}))};
       }
       const attachments=await env.DB.prepare("SELECT media_type,media_id,video_id,position FROM gomogie_post_attachments WHERE post_id=? ORDER BY position ASC").bind(row.id).all();
+      const musicRow=await env.DB.prepare("SELECT * FROM gomogie_post_music WHERE post_id=?").bind(row.id).first();
       const mediaItems=(attachments.results||[]).map(item=>({type:item.media_type,id:item.media_type==="image"?item.media_id:item.video_id,url:item.media_type==="image"?mediaUrl(item.media_id):videoUrl(item.video_id),position:item.position}));
-      return { id:row.id,content:row.content,visibility:row.visibility,createdAt:row.created_at,commentsEnabled:Boolean(row.comments_enabled),author:{id:row.user_id,username:row.username,displayName:row.display_name,avatarUrl:row.avatar_url,coverUrl:row.cover_url},mediaType:mediaItems[0]?.type||(poll?"poll":"text"),mediaUrl:mediaItems[0]?.url||"",mediaItems,reactionCount:row.reaction_count,commentCount:row.comment_count,poll };
+      return { id:row.id,content:row.content,visibility:row.visibility,createdAt:row.created_at,commentsEnabled:Boolean(row.comments_enabled),author:{id:row.user_id,username:row.username,displayName:row.display_name,avatarUrl:row.avatar_url,coverUrl:row.cover_url},mediaType:mediaItems[0]?.type||(poll?"poll":"text"),mediaUrl:mediaItems[0]?.url||"",mediaItems,music:postMusicPayload(musicRow),reactionCount:row.reaction_count,commentCount:row.comment_count,poll };
     }));
     return json({ scope:followingFeedRequest?"following":"public",items });
   }
@@ -1076,6 +1078,7 @@ async function route(request, env) {
   }
 
   if (path === "/v1/posts" && method === "POST") {
+    await ensurePostMusicTable(env);
     const input = await readJson(request);
     const pollInput=input?.poll;
     const pollOptions=Array.isArray(pollInput?.options)?pollInput.options.map(x=>String(x||"").trim()).filter(Boolean):[];
@@ -1088,6 +1091,8 @@ async function route(request, env) {
     if(hasPoll&&(pollOptions.length<2||pollOptions.length>6||pollOptions.some(x=>x.length>80)||new Set(pollOptions.map(x=>x.toLowerCase())).size!==pollOptions.length))return json({error:"invalid_poll",message:"Poll perlu 2 hingga 6 pilihan unik (maksimum 80 aksara setiap satu)."},400);
     let closesAt=null;
     if(hasPoll&&pollInput.durationHours!==undefined){const hours=Number(pollInput.durationHours);if(![1,6,12,24,72,168,720].includes(hours))return json({error:"invalid_poll_duration"},400);closesAt=new Date(Date.now()+hours*3600000).toISOString()}
+    const postMusic=input.music?validPostMusic(input.music):null;
+    if(input.music&&!postMusic)return json({error:"invalid_post_music",message:"Pilih trek audio yang mempunyai sumber HTTPS dan lesen penggunaan yang disahkan."},400);
     const visibility=["public","followers","private"].includes(input.visibility)?input.visibility:"public";
     const mentionNames=[...new Set([...input.content.matchAll(/(?:^|[\s(])@([A-Za-z0-9_]{3,24})\b/g)].map(m=>m[1].toLowerCase()))];
     let mentionRecipients=[];
@@ -1115,6 +1120,7 @@ async function route(request, env) {
       verifiedMedia.push({type:item.type,id:asset.id,position});
     }
     const statements=[env.DB.prepare("INSERT INTO posts (id,user_id,content,visibility,status,comments_enabled,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)").bind(id,auth.sub,input.content.trim(),visibility,"published",input.commentsEnabled===false?0:1,now,now)];
+    if(postMusic)statements.push(env.DB.prepare("INSERT INTO gomogie_post_music (post_id,track_id,title,artist,art_url,stream_url,license,source,source_url,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)").bind(id,postMusic.id,postMusic.title,postMusic.artist,postMusic.art,postMusic.stream,postMusic.license,postMusic.source,postMusic.sourceUrl,now));
     for(const item of verifiedMedia)statements.push(env.DB.prepare("INSERT INTO gomogie_post_attachments (id,post_id,media_type,media_id,video_id,position,created_at) VALUES (?,?,?,?,?,?,?)").bind(uuid(),id,item.type,item.type==="image"?item.id:null,item.type==="video"?item.id:null,item.position,now));
     let pollId=null;
     if(hasPoll){pollId=uuid();statements.push(env.DB.prepare("INSERT INTO gomogie_polls (id,post_id,closes_at,created_at) VALUES (?,?,?,?)").bind(pollId,id,closesAt,now));pollOptions.forEach((label,index)=>statements.push(env.DB.prepare("INSERT INTO gomogie_poll_options (id,poll_id,label,position) VALUES (?,?,?,?)").bind(uuid(),pollId,label,index)))}
@@ -1138,7 +1144,7 @@ async function route(request, env) {
       await notifyPushDevices(env,recipient.id,{id,actorId:auth.sub,type:"mention",preview:input.content.trim().slice(0,120)});
     }
     const mediaItems=verifiedMedia.map(item=>({type:item.type,id:item.id,url:item.type==="image"?mediaUrl(item.id):videoUrl(item.id),position:item.position}));
-    return json({post:{id,userId:auth.sub,content:input.content.trim(),visibility,status:"published",mediaType:mediaItems[0]?.type|| (hasPoll?"poll":"text"),mediaUrl:mediaItems[0]?.url||"",mediaItems,pollId,createdAt:now}},201);
+    return json({post:{id,userId:auth.sub,content:input.content.trim(),visibility,status:"published",mediaType:mediaItems[0]?.type|| (hasPoll?"poll":"text"),mediaUrl:mediaItems[0]?.url||"",mediaItems,music:postMusic,pollId,createdAt:now}},201);
   }
 
   const postDeleteMatch = path.match(/^\/v1\/posts\/([0-9a-f-]+)$/i);
@@ -1596,6 +1602,23 @@ async function notifyPushDevices(env,userId,notification){
  const copy=messages[notification.type]||{title:"GomoGie",body:name+" has an update for you."};
  for(const row of rows.results||[]){try{const result=await sendWebPush(row,{title:copy.title,body:copy.body,url:notification.url||notificationDeepLink(notification),tag:notification.id||"gomogie"},env);if(result==="expired")await env.DB.prepare("DELETE FROM gomogie_push_subscriptions WHERE id=?").bind(row.id).run()}catch(error){console.error("Push delivery failed",row.id,error)}}
 }
+
+async function ensurePostMusicTable(env){
+ await env.DB.prepare("CREATE TABLE IF NOT EXISTS gomogie_post_music (post_id TEXT PRIMARY KEY,track_id TEXT NOT NULL,title TEXT NOT NULL,artist TEXT NOT NULL,art_url TEXT NOT NULL,stream_url TEXT NOT NULL,license TEXT NOT NULL,source TEXT NOT NULL,source_url TEXT NOT NULL,created_at TEXT NOT NULL,FOREIGN KEY(post_id) REFERENCES posts(id) ON DELETE CASCADE)").run();
+}
+function validPostMusic(input){
+ if(!input||typeof input!=="object")return null;
+ const stream=String(input.stream||"");
+ let url;try{url=new URL(stream)}catch{return null}
+ if(url.protocol!=="https:"||!["archive.org","www.archive.org","upload.wikimedia.org"].includes(url.hostname))return null;
+ const license=String(input.license||"");
+ if(!["CC BY","CC BY-SA","Public domain"].includes(license))return null;
+ const title=String(input.title||"").trim().slice(0,180),artist=String(input.artist||"").trim().slice(0,180);
+ if(!title||!artist)return null;
+ const safeAsset=value=>{try{const u=new URL(String(value||""));return u.protocol==="https:"?u.href.slice(0,500):""}catch{return ""}};
+ return {id:String(input.id||"").slice(0,180),title,artist,art:safeAsset(input.art),stream:url.href,license,source:String(input.source||"").slice(0,80),sourceUrl:safeAsset(input.sourceUrl)};
+}
+function postMusicPayload(row){return row?{id:row.track_id,title:row.title,artist:row.artist,art:row.art_url,stream:row.stream_url,license:row.license,source:row.source,sourceUrl:row.source_url}:null}
 
 export default {
   async scheduled(controller, env, ctx) { ctx.waitUntil((async()=>{try{const sync=await syncNewsFeeds(env);console.log("GomoGie scheduled news sync",JSON.stringify(sync))}catch(error){console.error("GomoGie news sync failed",error)}try{const images=await hydrateRecentNewsImages(env,12);console.log("GomoGie scheduled news image hydration",images)}catch(error){console.error("GomoGie news image hydration failed",error)}try{const deletions=await processAccountDeletionQueue(env);console.log("GomoGie account deletion processing",deletions)}catch(error){console.error("GomoGie account deletion processing failed",error)}})()); },

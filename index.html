@@ -1490,7 +1490,7 @@ let newsRefreshPromise=null;
 function refreshViralNewsInBackground(){
  if(newsRefreshPromise)return newsRefreshPromise;
  newsRefreshPromise=(async()=>{
-  if(currentUser){
+  if(await getToken()){
    try{
     const pref=await apiRequest("/v1/news/preferences");
     newsPreferences={region:pref.region||"MY",interests:Array.isArray(pref.interests)?pref.interests:newsPreferences.interests};

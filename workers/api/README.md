@@ -89,7 +89,7 @@ The authenticated Developer Console exposes role-gated operations:
 - `GET /v1/developer/reports?status=open|reviewed|dismissed|actioned|all` — Admin/Moderator/Owner community-report queue.
 - `PATCH /v1/developer/reports/:id` — Admin/Moderator/Owner report workflow status update, recorded in the developer audit log.
 - `GET /v1/developer/analytics` — Admin/Analyst/Owner aggregate totals and 14-day user/post activity.
-- `GET /v1/developer/audit` — Admin/Analyst/Owner audit history.
+- `GET /v1/developer/audit?q=&action=&limit=&offset=` — Admin/Analyst/Owner searchable, paginated audit history.
 - `GET/POST /v1/developer/admins`, role update and revoke — Owner-only access governance.
 
 The frontend surfaces User Management, Community Reports, Platform Analytics, System Health and a safe runtime Platform Settings view according to the server-returned role capabilities. User Management supports account search and controlled activate/deactivate actions for Admin/Owner; it does not expose email, password hashes, permanent deletion or self-deactivation. The community report queue updates report workflow status only; it does not itself remove content or ban accounts. The system check is a dependency probe, not full observability or an uptime guarantee.
@@ -119,7 +119,7 @@ The current Worker source validates JWT structure and claims, checks that the ac
 
 ## Current limits
 
-- Public registration is disabled by default using `ALLOW_REGISTRATION = "false"`. Do not enable it until rate limiting, email verification, account recovery and security testing are complete.
+- Public registration is controlled by the deployment owner through `ALLOW_REGISTRATION`; do not change the configured value without the owner's explicit instruction.
 
 - Email verification and password reset are not implemented.
 - Access JWTs currently have a 30-day expiry and are renewed through the authenticated `/v1/auth/remember` endpoint. This is not a refresh-token rotation or server-side revocable session system.

@@ -1611,8 +1611,9 @@ function validPostMusic(input){
  const stream=String(input.stream||"");
  let url;try{url=new URL(stream)}catch{return null}
  if(url.protocol!=="https:"||!["archive.org","www.archive.org","upload.wikimedia.org"].includes(url.hostname))return null;
- const license=String(input.license||"");
- if(!["CC BY","CC BY-SA","Public domain"].includes(license))return null;
+ const rawLicense=String(input.license||"").toUpperCase();
+ const license=rawLicense.includes("PUBLIC DOMAIN")?"Public domain":rawLicense.startsWith("CC BY-SA")?"CC BY-SA":rawLicense.startsWith("CC BY")?"CC BY":"";
+ if(!license)return null;
  const title=String(input.title||"").trim().slice(0,180),artist=String(input.artist||"").trim().slice(0,180);
  if(!title||!artist)return null;
  const safeAsset=value=>{try{const u=new URL(String(value||""));return u.protocol==="https:"?u.href.slice(0,500):""}catch{return ""}};

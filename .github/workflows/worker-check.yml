@@ -141,6 +141,8 @@ jobs:
           assert 'path === "/v1/developer/settings"' in worker and 'publicRegistrationEnabled' in worker, 'Owner runtime settings endpoint missing'
           assert 'id="developerPlatformSettings"' in frontend and 'const canSettings=developerCapabilities.includes("settings")' in frontend, 'Owner platform settings panel missing'
           assert 'path === "/v1/developer/users"' in worker and 'is_developer' in worker, 'Role-protected developer user directory missing'
+          assert 'const userStatusMatch=path.match' in worker and 'session_version=session_version+1' in worker and 'developer.user.status_changed' in worker, 'Audited account status control and session revocation missing'
+          assert 'data-user-status=' in frontend and 'Existing sessions will be revoked.' in frontend, 'Developer account status UI missing'
           assert 'path === "/v1/developer/reports"' in worker and 'community_reports' in worker, 'Developer community report queue missing'
           assert 'path === "/v1/developer/analytics"' in worker and 'trendUsers' in worker and 'trendPosts' in worker, 'Developer analytics endpoint missing'
           assert 'id="developerUsersList"' in frontend and 'id="developerReportsList"' in frontend, 'Developer user and moderation panels missing'

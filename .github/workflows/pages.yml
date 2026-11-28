@@ -47,6 +47,8 @@ jobs:
           assert 'const results=document.getElementById("discoverResults")' in html and 'results.onclick=async event=>' in html, 'Discover actions must use delegation for asynchronously rendered member cards'
           assert 'preload="none"' in html, 'Feed videos must not preload media before playback'
           assert 'decoding="async"' in html, 'Feed images must decode asynchronously'
+          assert 'function cacheHomeView()' in html and 'function restoreHomeView()' in html, 'Home view DOM must persist across tab navigation'
+          assert 'lastRenderedPage!=="home"' in html and 'restoredHome=restoreHomeView()' in html, 'Returning to Home must restore existing media elements instead of rebuilding them'
           assert 'new Map(liveItems.map(item=>item.author).filter(author=>author&&author.id).map(author=>[author.id,' in html, 'Live feed account mapping must deduplicate repeated post authors'
           assert '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">' in html, 'Mobile viewport must preserve user zoom and safe-area support'
           assert 'assets/brand/brand-tokens.css' in html, 'Shared brand design tokens must be loaded'

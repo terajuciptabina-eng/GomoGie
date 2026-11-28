@@ -1185,7 +1185,8 @@ async function route(request, env) {
   }
   if (path === "/v1/feed" && method === "GET") {
     await ensurePostMusicTable(env);
-    const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit") || 20)));
+    const limit = Math.min(30, Math.max(1, Number(url.searchParams.get("limit") || 20)));
+    const offset = Math.min(100000, Math.max(0, Number(url.searchParams.get("offset") || 0)));
     const select = "SELECT p.id,p.user_id,p.content,p.visibility,p.created_at,p.comments_enabled,u.username,pr.display_name,pr.avatar_url,pr.cover_url," +
       "(SELECT COUNT(*) FROM reactions r WHERE r.post_id=p.id) AS reaction_count," +
       "(SELECT COUNT(*) FROM comments c WHERE c.post_id=p.id AND c.status='published') AS comment_count,ma.id AS media_id,va.id AS video_id " +

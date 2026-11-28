@@ -131,6 +131,14 @@ body.pull-releasing .top,body.pull-releasing .layout{transform:translate3d(0,0,0
 }
 
 .auth-layer{position:fixed;inset:0;z-index:50;background:#07131dcc;display:grid;place-items:center;padding:18px}.auth-layer[hidden]{display:none}.auth-dialog{position:relative;width:min(100%,420px);background:#fff;border-radius:22px;padding:28px;box-shadow:0 24px 80px #0004;display:grid;gap:14px}.auth-dialog h2{margin:0;font-size:24px}.auth-dialog p{margin:0;color:#71808c}.auth-dialog label{display:grid;gap:6px;font-size:13px;font-weight:650}.auth-dialog input{width:100%;border:1px solid #dce4e7;border-radius:10px;padding:12px}.auth-dialog .primary{border:0;border-radius:12px;background:#00ae9c;color:white;padding:12px;font-weight:700}.auth-dialog small{color:#71808c}.auth-close{position:absolute;right:14px;top:10px;border:0;background:none;font-size:26px;color:#71808c}.auth-error{color:#b42318!important;font-size:13px;min-height:18px}
+.oauth-actions{display:grid;gap:9px;margin-top:2px}
+.oauth-button{width:100%;min-height:46px;display:flex;align-items:center;justify-content:center;gap:11px;border:1px solid #dce4e7;border-radius:12px;background:#fff;color:#17252b;font:600 14px inherit;cursor:pointer}
+.oauth-button:disabled{opacity:.55;cursor:wait}
+.oauth-google-mark{display:grid;place-items:center;width:22px;height:22px;border:2px solid #4285f4;border-radius:50%;font-weight:800;font-size:15px;color:#4285f4}
+.oauth-facebook-mark{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#1877f2;color:#fff;font-family:Arial,sans-serif;font-weight:800;font-size:19px}
+.auth-divider{display:flex;align-items:center;gap:12px;color:#8a969d;font-size:12px}
+.auth-divider:before,.auth-divider:after{content:"";height:1px;background:#e5eaed;flex:1}
+
 /* Mobile viewport zoom lock: preserve normal panning and scrolling. */
 @media(pointer:coarse) and (max-width:1100px){html,body{touch-action:pan-x pan-y;overscroll-behavior-x:none}}
 
@@ -1278,7 +1286,7 @@ body{background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;te
   <div class="install-guide-actions"><button class="install-guide-primary" id="installGuideDone" type="button">Got it</button><button class="install-guide-secondary" id="installGuideLater" type="button">Continue in Safari for now</button></div>
  </div>
 </section>
-<section class="auth-layer" id="authLayer" hidden><form class="auth-dialog" id="loginForm"><button class="auth-close" type="button" id="closeAuth" aria-label="Close">×</button><h2 id="authTitle">Welcome back</h2><p id="authIntro">Log in to your GomoGie account.</p><div id="loginFields"><label>Email or username<input name="login" autocomplete="username" required maxlength="254"></label><label>Password<input name="password" type="password" autocomplete="current-password" required maxlength="128"></label><label class="remember-login"><input type="checkbox" id="rememberLogin" checked> Remember my username on this device</label></div><div id="registerFields" hidden><label>Display name<input name="displayName" autocomplete="name" maxlength="60"></label><label>Username<input name="username" autocomplete="username" minlength="3" maxlength="24" pattern="[A-Za-z0-9_]{3,24}"></label><label>Email<input name="email" type="email" autocomplete="email" maxlength="254"></label><label>Password (minimum 9 characters)<input name="registerPassword" type="password" autocomplete="new-password" minlength="9" maxlength="128"></label></div><p class="auth-error" id="authError" role="alert"></p><button class="primary" type="submit" id="loginSubmit">Log in</button><small id="authSwitchText">New to GomoGie? <button type="button" id="showRegister" class="auth-switch">Create account</button></small></form></section>
+<section class="auth-layer" id="authLayer" hidden><form class="auth-dialog" id="loginForm"><button class="auth-close" type="button" id="closeAuth" aria-label="Close">×</button><h2 id="authTitle">Welcome back</h2><p id="authIntro">Log in to your GomoGie account.</p><div id="loginFields"><label>Email or username<input name="login" autocomplete="username" required maxlength="254"></label><label>Password<input name="password" type="password" autocomplete="current-password" required maxlength="128"></label><label class="remember-login"><input type="checkbox" id="rememberLogin" checked> Remember my username on this device</label></div><div id="registerFields" hidden><label>Display name<input name="displayName" autocomplete="name" maxlength="60"></label><label>Username<input name="username" autocomplete="username" minlength="3" maxlength="24" pattern="[A-Za-z0-9_]{3,24}"></label><label>Email<input name="email" type="email" autocomplete="email" maxlength="254"></label><label>Password (minimum 9 characters)<input name="registerPassword" type="password" autocomplete="new-password" minlength="9" maxlength="128"></label></div><div class="oauth-actions" aria-label="Social sign in"><button class="oauth-button oauth-google" id="googleSignIn" type="button"><span class="oauth-google-mark" aria-hidden="true">G</span><span>Continue with Google</span></button><button class="oauth-button oauth-facebook" id="facebookSignIn" type="button"><span class="oauth-facebook-mark" aria-hidden="true">f</span><span>Continue with Facebook</span></button></div><div class="auth-divider"><span>or use email</span></div><p class="auth-error" id="authError" role="alert"></p><button class="primary" type="submit" id="loginSubmit">Log in</button><small id="authSwitchText">New to GomoGie? <button type="button" id="showRegister" class="auth-switch">Create account</button></small></form></section>
 <script>
 const labels={home:["⌂","Home"],pulse:["⌁","Pulse"],watch:["▷","Watch"],discover:["◎","Discover"],music:["♫","Music"],communities:["♧","Communities"],connect:["✉","Connect"],studio:["▤","Studio"],profile:["◉","Profile"]};let developerAccess=false,developerRole="",developerCapabilities=[],developerAccessUserId="";
 let viralNewsItems=[],viralNewsGlobalItems=[],viralNewsArchiveItems=[],viralVideoItems=[],newsContentFilter="all",newsPreferences={region:"MY",interests:["national","politics","business","technology","sports","entertainment","world","lifestyle"]},newsMode="for-you",pulseVisibleCount=12,pulseLoadBusy=false,pulseHasMore=true,watchNewsVisibleCount=8,watchPostVisibleCount=8,watchLoadBusy=false,watchHasMore=true,watchNewsHasMore=true,watchPostsHasMore=true,watchSectionMode="discovery";
@@ -3715,6 +3723,42 @@ function handleNotificationDeepLink(){
 window.addEventListener("focus",()=>{refreshNotificationBadge();refreshLiveNotifications()});
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){refreshNotificationBadge();refreshLiveNotifications()}});
 setInterval(()=>{if(document.visibilityState==="visible")refreshNotificationBadge()},60000);
+async function handleOAuthReturn(){
+ const params=new URLSearchParams(location.search),code=params.get("oauth_code"),oauthError=params.get("oauth_error");
+ if(!code&&!oauthError)return;
+ params.delete("oauth_code");params.delete("oauth_error");
+ const cleanUrl=location.pathname+(params.toString()?"?"+params.toString():"")+location.hash;
+ history.replaceState(history.state,"",cleanUrl);
+ if(oauthError){
+  const messages={
+   google_not_configured:"Google Sign-In belum dikonfigurasi pada pelayan.",
+   facebook_not_configured:"Facebook Login belum dikonfigurasi pada pelayan.",
+   registration_closed:"Pendaftaran akaun baharu sedang ditutup.",
+   account_link_required:"Email ini sudah mempunyai akaun GomoGie. Log masuk menggunakan kaedah asal dahulu.",
+   account_unavailable:"Akaun GomoGie ini tidak aktif atau tidak tersedia.",
+   facebook_email_required:"Facebook tidak memberikan alamat email. Semak kebenaran email atau gunakan kaedah log masuk lain.",
+   oauth_state_invalid:"Pengesahan keselamatan tamat atau tidak sah. Cuba sekali lagi.",
+   oauth_state_expired:"Sesi pengesahan tamat tempoh. Cuba sekali lagi.",
+   oauth_verification_failed:"Pengesahan provider gagal. Cuba sekali lagi."
+  };
+  openAuth("login");setAuthError(messages[oauthError]||"Log masuk sosial gagal. Cuba sekali lagi.");return;
+ }
+ try{
+  const response=await fetch(API_BASE+"/v1/auth/oauth/exchange",{method:"POST",headers:{"content-type":"application/json",accept:"application/json"},body:JSON.stringify({code}),cache:"no-store"});
+  const result=await response.json().catch(()=>({}));
+  if(!response.ok||!validAccessToken(result.accessToken))throw new Error(result.message||"Kod log masuk tamat tempoh. Cuba sekali lagi.");
+  await saveToken(result.accessToken);currentUser={...result.user};
+  try{localStorage.setItem(USER_KEY,JSON.stringify(currentUser))}catch(storageError){console.warn("Remembered user profile unavailable:",storageError)}
+  setAuthError("");
+ }catch(error){openAuth("login");setAuthError(error.message||"Log masuk sosial gagal.")}
+}
+function beginOAuth(provider){
+ const button=document.getElementById(provider+"SignIn");
+ if(button){button.disabled=true;button.querySelector("span:last-child").textContent="Connecting…"}
+ location.assign(API_BASE+"/v1/auth/oauth/"+provider+"/start");
+}
+document.getElementById("googleSignIn")?.addEventListener("click",()=>beginOAuth("google"));
+document.getElementById("facebookSignIn")?.addEventListener("click",()=>beginOAuth("facebook"));
 const legacyAuthButton=document.getElementById("authButton");if(legacyAuthButton)legacyAuthButton.onclick=()=>currentUser?signOut():openAuth();document.getElementById("closeAuth").onclick=closeAuth;document.getElementById("authLayer").addEventListener("click",e=>{if(e.target.id==="authLayer")closeAuth()});document.getElementById("showRegister").onclick=()=>setAuthMode("register");document.getElementById("loginForm").onsubmit=async e=>{e.preventDefault();const form=e.currentTarget,button=document.getElementById("loginSubmit"),data=new FormData(form);button.disabled=true;setAuthError("");try{const registering=authMode==="register";const payload=registering?{displayName:String(data.get("displayName")||"").trim(),username:String(data.get("username")||"").trim(),email:String(data.get("email")||"").trim(),password:String(data.get("registerPassword")||"")}:{login:String(data.get("login")||"").trim(),password:String(data.get("password")||"")};const response=await fetch(API_BASE+(registering?"/v1/auth/register":"/v1/auth/login"),{method:"POST",headers:{"content-type":"application/json",accept:"application/json"},body:JSON.stringify(payload),cache:"no-store"});const result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.message||result.error||(registering?"Registration failed.":"Login failed. Check your details."));if(!validAccessToken(result.accessToken))throw new Error("Server tidak memulangkan token sesi yang sah.");await saveToken(result.accessToken);currentUser={...result.user};saveAuthDiagnostic({stage:"login_saved",tokenCookiePresent:!!readTokenCookie(),tokenLocalStoragePresent:(()=>{try{return !!localStorage.getItem(TOKEN_KEY)}catch{return false}})(),rememberedUserPresent:true});try{localStorage.setItem(USER_KEY,JSON.stringify(currentUser))}catch(storageError){console.warn("Remembered user profile unavailable:",storageError)}try{if(!registering&&document.getElementById("rememberLogin")?.checked)localStorage.setItem("gomogie-remembered-login",payload.login);else if(!registering)localStorage.removeItem("gomogie-remembered-login")}catch(storageError){console.warn("Remembered username unavailable:",storageError)}await restoreSession();closeAuth();render();if(result.accountRestored)alert("Your GomoGie account has been reactivated. Welcome back.")}catch(error){setAuthError(error.message)}finally{button.disabled=false}};
 try{const rememberedLogin=localStorage.getItem("gomogie-remembered-login");const loginInput=document.querySelector("#loginFields input[name=login]");if(rememberedLogin&&loginInput)loginInput.value=rememberedLogin}catch(storageError){console.warn("Remembered username unavailable:",storageError)}
 let refreshStartY=0,pullDistance=0,pullArmed=false,pullActive=false,isRefreshing=false,releaseTimer=null;
@@ -3954,7 +3998,7 @@ function showFirstVisitInstallGuide(){
  document.getElementById("installGuideLater")?.addEventListener("click",dismiss,{once:true});
 }
 updateConnectionState();
-loadGomoGieData().then(()=>{showFirstVisitInstallGuide();startGuestAccessTimer()}).catch(error=>{console.error("GomoGie startup failed at "+appStartupStage+":",error);const detail=String(error?.message||error||"Unknown startup error");view.innerHTML='<section class="empty" role="alert"><strong>GomoGie startup failed.</strong><p>Stage: '+esc(appStartupStage)+'</p><p>'+esc(detail)+'</p><button type="button" class="primary" data-startup-retry>Retry startup</button></section>';view.querySelector("[data-startup-retry]")?.addEventListener("click",()=>{const button=view.querySelector("[data-startup-retry]");if(button)button.disabled=true;void loadGomoGieData().catch(retryError=>{console.error("GomoGie startup retry failed at "+appStartupStage+":",retryError);view.innerHTML='<section class="empty" role="alert"><strong>Startup retry failed.</strong><p>Stage: '+esc(appStartupStage)+'</p><p>'+esc(retryError?.message||retryError)+'</p></section>'})})});
+handleOAuthReturn().then(()=>loadGomoGieData()).then(()=>{showFirstVisitInstallGuide();startGuestAccessTimer()}).catch(error=>{console.error("GomoGie startup failed at "+appStartupStage+":",error);const detail=String(error?.message||error||"Unknown startup error");view.innerHTML='<section class="empty" role="alert"><strong>GomoGie startup failed.</strong><p>Stage: '+esc(appStartupStage)+'</p><p>'+esc(detail)+'</p><button type="button" class="primary" data-startup-retry>Retry startup</button></section>';view.querySelector("[data-startup-retry]")?.addEventListener("click",()=>{const button=view.querySelector("[data-startup-retry]");if(button)button.disabled=true;void loadGomoGieData().catch(retryError=>{console.error("GomoGie startup retry failed at "+appStartupStage+":",retryError);view.innerHTML='<section class="empty" role="alert"><strong>Startup retry failed.</strong><p>Stage: '+esc(appStartupStage)+'</p><p>'+esc(retryError?.message||retryError)+'</p></section>'})})});
 
 
 const aboutLayer=document.getElementById("aboutLayer");

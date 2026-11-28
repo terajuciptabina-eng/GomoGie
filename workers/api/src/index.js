@@ -556,7 +556,7 @@ async function route(request, env) {
       ).bind(status,status).all();
       return json({items:rows.results||[]});
     }
-    const reportMatch=path.match(/^\\/v1\\/developer\\/reports\\/([0-9a-f-]+)$/i);
+    const reportMatch=path.match(/^\/v1\/developer\/reports\/([0-9a-f-]+)$/i);
     if(reportMatch&&method==="PATCH"){
       if(!["super_admin","admin","moderator"].includes(admin.role))return json({error:"insufficient_permissions"},403);
       const input=await readJson(request,4096),status=input?.status;

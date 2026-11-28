@@ -1444,8 +1444,7 @@ async function route(request, env) {
     const limit=Number.isFinite(rawLimit)?Math.max(1,Math.min(48,Math.floor(rawLimit))):24;
     const offset=Number.isFinite(rawOffset)?Math.max(0,Math.min(10000,Math.floor(rawOffset))):0;
     const q=(url.searchParams.get("q")||"").trim().slice(0,60);
-    const pattern="%"+q.replace(/[\\%_]/g,"\\  // Friends are explicit two-way relationships; follows remain independent one-way relationships.
-  if (path === "/v1/users/search" && method === "GET") {")+"%";
+    const pattern="%"+q+"%";
     const rows=await env.DB.prepare(
       "SELECT u.id,u.username,u.created_at,p.display_name,p.avatar_url,p.bio,p.location "+
       "FROM users u LEFT JOIN profiles p ON p.user_id=u.id "+

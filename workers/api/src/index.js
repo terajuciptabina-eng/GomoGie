@@ -927,7 +927,7 @@ async function route(request, env) {
   if(path==="/v1/news"&&method==="GET"){
     const requestedMode=url.searchParams.get("mode");const mode=["global","archive","videos"].includes(requestedMode)?requestedMode:"for-you";
     const limit=Math.min(mode==="videos"?100:30,Math.max(1,Number(url.searchParams.get("limit")||(mode==="videos"?60:12))));
-    const offset=mode==="videos"?Math.max(0,Math.floor(Number(url.searchParams.get("offset")||0))):0;
+    const offset=Math.max(0,Math.floor(Number(url.searchParams.get("offset")||0)));
     let region="MY",interests=["national","politics","business","technology","sports","entertainment","world","lifestyle"];
     if(auth&&mode==="for-you"){
       const pref=await env.DB.prepare("SELECT region_code,interests_json FROM gomogie_news_preferences WHERE user_id=?").bind(auth.sub).first();
@@ -941,11 +941,11 @@ async function route(request, env) {
       }
       if(mode==="for-you"&&auth){
         const regionClause=region==="MY"?"":" AND region_code IN ('MY',?)";
-        const sql=base+"AND category IN (SELECT value FROM json_each(?))"+regionClause+" ORDER BY CASE WHEN region_code=? THEN 0 ELSE 1 END,published_at DESC LIMIT ?";
-        const binds=region==="MY"?[JSON.stringify(interests),region,limit]:[JSON.stringify(interests),region,region,limit];
+        const sql=base+"AND category IN (SELECT value FROM json_each(?))"+regionClause+" ORDER BY CASE WHEN region_code=? THEN 0 ELSE 1 END,published_at DESC LIMIT ? OFFSET ?";
+        const binds=region==="MY"?[JSON.stringify(interests),region,limit,offset]:[JSON.stringify(interests),region,region,limit,offset];
         return await env.DB.prepare(sql).bind(...binds).all();
       }
-      return await env.DB.prepare(base+"ORDER BY published_at DESC LIMIT ?").bind(limit).all();
+      return await env.DB.prepare(base+"ORDER BY published_at DESC LIMIT ? OFFSET ?").bind(limit,offset).all();
     };
     let rows=await readItems();
     let refreshed=false;

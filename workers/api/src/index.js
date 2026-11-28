@@ -539,7 +539,7 @@ async function route(request, env) {
       await env.DB.prepare("INSERT INTO developer_audit_logs(id,actor_user_id,action,target_type,target_id,details_json,created_at) VALUES(?,?,?,?,?,?,?)").bind(id,auth.sub,"developer.admin.grant","account",target.id,JSON.stringify({username:target.username,role}),now).run();
       return json({ok:true,user:{id:target.id,username:target.username,role}},201);
     }
-    const adminRoleMatch=path.match(/^\\/v1\\/developer\\/admins\\/([^/]+)\\/role$/);
+    const adminRoleMatch=path.match(/^\/v1\/developer\/admins\/([^/]+)\/role$/);
     if (adminRoleMatch && method === "PUT") {
       if (admin.role !== "super_admin") return json({error:"insufficient_permissions"},403);
       let targetId;try{targetId=decodeURIComponent(adminRoleMatch[1])}catch{return json({error:"validation_error"},400)}
@@ -554,7 +554,7 @@ async function route(request, env) {
       await env.DB.prepare("INSERT INTO developer_audit_logs(id,actor_user_id,action,target_type,target_id,details_json,created_at) VALUES(?,?,?,?,?,?,?)").bind(crypto.randomUUID(),auth.sub,"developer.admin.role_changed","account",targetId,JSON.stringify({from:target.role,to:role}),now).run();
       return json({ok:true,user_id:targetId,role});
     }
-    const adminTargetMatch=path.match(/^\\/v1\\/developer\\/admins\\/([^/]+)$/);
+    const adminTargetMatch=path.match(/^\/v1\/developer\/admins\/([^/]+)$/);
     if (adminTargetMatch && method === "DELETE") {
       if (admin.role !== "super_admin") return json({error:"insufficient_permissions"},403);
       let targetId;try{targetId=decodeURIComponent(adminTargetMatch[1])}catch{return json({error:"validation_error"},400)}

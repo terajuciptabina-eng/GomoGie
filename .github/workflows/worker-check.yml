@@ -119,5 +119,12 @@ jobs:
           assert 'message:{title:"New message from "+name' in worker and 'message_request:{title:"Message request from "+name' in worker, 'Direct-message push notifications missing'
           assert 'message_request_accepted' in worker, 'Message-request acceptance notification missing'
           assert 'if(type==="message_request")' in frontend and 'if(type==="message")' in frontend, 'Frontend message notification labels missing'
-          print('Verified Worker origin, authenticated Following feed, visibility filter and follow-state restoration.')
+          assert 'https://api.openverse.org/v1/audio/' in frontend, 'Openverse audio search integration missing'
+          assert 'license:"by,by-sa,cc0,pdm"' in frontend, 'Openverse search must restrict results to commercially usable licences'
+          assert 'searchOpenverseMusic(clean,genre,append)' in frontend, 'Openverse results are not merged into music catalogue'
+          assert 'musicOpenverseHasMore' in frontend, 'Openverse pagination state missing'
+          assert 'mp3d.jamendo.com' in worker and 'cdn.freesound.org' in worker, 'Openverse audio host allow-list missing'
+          assert 'else if(/^CC BY(?:\\s|$)/.test(rawLicense))' in worker, 'Strict CC BY licence validation missing'
+          assert 'CC BY-NC' not in worker, 'Non-commercial licence must not be accepted'
+          print('Verified Worker origin, authenticated Following feed, relationship restoration and open-licence music catalogues.')
           PY

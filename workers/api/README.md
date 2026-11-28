@@ -8,6 +8,9 @@ This Worker targets the existing `gomogie-db` D1 schema. It does not create, dro
 - `GET /health/ready` — D1 connectivity.
 - `POST /v1/auth/register` — account and profile creation; closed by default until release safeguards are approved.
 - `POST /v1/auth/login` — login by email or username.
+- `GET /v1/auth/oauth/google/start` and `/v1/auth/oauth/facebook/start` — begin provider sign-in/sign-up.
+- `GET /v1/auth/oauth/google/callback` and `/v1/auth/oauth/facebook/callback` — server-side provider callback and identity verification.
+- `POST /v1/auth/oauth/exchange` — exchange a short-lived, single-use handoff code for a GomoGie JWT.
 - `GET /v1/auth/me` — authenticated account/profile.
 - `GET /v1/feed` — published public posts.
 - `GET /v1/feed?scope=following` — authenticated feed containing the current user's posts and posts from accepted follows, with public/followers visibility rules.

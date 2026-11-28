@@ -113,6 +113,7 @@ jobs:
           assert 'const followingFeedRequest = path === "/v1/feed" && url.searchParams.get("scope") === "following"' in worker, 'Authenticated Following feed route missing'
           assert "p.visibility IN ('public','followers')" in worker, 'Following feed visibility filter missing'
           assert 'if (path === "/v1/users/me/following" && method === "GET")' in worker, 'Following relationship restore route missing'
+          assert 'ver: Number(user.session_version ?? user.ver ?? 0)' in worker, 'JWT renewal must preserve the authenticated session version claim'
           assert 'if (path === "/v1/users/discover" && method === "GET")' in worker, 'Authenticated member discovery endpoint missing'
           assert "AND NOT EXISTS (SELECT 1 FROM follows f WHERE f.follower_id=? AND f.following_id=u.id)" in worker, 'Discover must exclude accounts already followed'
           assert "fr.status IN ('accepted','pending')" in worker, 'Discover must exclude friends and pending friend requests'

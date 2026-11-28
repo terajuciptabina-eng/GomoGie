@@ -68,7 +68,7 @@ Roadmap completion must reflect verified implementation, not planned work.
 - [ ] Add Instagram-style photo carousel and profile grid.
 - [ ] Add vertical Watch player with distinct For You and Following tabs.
 - [ ] Add video channel pages, long-form player and playlists.
-- [ ] Add post replies, quote reposts, polls and hashtag search.
+- [ ] Add post replies, quote reposts and hashtag search.
 - [ ] Add community membership, roles and events mock flows.
 - [ ] Add messaging conversation UI with clear simulation label.
 - [ ] Add profile settings, privacy controls and report/block mock flows.
@@ -96,16 +96,15 @@ Roadmap completion must reflect verified implementation, not planned work.
 - [ ] Complete rate limiting, account recovery, email verification and session revocation before opening registration broadly.
 
 
-## Video and poll delivery — 25 November 2026
+## Video delivery — 25 November 2026
 
-- [x] Add D1 schema for video assets, post-video links, polls, options and votes (migration 0003 committed; remote application pending).
+- [x] Add D1 schema for video assets and post-video links (migration 0003).
 - [x] Add authenticated MP4 upload to R2 and public byte-range video delivery in Worker source.
 - [x] Add video post attachment and feed serialization.
-- [x] Add poll creation, configurable closing duration, one-vote-per-member semantics and result aggregation in Worker source.
-- [x] Add frontend video picker/preview/publish flow and poll builder/vote/results UI.
+- [x] Add frontend video picker/preview/publish flow.
 - [ ] Apply migration 0003 to production D1.
 - [ ] Deploy updated Cloudflare Worker.
-- [ ] Verify upload, Safari playback/seek/audio and poll vote persistence using real member accounts.
+- [ ] Verify upload, Safari playback/seek/audio using real member accounts.
 - [ ] Add transcoding/codec inspection, thumbnail generation, media moderation and usage quotas before broad public video uploads.
 
 

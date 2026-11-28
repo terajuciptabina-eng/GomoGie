@@ -612,8 +612,14 @@ async function route(request, env) {
     }
     if (path === "/v1/developer/audit" && method === "GET") {
       if (!["super_admin","admin","analyst"].includes(admin.role)) return json({error:"insufficient_permissions"},403);
-      const rows=await env.DB.prepare("SELECT id,actor_user_id,action,target_type,target_id,details_json,created_at FROM developer_audit_logs ORDER BY created_at DESC LIMIT 100").all();
-      return json({items:rows.results||[]});
+      const q=(url.searchParams.get("q")||"").trim().slice(0,100);
+      const action=(url.searchParams.get("action")||"").trim().slice(0,80);
+      const limit=Math.max(1,Math.min(100,Number(url.searchParams.get("limit")||50)||50));
+      const offset=Math.max(0,Math.min(10000,Number(url.searchParams.get("offset")||0)||0));
+      const where="WHERE (?='' OR action LIKE '%'||?||'%' OR target_type LIKE '%'||?||'%' OR target_id LIKE '%'||?||'%' OR actor_user_id LIKE '%'||?||'%') AND (?='' OR action LIKE '%'||?||'%')";
+      const rows=await env.DB.prepare("SELECT id,actor_user_id,action,target_type,target_id,details_json,created_at FROM developer_audit_logs "+where+" ORDER BY created_at DESC LIMIT ? OFFSET ?").bind(q,q,q,q,q,action,action,limit,offset).all();
+      const total=await env.DB.prepare("SELECT COUNT(*) AS total FROM developer_audit_logs "+where).bind(q,q,q,q,q,action,action).first();
+      return json({items:rows.results||[],total:Number(total?.total||0),limit,offset});
     }
     if (path === "/v1/developer/admins" && method === "GET") {
       if (admin.role !== "super_admin") return json({error:"insufficient_permissions"},403);

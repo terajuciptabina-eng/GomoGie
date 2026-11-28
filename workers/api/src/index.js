@@ -1115,6 +1115,16 @@ async function route(request, env) {
     const result = await env.DB.prepare("UPDATE notifications SET is_read=1 WHERE recipient_id=? AND is_read=0").bind(auth.sub).run();
     return json({ updated: Number(result.meta?.changes || 0) });
   }
+  if (path === "/v1/notifications" && method === "DELETE") {
+    const result = await env.DB.prepare("DELETE FROM notifications WHERE recipient_id=?").bind(auth.sub).run();
+    return json({ deleted: Number(result.meta?.changes || 0) });
+  }
+  const notificationDeleteMatch = path.match(/^\\/v1\\/notifications\\/([0-9a-f-]+)$/i);
+  if (notificationDeleteMatch && method === "DELETE") {
+    const result = await env.DB.prepare("DELETE FROM notifications WHERE id=? AND recipient_id=?").bind(notificationDeleteMatch[1], auth.sub).run();
+    if (!result.meta?.changes) return json({ error: "notification_not_found" }, 404);
+    return json({ deleted: true, notificationId: notificationDeleteMatch[1] });
+  }
 
   if(path==="/v1/news/preferences"&&method==="GET"){const row=await env.DB.prepare("SELECT region_code,interests_json FROM gomogie_news_preferences WHERE user_id=?").bind(auth.sub).first();let interests=["national","politics","business","technology","sports","entertainment","world","lifestyle"];try{if(row?.interests_json)interests=JSON.parse(row.interests_json)}catch{}return json({region:row?.region_code||"MY",interests})}
   if(path==="/v1/news/preferences"&&method==="PUT"){const input=await readJson(request),regions=["MY","MY-PRK","MY-KUL","MY-SEL","MY-JHR","MY-PNG","MY-KDH","MY-NSN","MY-MLK","MY-PAH","MY-TRG","MY-KTN","MY-PLS","MY-SBH","MY-SWK"],categories=["national","politics","business","technology","sports","entertainment","world","lifestyle"],interests=Array.isArray(input?.interests)?[...new Set(input.interests.filter(x=>categories.includes(x)))]:null;if(!input||!regions.includes(input.region)||!interests||!interests.length)return json({error:"validation_error",message:"Pilih lokasi dan sekurang-kurangnya satu minat."},400);await env.DB.prepare("INSERT INTO gomogie_news_preferences (user_id,region_code,interests_json,updated_at) VALUES (?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET region_code=excluded.region_code,interests_json=excluded.interests_json,updated_at=excluded.updated_at").bind(auth.sub,input.region,JSON.stringify(interests),new Date().toISOString()).run();return json({saved:true,region:input.region,interests})}

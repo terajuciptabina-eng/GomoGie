@@ -1209,7 +1209,7 @@ async function route(request, env) {
       ? await env.DB.prepare(select +
           "WHERE p.status='published' AND u.status='active' AND (" +
           "p.user_id=? OR " +
-          "(p.visibility IN ('public','followers','friends') AND EXISTS (" +
+          "(p.visibility IN ('public','friends') AND EXISTS (" +
           "SELECT 1 FROM friend_requests fr WHERE fr.status='accepted' AND " +
           "((fr.requester_id=? AND fr.recipient_id=p.user_id) OR (fr.recipient_id=? AND fr.requester_id=p.user_id)))) OR " +
           "(p.visibility IN ('public','followers') AND EXISTS (" +
@@ -1340,7 +1340,9 @@ async function route(request, env) {
     if(visibility!=="private"){
       const audience=visibility==="public"
         ? await env.DB.prepare("SELECT follower_id AS user_id FROM follows WHERE following_id=? AND status='accepted' AND follower_id<>? UNION SELECT CASE WHEN requester_id=? THEN recipient_id ELSE requester_id END AS user_id FROM friend_requests WHERE status='accepted' AND (requester_id=? OR recipient_id=?) LIMIT 300").bind(auth.sub,auth.sub,auth.sub,auth.sub,auth.sub).all()
-        : await env.DB.prepare("SELECT follower_id AS user_id FROM follows WHERE following_id=? AND status='accepted' AND follower_id<>? LIMIT 300").bind(auth.sub,auth.sub).all();
+        : visibility==="friends"
+          ? await env.DB.prepare("SELECT CASE WHEN requester_id=? THEN recipient_id ELSE requester_id END AS user_id FROM friend_requests WHERE status='accepted' AND (requester_id=? OR recipient_id=?) LIMIT 300").bind(auth.sub,auth.sub,auth.sub).all()
+          : await env.DB.prepare("SELECT follower_id AS user_id FROM follows WHERE following_id=? AND status='accepted' AND follower_id<>? LIMIT 300").bind(auth.sub,auth.sub).all();
       const mentionedForPost=new Set(mentionRecipients.map(person=>person.id));
       for(const recipient of audience.results||[]){
         postAudienceIds.add(recipient.user_id);

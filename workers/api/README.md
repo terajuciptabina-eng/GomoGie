@@ -155,3 +155,31 @@ Apply `sql/0015_account_management.sql` and then `sql/0016_session_revocation.sq
 The existing 15-minute Cron Trigger also processes due deletion requests. At the end of the recovery period the Worker removes the member's posts, comments, reactions, follows, notifications, sent messages, memberships, and uploaded media, then anonymises the remaining account identity so foreign-key relationships in other members' records are not broken.
 
 Email changes remain disabled until an email-verification delivery flow is configured. JWTs carry a database-backed session version. Password changes, deactivation, deletion requests and Log out all devices increment that version and revoke older tokens.
+
+
+## Google and Facebook OAuth
+
+OAuth is handled by this Worker; provider tokens and client secrets never reach the browser. The frontend receives a short-lived, one-time handoff code and exchanges it for the existing GomoGie JWT. Google ID tokens are signature-verified against Google's published signing keys and must have a verified email. OAuth state is bound to a short-lived HttpOnly/Secure/SameSite=Lax cookie. Login handoff codes expire after two minutes and are single-use.
+
+Apply the additive migration before enabling the provider buttons:
+```sh
+npx wrangler d1 migrations apply gomogie-db --remote
+```
+
+Configure these Worker secrets (never commit their values):
+```sh
+npx wrangler secret put GOOGLE_CLIENT_ID
+npx wrangler secret put GOOGLE_CLIENT_SECRET
+npx wrangler secret put FACEBOOK_APP_ID
+npx wrangler secret put FACEBOOK_APP_SECRET
+```
+
+Register these exact redirect URIs with the providers:
+- Google: `https://gomogie-api.terajucipabina.workers.dev/v1/auth/oauth/google/callback`
+- Facebook: `https://gomogie-api.terajucipabina.workers.dev/v1/auth/oauth/facebook/callback`
+
+The provider app must be configured for the appropriate web OAuth product and production/live mode before public use. Google requests only `openid email profile`; Facebook requests only `email,public_profile`. No Gmail, friend-list, photo or posting permissions are requested.
+
+`OAUTH_FRONTEND_URL` is a non-secret Worker variable set in `wrangler.toml`. Keep it pointed at the canonical GitHub Pages app URL. New OAuth-created accounts obey `ALLOW_REGISTRATION`; existing linked identities can still sign in when registration is closed. A verified Google email may be linked to an existing account. Facebook identities are not auto-linked to an existing email; the user must use the original sign-in method until a separate authenticated account-link flow is implemented.
+
+Do not deploy the Worker with OAuth enabled until migration 0028 is applied and all four provider secrets are configured. Missing credentials return a safe configuration error; they do not affect password login.

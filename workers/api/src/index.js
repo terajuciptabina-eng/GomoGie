@@ -530,13 +530,17 @@ async function route(request, env) {
       const target=await env.DB.prepare("SELECT id,username FROM users WHERE username=? COLLATE NOCASE").bind(username).first();
       if (!target) return json({error:"user_not_found",message:"Akaun GomoGie tidak ditemui."},404);
       const now=new Date().toISOString(),id=crypto.randomUUID();
+      const existingAdmin=await env.DB.prepare("SELECT role FROM developer_admins WHERE user_id=?").bind(target.id).first();
+      if (existingAdmin) return json({error:"already_developer_admin",message:"Pengguna ini sudah mempunyai akses Developer."},409);
       let result;
       try {
         result=await env.DB.prepare("INSERT INTO developer_admins(user_id,role,granted_by,created_at) SELECT ?,?,?,? WHERE EXISTS (SELECT 1 FROM developer_admins WHERE user_id=? AND role='super_admin')").bind(target.id,role,auth.sub,now,auth.sub).run();
       } catch(error) {
-        return json({error:"already_developer_admin",message:"Pengguna ini sudah mempunyai akses Developer."},409);
+        const duplicate=await env.DB.prepare("SELECT role FROM developer_admins WHERE user_id=?").bind(target.id).first();
+        if (duplicate) return json({error:"already_developer_admin",message:"Pengguna ini sudah mempunyai akses Developer."},409);
+        throw error;
       }
-      if (!Number(result?.meta?.changes||0)) return json({error:"already_developer_admin",message:"Pengguna ini sudah mempunyai akses Developer."},409);
+      if (!Number(result?.meta?.changes||0)) return json({error:"owner_required",message:"Akses Owner diperlukan untuk memberikan peranan Developer."},403);
       await env.DB.prepare("INSERT INTO developer_audit_logs(id,actor_user_id,action,target_type,target_id,details_json,created_at) VALUES(?,?,?,?,?,?,?)").bind(id,auth.sub,"developer.admin.grant","account",target.id,JSON.stringify({username:target.username,role}),now).run();
       return json({ok:true,user:{id:target.id,username:target.username,role}},201);
     }

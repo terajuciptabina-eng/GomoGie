@@ -1431,7 +1431,6 @@ async function route(request, env) {
   if (commentMatch && method === "PATCH") {
     const input = await readJson(request);
     if (!input || !text(input.content, 2000)) return json({ error: "validation_error", message: "Reply mesti mengandungi teks (maksimum 2,000 aksara)." }, 400);
-    const owned = await env.DB.prepare("SELECT id FROM comments WHERE id=? AND post_id=? AND user_id=? AND status='published'").bind(input.commentId || "", commentMatch[1], auth.sub).first();
     const commentId = typeof input.commentId === "string" ? input.commentId : "";
     if (!commentId) return json({ error: "validation_error", message: "Reply ID diperlukan." }, 400);
     const comment = await env.DB.prepare("SELECT id FROM comments WHERE id=? AND post_id=? AND user_id=? AND status='published'").bind(commentId, commentMatch[1], auth.sub).first();

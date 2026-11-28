@@ -60,6 +60,13 @@ jobs:
           assert 'gesturestart",e=>e.preventDefault()' not in html, 'Do not block iOS pinch gestures'
           assert 'async function openThread(postId)' in html, 'Threaded conversation UI missing'
           assert 'body:JSON.stringify({content,parentId})' in html, 'Nested replies must send the selected parent comment ID'
+          assert 'data-thread-edit=' in html and 'data-thread-delete=' in html, 'Own replies must expose edit and delete controls'
+          assert 'maxlength="20000"' in html and 'id="composerText" rows="3"' in html, 'Long-form composer must support multiline posts up to 20,000 characters'
+          assert 'async e=>{' in html and 'method:"PATCH"' in html and 'method:"DELETE"' in html, 'Reply edit and delete actions must be wired'
+          api = Path('workers/api/src/index.js').read_text()
+          assert 'input.content.length > 20000' in api, 'API must accept long-form posts'
+          assert 'if (commentMatch && method === "PATCH")' in api and 'if (commentMatch && method === "DELETE")' in api, 'API must expose reply edit and delete routes'
+          assert "status='deleted'" in api and 'c.status IN (\'published\',\'deleted\')' in api, 'Deleted replies must preserve nested conversation context'
           assert 'data-quote="' in html and '[[quote:' in html, 'Quote repost UI and source marker missing'
           assert 'data-topic="' in html and 'Trending topics' not in html, 'Topic discovery controls missing'
           print('Extracted application script and verified Cloudflare feed integration.')

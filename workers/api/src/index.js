@@ -1188,11 +1188,11 @@ async function route(request, env) {
     const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit") || 20)));
     const select = "SELECT p.id,p.user_id,p.content,p.visibility,p.created_at,p.comments_enabled,u.username,pr.display_name,pr.avatar_url,pr.cover_url," +
       "(SELECT COUNT(*) FROM reactions r WHERE r.post_id=p.id) AS reaction_count," +
-      "(SELECT COUNT(*) FROM comments c WHERE c.post_id=p.id AND c.status='published') AS comment_count,ma.id AS media_id,va.id AS video_id,gp.id AS poll_id,gp.closes_at AS poll_closes_at " +
+      "(SELECT COUNT(*) FROM comments c WHERE c.post_id=p.id AND c.status='published') AS comment_count,ma.id AS media_id,va.id AS video_id " +
       "FROM posts p JOIN users u ON u.id=p.user_id LEFT JOIN profiles pr ON pr.user_id=p.user_id " +
       "LEFT JOIN gomogie_post_media pm ON pm.post_id=p.id LEFT JOIN gomogie_media_assets ma ON ma.id=pm.media_id AND ma.status='ready' " +
       "LEFT JOIN gomogie_post_videos pv ON pv.post_id=p.id LEFT JOIN gomogie_video_assets va ON va.id=pv.video_id AND va.status='ready' " +
-      "LEFT JOIN gomogie_polls gp ON gp.post_id=p.id ";
+      "";
     const rows = followingFeedRequest
       ? await env.DB.prepare(select +
           "WHERE p.status='published' AND (p.user_id=? OR EXISTS (" +
@@ -1204,45 +1204,20 @@ async function route(request, env) {
         ).bind(limit).all();
     const feedRows = rows.results || [];
     const postIds = feedRows.map(row => row.id);
-    const pollIds = [...new Set(feedRows.map(row => row.poll_id).filter(Boolean))];
     const placeholders = values => values.map(() => "?").join(",");
-    const [attachmentRows, musicRows, pollOptionRows] = postIds.length
+    const [attachmentRows, musicRows] = postIds.length
       ? await Promise.all([
           env.DB.prepare("SELECT post_id,media_type,media_id,video_id,position FROM gomogie_post_attachments WHERE post_id IN (" + placeholders(postIds) + ") ORDER BY post_id,position ASC").bind(...postIds).all(),
-          env.DB.prepare("SELECT post_id,track_id,title,artist,art_url,stream_url,license,source,source_url FROM gomogie_post_music WHERE post_id IN (" + placeholders(postIds) + ")").bind(...postIds).all(),
-          pollIds.length
-            ? env.DB.prepare("SELECT o.poll_id,o.id,o.label,o.position,COUNT(v.user_id) AS votes,MAX(CASE WHEN v.user_id=? THEN v.option_id END) AS selected_option_id FROM gomogie_poll_options o LEFT JOIN gomogie_poll_votes v ON v.option_id=o.id AND v.poll_id=o.poll_id WHERE o.poll_id IN (" + placeholders(pollIds) + ") GROUP BY o.poll_id,o.id,o.label,o.position ORDER BY o.poll_id,o.position").bind(auth?.sub || "", ...pollIds).all()
-            : Promise.resolve({ results: [] })
+          env.DB.prepare("SELECT post_id,track_id,title,artist,art_url,stream_url,license,source,source_url FROM gomogie_post_music WHERE post_id IN (" + placeholders(postIds) + ")").bind(...postIds).all()
         ])
-      : [{ results: [] }, { results: [] }, { results: [] }];
+      : [{ results: [] }, { results: [] }];
     const attachmentsByPost = new Map();
     for (const item of attachmentRows.results || []) {
       if (!attachmentsByPost.has(item.post_id)) attachmentsByPost.set(item.post_id, []);
       attachmentsByPost.get(item.post_id).push(item);
     }
     const musicByPost = new Map((musicRows.results || []).map(item => [item.post_id, item]));
-    const pollOptionsById = new Map();
-    for (const item of pollOptionRows.results || []) {
-      if (!pollOptionsById.has(item.poll_id)) pollOptionsById.set(item.poll_id, []);
-      pollOptionsById.get(item.poll_id).push(item);
-    }
     const items = feedRows.map(row => {
-      const pollOptions = pollOptionsById.get(row.poll_id) || [];
-      const totalVotes = pollOptions.reduce((sum, item) => sum + Number(item.votes || 0), 0);
-      const selectedOptionId = pollOptions.find(item => item.selected_option_id)?.selected_option_id || null;
-      const poll = row.poll_id ? {
-        id: row.poll_id,
-        closesAt: row.poll_closes_at,
-        closed: !!row.poll_closes_at && Date.parse(row.poll_closes_at) <= Date.now(),
-        totalVotes,
-        selectedOptionId,
-        options: pollOptions.map(item => ({
-          id: item.id,
-          label: item.label,
-          votes: Number(item.votes || 0),
-          percentage: totalVotes ? Math.round(Number(item.votes || 0) * 100 / totalVotes) : 0
-        }))
-      } : null;
       const mediaItems = (attachmentsByPost.get(row.id) || []).map(item => ({
         type: item.media_type,
         id: item.media_type === "image" ? item.media_id : item.video_id,
@@ -1256,13 +1231,12 @@ async function route(request, env) {
         createdAt: row.created_at,
         commentsEnabled: Boolean(row.comments_enabled),
         author: { id: row.user_id, username: row.username, displayName: row.display_name, avatarUrl: row.avatar_url, coverUrl: row.cover_url },
-        mediaType: mediaItems[0]?.type || (poll ? "poll" : "text"),
+        mediaType: mediaItems[0]?.type || "text",
         mediaUrl: mediaItems[0]?.url || "",
         mediaItems,
         music: postMusicPayload(musicByPost.get(row.id) || null),
         reactionCount: row.reaction_count,
-        commentCount: row.comment_count,
-        poll
+        commentCount: row.comment_count
       };
     });
     return json({ scope:followingFeedRequest?"following":"public",items });
@@ -1273,25 +1247,16 @@ async function route(request, env) {
     const rows=await env.DB.prepare(
       "SELECT p.id,p.user_id,p.content,p.visibility,p.created_at,p.comments_enabled,u.username,pr.display_name,pr.avatar_url,pr.cover_url,"+
       "(SELECT COUNT(*) FROM reactions r WHERE r.post_id=p.id) AS reaction_count,"+
-      "(SELECT COUNT(*) FROM comments c WHERE c.post_id=p.id AND c.status='published') AS comment_count,ma.id AS media_id,va.id AS video_id,gp.id AS poll_id,gp.closes_at AS poll_closes_at "+
+      "(SELECT COUNT(*) FROM comments c WHERE c.post_id=p.id AND c.status='published') AS comment_count,ma.id AS media_id,va.id AS video_id "+
       "FROM gomogie_saved_posts sp JOIN posts p ON p.id=sp.post_id JOIN users u ON u.id=p.user_id LEFT JOIN profiles pr ON pr.user_id=p.user_id "+
       "LEFT JOIN gomogie_post_media pm ON pm.post_id=p.id LEFT JOIN gomogie_media_assets ma ON ma.id=pm.media_id AND ma.status='ready' "+
       "LEFT JOIN gomogie_post_videos pv ON pv.post_id=p.id LEFT JOIN gomogie_video_assets va ON va.id=pv.video_id AND va.status='ready' "+
-      "LEFT JOIN gomogie_polls gp ON gp.post_id=p.id WHERE sp.user_id=? AND p.status='published' ORDER BY sp.saved_at DESC LIMIT 200"
+      "WHERE sp.user_id=? AND p.status='published' ORDER BY sp.saved_at DESC LIMIT 200"
     ).bind(auth.sub).all();
     const items=await Promise.all((rows.results||[]).map(async row=>{
-      let poll=null;
-      if(row.poll_id){
-        const [options,vote]=await Promise.all([
-          env.DB.prepare("SELECT o.id,o.label,o.position,COUNT(v.user_id) AS votes FROM gomogie_poll_options o LEFT JOIN gomogie_poll_votes v ON v.option_id=o.id AND v.poll_id=o.poll_id WHERE o.poll_id=? GROUP BY o.id,o.label,o.position ORDER BY o.position").bind(row.poll_id).all(),
-          env.DB.prepare("SELECT option_id FROM gomogie_poll_votes WHERE poll_id=? AND user_id=?").bind(row.poll_id,auth.sub).first()
-        ]);
-        const total=(options.results||[]).reduce((sum,item)=>sum+Number(item.votes||0),0);
-        poll={id:row.poll_id,closesAt:row.poll_closes_at,closed:!!row.poll_closes_at&&Date.parse(row.poll_closes_at)<=Date.now(),totalVotes:total,selectedOptionId:vote?.option_id||null,options:(options.results||[]).map(item=>({id:item.id,label:item.label,votes:Number(item.votes||0),percentage:total?Math.round(Number(item.votes||0)*100/total):0}))};
-      }
       const attachments=await env.DB.prepare("SELECT media_type,media_id,video_id,position FROM gomogie_post_attachments WHERE post_id=? ORDER BY position ASC").bind(row.id).all();
       const mediaItems=(attachments.results||[]).map(item=>({type:item.media_type,id:item.media_type==="image"?item.media_id:item.video_id,url:item.media_type==="image"?mediaUrl(item.media_id):videoUrl(item.video_id),position:item.position}));
-      return {id:row.id,content:row.content,visibility:row.visibility,createdAt:row.created_at,commentsEnabled:Boolean(row.comments_enabled),author:{id:row.user_id,username:row.username,displayName:row.display_name,avatarUrl:row.avatar_url,coverUrl:row.cover_url},mediaType:mediaItems[0]?.type||(poll?"poll":"text"),mediaUrl:mediaItems[0]?.url||"",mediaItems,reactionCount:row.reaction_count,commentCount:row.comment_count,poll};
+      return {id:row.id,content:row.content,visibility:row.visibility,createdAt:row.created_at,commentsEnabled:Boolean(row.comments_enabled),author:{id:row.user_id,username:row.username,displayName:row.display_name,avatarUrl:row.avatar_url,coverUrl:row.cover_url},mediaType:mediaItems[0]?.type||"text",mediaUrl:mediaItems[0]?.url||"",mediaItems,reactionCount:row.reaction_count,commentCount:row.comment_count};
     }));
     return json({items});
   }
@@ -1306,33 +1271,13 @@ async function route(request, env) {
     return json({saved:false,postId:savedPostMatch[1]});
   }
 
-  const pollVoteMatch = path.match(/^\/v1\/posts\/([0-9a-f-]+)\/poll\/vote$/i);
-  if (pollVoteMatch && method === "POST") {
-    const input=await readJson(request),optionId=input?.optionId;
-    if(!text(optionId,64))return json({error:"validation_error",message:"Pilih satu jawapan."},400);
-    const poll=await env.DB.prepare("SELECT id,closes_at FROM gomogie_polls WHERE post_id=?").bind(pollVoteMatch[1]).first();
-    if(!poll)return json({error:"poll_not_found"},404);
-    if(poll.closes_at&&Date.parse(poll.closes_at)<=Date.now())return json({error:"poll_closed",message:"Poll ini telah ditutup."},409);
-    const option=await env.DB.prepare("SELECT id FROM gomogie_poll_options WHERE id=? AND poll_id=?").bind(optionId,poll.id).first();
-    if(!option)return json({error:"invalid_poll_option"},400);
-    await env.DB.prepare("INSERT INTO gomogie_poll_votes (poll_id,option_id,user_id,created_at) VALUES (?,?,?,?) ON CONFLICT(poll_id,user_id) DO UPDATE SET option_id=excluded.option_id,created_at=excluded.created_at").bind(poll.id,optionId,auth.sub,new Date().toISOString()).run();
-    return json({voted:true,pollId:poll.id,optionId});
-  }
-
   if (path === "/v1/posts" && method === "POST") {
     await ensurePostMusicTable(env);
     const input = await readJson(request);
-    const pollInput=input?.poll;
-    const pollOptions=Array.isArray(pollInput?.options)?pollInput.options.map(x=>String(x||"").trim()).filter(Boolean):[];
-    const hasPoll=!!pollInput;
     const requestedMedia=Array.isArray(input?.mediaItems)?input.mediaItems:(input?.mediaId?[{type:"image",id:input.mediaId}]:input?.videoId?[{type:"video",id:input.videoId}]:[]);
     if (!input || typeof input.content !== "string" || input.content.length > 5000 ||
-        (!input.content.trim() && !requestedMedia.length && !hasPoll)) return json({error:"validation_error",message:"Tulis kandungan atau lampirkan media atau poll."},400);
+        (!input.content.trim() && !requestedMedia.length)) return json({error:"validation_error",message:"Tulis kandungan atau lampirkan media."},400);
     if(requestedMedia.length>10||requestedMedia.some(item=>!item||!["image","video"].includes(item.type)||!text(item.id,64))||new Set(requestedMedia.map(item=>item.id)).size!==requestedMedia.length)return json({error:"invalid_post_media",message:"Pilih maksimum 10 media yang sah dan elakkan fail berulang."},400);
-    if(hasPoll&&requestedMedia.length)return json({error:"invalid_post_media",message:"Poll tidak boleh digabungkan dengan media dalam post yang sama."},400);
-    if(hasPoll&&(pollOptions.length<2||pollOptions.length>6||pollOptions.some(x=>x.length>80)||new Set(pollOptions.map(x=>x.toLowerCase())).size!==pollOptions.length))return json({error:"invalid_poll",message:"Poll perlu 2 hingga 6 pilihan unik (maksimum 80 aksara setiap satu)."},400);
-    let closesAt=null;
-    if(hasPoll&&pollInput.durationHours!==undefined){const hours=Number(pollInput.durationHours);if(![1,6,12,24,72,168,720].includes(hours))return json({error:"invalid_poll_duration"},400);closesAt=new Date(Date.now()+hours*3600000).toISOString()}
     const postMusic=input.music?validPostMusic(input.music):null;
     if(input.music&&!postMusic)return json({error:"invalid_post_music",message:"Pilih trek audio yang mempunyai sumber HTTPS dan lesen penggunaan yang disahkan."},400);
     const visibility=["public","followers","private"].includes(input.visibility)?input.visibility:"public";
@@ -1364,8 +1309,6 @@ async function route(request, env) {
     const statements=[env.DB.prepare("INSERT INTO posts (id,user_id,content,visibility,status,comments_enabled,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)").bind(id,auth.sub,input.content.trim(),visibility,"published",input.commentsEnabled===false?0:1,now,now)];
     if(postMusic)statements.push(env.DB.prepare("INSERT INTO gomogie_post_music (post_id,track_id,title,artist,art_url,stream_url,license,source,source_url,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)").bind(id,postMusic.id,postMusic.title,postMusic.artist,postMusic.art,postMusic.stream,postMusic.license,postMusic.source,postMusic.sourceUrl,now));
     for(const item of verifiedMedia)statements.push(env.DB.prepare("INSERT INTO gomogie_post_attachments (id,post_id,media_type,media_id,video_id,position,created_at) VALUES (?,?,?,?,?,?,?)").bind(uuid(),id,item.type,item.type==="image"?item.id:null,item.type==="video"?item.id:null,item.position,now));
-    let pollId=null;
-    if(hasPoll){pollId=uuid();statements.push(env.DB.prepare("INSERT INTO gomogie_polls (id,post_id,closes_at,created_at) VALUES (?,?,?,?)").bind(pollId,id,closesAt,now));pollOptions.forEach((label,index)=>statements.push(env.DB.prepare("INSERT INTO gomogie_poll_options (id,poll_id,label,position) VALUES (?,?,?,?)").bind(uuid(),pollId,label,index)))}
     await env.DB.batch(statements);
     const postAudienceIds=new Set();
     if(visibility!=="private"){
@@ -1386,7 +1329,7 @@ async function route(request, env) {
       await notifyPushDevices(env,recipient.id,{id,actorId:auth.sub,type:"mention",preview:input.content.trim().slice(0,120)});
     }
     const mediaItems=verifiedMedia.map(item=>({type:item.type,id:item.id,url:item.type==="image"?mediaUrl(item.id):videoUrl(item.id),position:item.position}));
-    return json({post:{id,userId:auth.sub,content:input.content.trim(),visibility,status:"published",mediaType:mediaItems[0]?.type|| (hasPoll?"poll":"text"),mediaUrl:mediaItems[0]?.url||"",mediaItems,music:postMusic,pollId,createdAt:now}},201);
+    return json({post:{id,userId:auth.sub,content:input.content.trim(),visibility,status:"published",mediaType:mediaItems[0]?.type||"text",mediaUrl:mediaItems[0]?.url||"",mediaItems,music:postMusic,createdAt:now}},201);
   }
 
   const postDeleteMatch = path.match(/^\/v1\/posts\/([0-9a-f-]+)$/i);

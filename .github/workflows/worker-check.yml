@@ -14,8 +14,8 @@ on:
       - ".github/workflows/worker-check.yml"
 
 concurrency:
-  group: gomogie-worker-paid-verification-${{ github.ref }}
-  cancel-in-progress: true
+  group: gomogie-worker-production
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -92,6 +92,18 @@ jobs:
         if: ${{ env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == '' }}
         run: |
           echo "::warning::Worker checks passed, but live deployment was skipped. Configure CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository Actions secrets to enable automatic deployment."
+
+      - name: Verify retired feature is absent from active source
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          worker = Path("src/index.js").read_text().lower()
+          page = Path("../../index.html").read_text().lower()
+          assert "poll" not in worker, "Retired feature reference remains in Worker source."
+          for token in ["poll-card", "poll-builder", "data-poll", 'mediatype==="poll"', "poll:item.poll"]:
+              assert token not in page, f"Retired feature reference remains in frontend: {token}"
+          print("Verified retired feature is absent from frontend and Worker source.")
+          PY
 
       - name: Verify frontend and media delivery use the same Worker origin
         run: |

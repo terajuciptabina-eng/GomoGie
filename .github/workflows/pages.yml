@@ -43,7 +43,7 @@ jobs:
           assert 'const media=await uploadImage(profileDraft.avatarFile,"avatar")' in html, 'Avatar upload response must be consumed'
           assert 'profileDraft.avatarUrl=URL.createObjectURL(file);const preview=document.querySelector(".profile-avatar")' in html, 'Avatar preview must update without rebuilding the form'
           assert 'profileDraft.coverUrl=URL.createObjectURL(file);const preview=document.querySelector(".profile-cover")' in html, 'Cover preview must update without rebuilding the form'
-          assert 'new Map(accounts.filter(a=>a&&a.id).map(a=>[a.id,a]))' in html, 'Story authors must be deduplicated by account ID'
+          assert 'accounts.filter(a=>!a.isSynthetic).slice(0,6)' in html, 'Stories must use live members only'
           assert 'new Map(liveItems.map(item=>item.author).filter(author=>author&&author.id).map(author=>[author.id,' in html, 'Live feed account mapping must deduplicate repeated post authors'
           assert '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">' in html, 'Mobile viewport must preserve user zoom and safe-area support'
           assert 'assets/brand/brand-tokens.css' in html, 'Shared brand design tokens must be loaded'

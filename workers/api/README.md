@@ -85,13 +85,14 @@ The authenticated Developer Console exposes role-gated operations:
 - `GET /v1/developer/system` — Owner-only D1 and R2 dependency checks.
 - `GET /v1/developer/settings` — Owner-only safe runtime configuration summary; secrets are never returned.
 - `GET /v1/developer/users?q=&status=&limit=&offset=` — Admin/Support/Owner account directory; returns public operational fields only, never email or credential hashes.
+- `PATCH /v1/developer/users/:id/status` — Admin/Owner activate or deactivate a member account, revoking existing sessions and writing an audit record. Self-status changes and changes to another Developer account by non-Owner roles are blocked; accounts pending deletion cannot be changed.
 - `GET /v1/developer/reports?status=open|reviewed|dismissed|actioned|all` — Admin/Moderator/Owner community-report queue.
 - `PATCH /v1/developer/reports/:id` — Admin/Moderator/Owner report workflow status update, recorded in the developer audit log.
 - `GET /v1/developer/analytics` — Admin/Analyst/Owner aggregate totals and 14-day user/post activity.
 - `GET /v1/developer/audit` — Admin/Analyst/Owner audit history.
 - `GET/POST /v1/developer/admins`, role update and revoke — Owner-only access governance.
 
-The frontend surfaces User Management, Community Reports, Platform Analytics, System Health and a safe runtime Platform Settings view according to the server-returned role capabilities. User Management is read-only in this release; it does not suspend, delete or edit member accounts. The community report queue updates report workflow status only; it does not itself remove content or ban accounts. The system check is a dependency probe, not full observability or an uptime guarantee.
+The frontend surfaces User Management, Community Reports, Platform Analytics, System Health and a safe runtime Platform Settings view according to the server-returned role capabilities. User Management supports account search and controlled activate/deactivate actions for Admin/Owner; it does not expose email, password hashes, permanent deletion or self-deactivation. The community report queue updates report workflow status only; it does not itself remove content or ban accounts. The system check is a dependency probe, not full observability or an uptime guarantee.
 
 ## Configure and deploy
 

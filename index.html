@@ -1506,6 +1506,22 @@ function refreshViralNewsInBackground(){
   viralNewsGlobalItems=Array.isArray(global.items)?global.items:[];
   viralNewsArchiveItems=Array.isArray(archive.items)?archive.items:[];
   viralVideoItems=Array.isArray(videos.items)?videos.items:[];
+  // Keep article artwork for Global/Archive without repeating preview lookups.
+  const imageTargets=[...new Map([...viralNewsItems,...viralNewsGlobalItems,...viralNewsArchiveItems]
+   .filter(item=>!item.image_url&&item.canonical_url)
+   .map(item=>[item.canonical_url,item])).values()].slice(0,6);
+  await Promise.all(imageTargets.map(async item=>{
+   const cacheKey="news-preview:"+item.canonical_url;
+   try{
+    let preview=await localGet(cacheKey);
+    if(!preview||Date.now()-Number(preview.savedAt||0)>24*60*60*1000){
+     const fresh=await apiRequest("/v1/link-preview?url="+encodeURIComponent(item.canonical_url));
+     preview={image:fresh?.image||"",savedAt:Date.now()};
+     await localSet(cacheKey,preview).catch(()=>{});
+    }
+    if(preview.image&&(preview.image.startsWith("https://")||preview.image.startsWith("http://")))item.image_url=preview.image;
+   }catch(error){console.debug("Cached news image preview unavailable",error)}
+  }));
   await localSet("last-live-news",{personal:viralNewsItems,global:viralNewsGlobalItems,archive:viralNewsArchiveItems,videos:viralVideoItems,savedAt:Date.now()})
    .catch(error=>console.warn("News cache save deferred:",error));
   if(active==="pulse")render();

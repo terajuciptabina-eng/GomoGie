@@ -6,15 +6,15 @@ Build GomoGie as an independent social network with native identity, social grap
 
 The core experience must not depend on external social-network APIs or external account aggregation.
 
-## 2. Initial prototype
+## 2. Initial production-backed application
 
-- Static HTML, CSS and JavaScript unless a later evidence-based decision justifies a framework.
-- Modular source structure with clear separation of UI, mock data and interaction state.
-- Synthetic data stored in version-controlled fixtures.
-- Local state only for demonstration interactions.
-- No secrets, credentials or personal user data in the repository.
-- GitHub Actions for validation and GitHub Pages deployment.
-- No external social-account OAuth flow in the MVP prototype.
+- Static HTML, CSS and JavaScript frontend hosted on GitHub Pages.
+- Cloudflare Worker API for authentication, authorisation and application data.
+- Cloudflare D1 as the authoritative store for accounts, relationships, posts, comments and messaging.
+- User-generated media stored through the managed media pipeline and object storage.
+- Local browser storage is a cache only; it must not create fake users or substitute sample engagement for live data.
+- GitHub Actions validates and deploys the frontend and Worker.
+- Registration remains controlled by the explicit application setting.
 
 ## 3. Proposed production logical components
 
@@ -82,16 +82,15 @@ Production:
 Record consequential decisions in `docs/decisions/` with context, options, decision, consequences and date. Do not silently change foundational architecture.
 
 
-## 9. Prototype delivery and data loading
+## 9. Data loading and performance
 
-The GitHub Pages prototype uses a static `index.html` shell and versioned JSON fixtures under `data/`. It fetches synthetic accounts and posts at runtime. This is suitable for demonstration only; it is not a secure user database and does not support authenticated writes.
+The live application loads member profiles and posts from the Cloudflare Worker API. The browser may retain a filtered copy of previously loaded live content for fast startup and offline continuity. Cached records must never be treated as authoritative or reintroduced after account or post deletion.
 
-- `data/demo-accounts.json`: 1,000 synthetic account records.
-- `data/demo-posts.json`: 120 synthetic feed records.
-- Public stock-media URLs are presentation references, not GomoGie-owned media.
-- Do not scrape provider websites or bypass access controls. Use official provider APIs only when their terms, quotas and product fit are reviewed.
-- For production, use an upload pipeline and object storage/CDN with rights, moderation, scanning and deletion workflows.
-- For production recommendation feeds, define explicit ranking signals, user controls, safety constraints and privacy review. The prototype's For You/Following labels do not implement production recommendation algorithms.
+- Feed requests use bounded pages and must honor the requested offset.
+- Attachments and post music are fetched in batches for each page, not with one request per post.
+- Static app assets use versioned cache-first delivery; the service worker must not cache retired fixture datasets.
+- Images should load lazily and decode asynchronously when outside the initial viewport.
+- Background refreshes should not block first paint or replace a currently playing media session.
 
 ## 10. Media source and rights controls
 

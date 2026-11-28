@@ -3584,7 +3584,7 @@ async function loadGomoGieData(){
  accounts=[...cachedAccounts,...demoAccounts];
  posts=[...cachedPosts,...demoPosts].sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
  ensureCurrentUserInAccounts();
- accounts=[...new Map(accounts.filter(account=>account&&account.id).map(account=>[account.id,account])).values()];
+ accounts=[...new Map(accounts.filter(a=>a&&a.id).map(a=>[a.id,a])).values()];
  const sharedProfile=decodeURIComponent(location.hash.replace(/^#profile-/,"")).trim().toLowerCase();
  if(location.hash.startsWith("#profile-")&&sharedProfile){
   const target=accounts.find(account=>String(account.handle||"").toLowerCase()===sharedProfile);

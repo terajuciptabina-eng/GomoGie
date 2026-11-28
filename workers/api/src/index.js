@@ -283,10 +283,226 @@ async function hydrateRecentNewsImages(env,limit=12){
  return{checked:items.length,updated};
 }
 
+async function oauthSha256(value) {
+  const digest = await crypto.subtle.digest("SHA-256", encoder.encode(value));
+  return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("");
+}
+function oauthRandom(bytes = 32) {
+  return b64url(crypto.getRandomValues(new Uint8Array(bytes)));
+}
+function oauthCookie(request, name) {
+  const cookies = (request.headers.get("Cookie") || "").split(";");
+  const prefix = name + "=";
+  const item = cookies.map(value => value.trim()).find(value => value.startsWith(prefix));
+  return item ? decodeURIComponent(item.slice(prefix.length)) : "";
+}
+function oauthFrontend(env) {
+  return env.OAUTH_FRONTEND_URL || "https://terajuciptabina-eng.github.io/terajuciptabina/";
+}
+function oauthRedirect(env, values = {}) {
+  const target = new URL(oauthFrontend(env));
+  for (const [key, value] of Object.entries(values)) {
+    if (value) target.searchParams.set(key, String(value));
+  }
+  return new Response(null, { status: 302, headers: { location: target.toString(), "cache-control": "no-store", "referrer-policy": "no-referrer" } });
+}
+async function verifyGoogleIdToken(idToken, clientId, expectedNonce) {
+  const parts = String(idToken || "").split(".");
+  if (parts.length !== 3) throw new Error("google_token_invalid");
+  const header = JSON.parse(decoder.decode(fromB64url(parts[0])));
+  const claims = JSON.parse(decoder.decode(fromB64url(parts[1])));
+  if (header.alg !== "RS256" || !header.kid) throw new Error("google_token_invalid");
+  const jwksResponse = await fetch("https://www.googleapis.com/oauth2/v3/certs", { headers: { accept: "application/json" }, cf: { cacheTtl: 3600, cacheEverything: true } });
+  if (!jwksResponse.ok) throw new Error("google_keys_unavailable");
+  const jwks = await jwksResponse.json();
+  const jwk = (jwks.keys || []).find(key => key.kid === header.kid && key.use === "sig" && key.alg === "RS256");
+  if (!jwk) throw new Error("google_signing_key_not_found");
+  const key = await crypto.subtle.importKey("jwk", jwk, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
+  const valid = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, fromB64url(parts[2]), encoder.encode(parts[0] + "." + parts[1]));
+  const now = Math.floor(Date.now() / 1000);
+  const audienceOk = claims.aud === clientId || (Array.isArray(claims.aud) && claims.aud.includes(clientId));
+  if (!valid || !["accounts.google.com", "https://accounts.google.com"].includes(claims.iss) ||
+      !audienceOk || !Number.isFinite(claims.exp) || claims.exp <= now ||
+      claims.nonce !== expectedNonce || claims.email_verified !== true ||
+      !text(claims.sub, 255) || !text(claims.email, 254)) throw new Error("google_identity_verification_failed");
+  return { id: claims.sub, email: claims.email.trim().toLowerCase(), name: String(claims.name || claims.given_name || "GomoGie member").slice(0, 60) };
+}
+async function oauthUsername(env, displayName) {
+  const base = String(displayName || "member").normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 16) || "member";
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const suffix = attempt === 0 ? "" : "_" + oauthRandom(3).toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 5);
+    const candidate = (base.slice(0, 24 - suffix.length) + suffix).slice(0, 24);
+    if (candidate.length < 3) continue;
+    const exists = await env.DB.prepare("SELECT id FROM users WHERE username=? COLLATE NOCASE").bind(candidate).first();
+    if (!exists) return candidate;
+  }
+  throw new Error("oauth_username_unavailable");
+}
+async function oauthResolveUser(env, provider, identity) {
+  const linked = await env.DB.prepare(
+    "SELECT u.id,u.email,u.username,u.status,u.session_version FROM gomogie_oauth_identities i JOIN users u ON u.id=i.user_id WHERE i.provider=? AND i.provider_user_id=?"
+  ).bind(provider, identity.id).first();
+  if (linked) {
+    if (linked.status !== "active") throw new Error("account_unavailable");
+    return linked;
+  }
+  const existing = await env.DB.prepare("SELECT id,email,username,status,session_version FROM users WHERE email=? COLLATE NOCASE")
+    .bind(identity.email).first();
+  if (existing) {
+    if (provider !== "google") throw new Error("account_link_required");
+    if (existing.status !== "active") throw new Error("account_unavailable");
+    const now = new Date().toISOString();
+    await env.DB.prepare("INSERT INTO gomogie_oauth_identities(provider,provider_user_id,user_id,email,created_at,updated_at) VALUES(?,?,?,?,?,?)")
+      .bind(provider, identity.id, existing.id, identity.email, now, now).run();
+    return existing;
+  }
+  if (env.ALLOW_REGISTRATION !== "true") throw new Error("registration_closed");
+  const username = await oauthUsername(env, identity.name);
+  const id = uuid();
+  const now = new Date().toISOString();
+  const randomPassword = oauthRandom(48);
+  const hash = await passwordHash(randomPassword);
+  try {
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO users (id,email,username,password_hash,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?)")
+        .bind(id, identity.email, username, hash, "active", now, now),
+      env.DB.prepare("INSERT INTO profiles (user_id,display_name,bio,created_at,updated_at) VALUES (?,?,?,?,?)")
+        .bind(id, String(identity.name || "GomoGie member").slice(0, 60), "", now, now),
+      env.DB.prepare("INSERT INTO gomogie_oauth_identities(provider,provider_user_id,user_id,email,created_at,updated_at) VALUES(?,?,?,?,?,?)")
+        .bind(provider, identity.id, id, identity.email, now, now)
+    ]);
+  } catch (error) {
+    const raced = await env.DB.prepare(
+      "SELECT u.id,u.email,u.username,u.status,u.session_version FROM gomogie_oauth_identities i JOIN users u ON u.id=i.user_id WHERE i.provider=? AND i.provider_user_id=?"
+    ).bind(provider, identity.id).first();
+    if (raced && raced.status === "active") return raced;
+    throw new Error("oauth_account_creation_failed");
+  }
+  return { id, email: identity.email, username, status: "active", session_version: 0 };
+}
+async function handleOAuthRoute(request, env, url, method, path) {
+  const match = path.match(/^\/v1\/auth\/oauth\/(google|facebook)\/(start|callback)$/);
+  if (match && method === "GET" && match[2] === "start") {
+    const provider = match[1];
+    const clientId = provider === "google" ? env.GOOGLE_CLIENT_ID : env.FACEBOOK_APP_ID;
+    const clientSecret = provider === "google" ? env.GOOGLE_CLIENT_SECRET : env.FACEBOOK_APP_SECRET;
+    if (!clientId || !clientSecret) return oauthRedirect(env, { oauth_error: provider + "_not_configured" });
+    const state = oauthRandom(32), nonce = oauthRandom(24), verifier = oauthRandom(48);
+    const stateHash = await oauthSha256(state);
+    const now = new Date().toISOString();
+    await env.DB.prepare("DELETE FROM gomogie_oauth_states WHERE expires_at < ?").bind(now).run();
+    await env.DB.prepare("INSERT INTO gomogie_oauth_states(state_hash,provider,code_verifier,nonce,expires_at,created_at) VALUES(?,?,?,?,?,?)")
+      .bind(stateHash, provider, verifier, nonce, new Date(Date.now() + 10 * 60 * 1000).toISOString(), now).run();
+    const callback = new URL("/v1/auth/oauth/" + provider + "/callback", url.origin).toString();
+    const authorize = provider === "google"
+      ? new URL("https://accounts.google.com/o/oauth2/v2/auth")
+      : new URL("https://www.facebook.com/v23.0/dialog/oauth");
+    authorize.searchParams.set("client_id", clientId);
+    authorize.searchParams.set("redirect_uri", callback);
+    authorize.searchParams.set("response_type", "code");
+    authorize.searchParams.set("state", state);
+    if (provider === "google") {
+      authorize.searchParams.set("scope", "openid email profile");
+      authorize.searchParams.set("nonce", nonce);
+      authorize.searchParams.set("code_challenge", b64url(await crypto.subtle.digest("SHA-256", encoder.encode(verifier))));
+      authorize.searchParams.set("code_challenge_method", "S256");
+      authorize.searchParams.set("prompt", "select_account");
+    } else {
+      authorize.searchParams.set("scope", "email,public_profile");
+    }
+    return new Response(null, { status: 302, headers: {
+      location: authorize.toString(), "cache-control": "no-store", "referrer-policy": "no-referrer",
+      "set-cookie": "gg_oauth_" + provider + "=" + encodeURIComponent(state) + "; Max-Age=600; Path=/v1/auth/oauth/" + provider + "/callback; Secure; HttpOnly; SameSite=Lax"
+    }});
+  }
+  if (match && method === "GET" && match[2] === "callback") {
+    const provider = match[1];
+    const cookieName = "gg_oauth_" + provider;
+    const cookieState = oauthCookie(request, cookieName);
+    const state = url.searchParams.get("state") || "";
+    const clearCookie = cookieName + "=; Max-Age=0; Path=/v1/auth/oauth/" + provider + "/callback; Secure; HttpOnly; SameSite=Lax";
+    const fail = code => {
+      const response = oauthRedirect(env, { oauth_error: code });
+      response.headers.set("set-cookie", clearCookie);
+      return response;
+    };
+    if (!state || !cookieState || state !== cookieState || !url.searchParams.get("code")) return fail("oauth_state_invalid");
+    const stateHash = await oauthSha256(state);
+    const saved = await env.DB.prepare("SELECT provider,code_verifier,nonce,expires_at FROM gomogie_oauth_states WHERE state_hash=?")
+      .bind(stateHash).first();
+    await env.DB.prepare("DELETE FROM gomogie_oauth_states WHERE state_hash=?").bind(stateHash).run();
+    if (!saved || saved.provider !== provider || saved.expires_at <= new Date().toISOString()) return fail("oauth_state_expired");
+    try {
+      const callback = new URL("/v1/auth/oauth/" + provider + "/callback", url.origin).toString();
+      let identity;
+      if (provider === "google") {
+        const body = new URLSearchParams({
+          code: url.searchParams.get("code"), client_id: env.GOOGLE_CLIENT_ID,
+          client_secret: env.GOOGLE_CLIENT_SECRET, redirect_uri: callback,
+          grant_type: "authorization_code", code_verifier: saved.code_verifier
+        });
+        const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+          method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body
+        });
+        const tokens = await tokenResponse.json();
+        if (!tokenResponse.ok || !tokens.id_token) throw new Error("google_token_exchange_failed");
+        identity = await verifyGoogleIdToken(tokens.id_token, env.GOOGLE_CLIENT_ID, saved.nonce);
+      } else {
+        const tokenUrl = new URL("https://graph.facebook.com/v23.0/oauth/access_token");
+        tokenUrl.searchParams.set("client_id", env.FACEBOOK_APP_ID);
+        tokenUrl.searchParams.set("client_secret", env.FACEBOOK_APP_SECRET);
+        tokenUrl.searchParams.set("redirect_uri", callback);
+        tokenUrl.searchParams.set("code", url.searchParams.get("code"));
+        const tokenResponse = await fetch(tokenUrl.toString(), { headers: { accept: "application/json" } });
+        const tokens = await tokenResponse.json();
+        if (!tokenResponse.ok || !tokens.access_token) throw new Error("facebook_token_exchange_failed");
+        const profileUrl = new URL("https://graph.facebook.com/v23.0/me");
+        profileUrl.searchParams.set("fields", "id,name,email");
+        profileUrl.searchParams.set("access_token", tokens.access_token);
+        const profileResponse = await fetch(profileUrl.toString(), { headers: { accept: "application/json" } });
+        const profile = await profileResponse.json();
+        if (!profileResponse.ok || !text(profile.id, 255)) throw new Error("facebook_profile_unavailable");
+        if (!text(profile.email, 254) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email)) throw new Error("facebook_email_required");
+        identity = { id: profile.id, email: profile.email.trim().toLowerCase(), name: String(profile.name || "GomoGie member").slice(0, 60) };
+      }
+      const user = await oauthResolveUser(env, provider, identity);
+      const handoff = oauthRandom(32);
+      const now = new Date().toISOString();
+      await env.DB.prepare("INSERT INTO gomogie_oauth_handoffs(code_hash,user_id,expires_at,created_at) VALUES(?,?,?,?)")
+        .bind(await oauthSha256(handoff), user.id, new Date(Date.now() + 2 * 60 * 1000).toISOString(), now).run();
+      const response = oauthRedirect(env, { oauth_code: handoff });
+      response.headers.set("set-cookie", clearCookie);
+      return response;
+    } catch (error) {
+      const reason = String(error?.message || "");
+      const allowed = ["account_unavailable","account_link_required","registration_closed","facebook_email_required"];
+      return fail(allowed.includes(reason) ? reason : "oauth_verification_failed");
+    }
+  }
+  if (path === "/v1/auth/oauth/exchange" && method === "POST") {
+    const input = await readJson(request, 4096);
+    if (!text(input?.code, 128)) return json({ error: "oauth_code_invalid" }, 400);
+    const hash = await oauthSha256(input.code);
+    const now = new Date().toISOString();
+    const handoff = await env.DB.prepare("SELECT user_id,expires_at FROM gomogie_oauth_handoffs WHERE code_hash=?")
+      .bind(hash).first();
+    await env.DB.prepare("DELETE FROM gomogie_oauth_handoffs WHERE code_hash=?").bind(hash).run();
+    if (!handoff || handoff.expires_at <= now) return json({ error: "oauth_code_expired", message: "Log masuk tamat tempoh. Cuba sekali lagi." }, 401);
+    const user = await env.DB.prepare("SELECT id,email,username,status,session_version FROM users WHERE id=?").bind(handoff.user_id).first();
+    if (!user || user.status !== "active") return json({ error: "account_unavailable" }, 403);
+    return json({ user: { id: user.id, email: user.email, username: user.username },
+      accessToken: await signToken(user, env, 2592000), tokenType: "Bearer", expiresIn: 2592000 });
+  }
+  return null;
+}
+
 async function route(request, env) {
   const url = new URL(request.url);
   const method = request.method;
   const path = url.pathname;
+  const oauthResponse = await handleOAuthRoute(request, env, url, method, path);
+  if (oauthResponse) return oauthResponse;
 
   if (path === "/v1/health" && method === "GET") {
     let database = "unavailable";

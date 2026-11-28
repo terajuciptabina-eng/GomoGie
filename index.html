@@ -1627,7 +1627,30 @@ function newsPreferencesPanel(){
  return '<details class="news-preferences"><summary>Personalise your news</summary><div class="news-preferences-body"><label>Region<select id="newsRegion">'+NEWS_REGIONS.map(([v,l])=>'<option value="'+v+'" '+(newsPreferences.region===v?'selected':'')+'>'+l+'</option>').join("")+'</select></label><div class="news-interest-grid">'+Object.entries(NEWS_CATEGORY_LABELS).map(([v,l])=>'<label><input type="checkbox" data-news-interest value="'+v+'" '+(newsPreferences.interests.includes(v)?'checked':'')+'> '+l+'</label>').join("")+'</div><button type="button" class="primary" id="saveNewsPreferences">Save preferences</button><small id="newsPreferencesStatus" aria-live="polite"></small></div></details>';
 }
 
-function feed(){const visible=feedMode==="following"?followingFeedPosts:posts;const emptyState=feedLoadState==="loading"?'<div class="empty" role="status" aria-live="polite">Loading posts…</div>':feedLoadState==="error"?'<div class="empty" role="alert">Unable to load posts. '+esc(feedLoadError||"Please try again.")+'<div style="margin-top:12px"><button type="button" class="primary" data-feed-retry>Retry loading posts</button></div></div>':'<div class="empty">'+(feedMode==="following"?"No posts from your friends or accounts you follow yet.":"No posts yet. Be the first to share something on GomoGie.")+'</div>';view.innerHTML=stories()+composer()+'<div class="feed-tabs" role="tablist" aria-label="Feed type"><button type="button" data-feed-mode="for-you" class="'+(feedMode==="for-you"?"selected":"")+'" role="tab" aria-selected="'+(feedMode==="for-you"?"true":"false")+'">For You</button><button type="button" data-feed-mode="following" class="'+(feedMode==="following"?"selected":"")+'" role="tab" aria-selected="'+(feedMode==="following"?"true":"false")+'">Following</button></div>'+(visible.length?visible.slice(0,30).map(postCard).join(""):emptyState)}
+function renderFeedPostSafely(post){
+ try{return postCard(post)}
+ catch(error){
+  console.error("GomoGie feed post rendering failed",{postId:post?.id,error});
+  return '<article class="card feed-post-render-error" data-post-render-error="'+esc(post?.id||"unknown")+'"><div class="post-text"><strong>This post could not be displayed.</strong><p>The rest of your feed is still available.</p></div></article>';
+ }
+}
+function showFeedRenderFailure(error){
+ feedLoadState="error";
+ feedLoadError="Home feed could not be displayed. Please retry.";
+ console.error("GomoGie Home feed rendering failed:",error);
+ view.innerHTML='<section class="empty" role="alert"><strong>Unable to display Home feed.</strong><p>'+esc(feedLoadError)+'</p><button type="button" class="primary" data-feed-retry>Retry loading posts</button></section>';
+ const retry=view.querySelector("[data-feed-retry]");
+ if(retry)retry.onclick=()=>{retry.disabled=true;void refreshPublicFeedInBackground()};
+}
+function feed(){
+ const visible=feedMode==="following"?followingFeedPosts:posts;
+ const emptyState=feedLoadState==="loading"?'<div class="empty" role="status" aria-live="polite">Loading posts…</div>':feedLoadState==="error"?'<div class="empty" role="alert">Unable to load posts. '+esc(feedLoadError||"Please try again.")+'<div style="margin-top:12px"><button type="button" class="primary" data-feed-retry>Retry loading posts</button></div></div>':'<div class="empty">'+(feedMode==="following"?"No posts from your friends or accounts you follow yet.":"No posts yet. Be the first to share something on GomoGie.")+'</div>';
+ try{
+  const tabs='<div class="feed-tabs" role="tablist" aria-label="Feed type"><button type="button" data-feed-mode="for-you" class="'+(feedMode==="for-you"?"selected":"")+'" role="tab" aria-selected="'+(feedMode==="for-you"?"true":"false")+'">For You</button><button type="button" data-feed-mode="following" class="'+(feedMode==="following"?"selected":"")+'" role="tab" aria-selected="'+(feedMode==="following"?"true":"false")+'">Following</button></div>';
+  const renderedPosts=visible.length?visible.slice(0,30).map(renderFeedPostSafely).join(""):emptyState;
+  view.innerHTML=stories()+composer()+tabs+renderedPosts;
+ }catch(error){showFeedRenderFailure(error)}
+}
 function discoveryHeader(title,description,tabs,tabsFirst=false){const copy='<div class="discovery-heading-copy"><h1 class="discovery-title">'+esc(title)+'</h1><p class="discovery-description">'+esc(description)+'</p></div>';return '<header class="discovery-header">'+(tabsFirst?tabs+copy:copy+tabs)+'</header>'}
 function pulse(){
  const q=searchQuery.toLowerCase().replace(/^#/,"");
@@ -3642,8 +3665,9 @@ function refreshPublicFeedInBackground(){
   feedLoadState="error";feedLoadError=String(error?.message||"Network or server error");
   console.error("Background live feed refresh failed:",error);
   const handledDeepLink=handleNotificationDeepLink();
-  if(active==="home"){if(!handledDeepLink)render()}
-  else invalidateCachedHomeView();
+  if(active==="home"){
+   if(!handledDeepLink){try{render()}catch(renderError){showFeedRenderFailure(renderError)}}
+  }else invalidateCachedHomeView();
   updateConnectionState();
  }).finally(()=>{liveFeedRefreshPromise=null});
  return liveFeedRefreshPromise;

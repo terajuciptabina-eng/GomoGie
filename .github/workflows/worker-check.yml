@@ -126,5 +126,14 @@ jobs:
           assert 'mp3d.jamendo.com' in worker and 'cdn.freesound.org' in worker, 'Openverse audio host allow-list missing'
           assert 'else if(/^CC BY(?:\\s|$)/.test(rawLicense))' in worker, 'Strict CC BY licence validation missing'
           assert 'CC BY-NC' not in worker, 'Non-commercial licence must not be accepted'
-          print('Verified Worker origin, authenticated Following feed, relationship restoration and open-licence music catalogues.')
+          assert 'path.startsWith("/v1/developer/")' in worker, 'Developer API must require authentication'
+          assert 'if (!admin) return json({ error:"developer_access_required" },403)' in worker, 'Developer API must deny authenticated non-admin accounts'
+          assert 'if (admin.role !== "super_admin") return json({error:"insufficient_permissions"},403)' in worker, 'Administrator management must be Owner-only'
+          assert 'if (!["super_admin","admin","analyst"].includes(admin.role))' in worker, 'Audit logs must enforce role permissions'
+          assert 'currentUser&&developerAccess&&developerAccessUserId===currentUser.id' in frontend, 'Developer navigation must be hidden from non-developer accounts'
+          assert 'developerCapabilities.includes("logs")' in frontend, 'Frontend must respect audit-log role capability'
+          assert 'developer-admin-form' in frontend and 'developer-admin-actions' in frontend, 'Responsive administrator management UI missing'
+          assert 'developerAccessUserId!==currentUser.id' in frontend, 'Developer page must validate the active account identity'
+          print('Verified Worker origin, social permissions, developer API authentication, role permissions and responsive administrator console.')
+
           PY

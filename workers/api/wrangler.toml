@@ -14,7 +14,7 @@ migrations_dir = "sql"
 [vars]
 APP_ENV = "production"
 ALLOWED_ORIGINS = "https://terajuciptabina-eng.github.io"
-ALLOW_REGISTRATION = "true"
+ALLOW_REGISTRATION = "false"
 
 [triggers]
 crons = ["*/15 * * * *"]

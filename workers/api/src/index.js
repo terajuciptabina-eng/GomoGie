@@ -1202,21 +1202,69 @@ async function route(request, env) {
       : await env.DB.prepare(select +
           "WHERE p.status='published' AND p.visibility='public' ORDER BY p.created_at DESC LIMIT ?"
         ).bind(limit).all();
-    const items = await Promise.all((rows.results || []).map(async row => {
-      let poll = null;
-      if (row.poll_id) {
-        const [options,vote] = await Promise.all([
-          env.DB.prepare("SELECT o.id,o.label,o.position,COUNT(v.user_id) AS votes FROM gomogie_poll_options o LEFT JOIN gomogie_poll_votes v ON v.option_id=o.id AND v.poll_id=o.poll_id WHERE o.poll_id=? GROUP BY o.id,o.label,o.position ORDER BY o.position").bind(row.poll_id).all(),
-          auth ? env.DB.prepare("SELECT option_id FROM gomogie_poll_votes WHERE poll_id=? AND user_id=?").bind(row.poll_id,auth.sub).first() : Promise.resolve(null)
-        ]);
-        const total=(options.results||[]).reduce((sum,item)=>sum+Number(item.votes||0),0);
-        poll={id:row.poll_id,closesAt:row.poll_closes_at,closed:!!row.poll_closes_at&&Date.parse(row.poll_closes_at)<=Date.now(),totalVotes:total,selectedOptionId:vote?.option_id||null,options:(options.results||[]).map(item=>({id:item.id,label:item.label,votes:Number(item.votes||0),percentage:total?Math.round(Number(item.votes||0)*100/total):0}))};
-      }
-      const attachments=await env.DB.prepare("SELECT media_type,media_id,video_id,position FROM gomogie_post_attachments WHERE post_id=? ORDER BY position ASC").bind(row.id).all();
-      const musicRow=await env.DB.prepare("SELECT * FROM gomogie_post_music WHERE post_id=?").bind(row.id).first();
-      const mediaItems=(attachments.results||[]).map(item=>({type:item.media_type,id:item.media_type==="image"?item.media_id:item.video_id,url:item.media_type==="image"?mediaUrl(item.media_id):videoUrl(item.video_id),position:item.position}));
-      return { id:row.id,content:row.content,visibility:row.visibility,createdAt:row.created_at,commentsEnabled:Boolean(row.comments_enabled),author:{id:row.user_id,username:row.username,displayName:row.display_name,avatarUrl:row.avatar_url,coverUrl:row.cover_url},mediaType:mediaItems[0]?.type||(poll?"poll":"text"),mediaUrl:mediaItems[0]?.url||"",mediaItems,music:postMusicPayload(musicRow),reactionCount:row.reaction_count,commentCount:row.comment_count,poll };
-    }));
+    const feedRows = rows.results || [];
+    const postIds = feedRows.map(row => row.id);
+    const pollIds = [...new Set(feedRows.map(row => row.poll_id).filter(Boolean))];
+    const placeholders = values => values.map(() => "?").join(",");
+    const [attachmentRows, musicRows, pollOptionRows] = postIds.length
+      ? await Promise.all([
+          env.DB.prepare("SELECT post_id,media_type,media_id,video_id,position FROM gomogie_post_attachments WHERE post_id IN (" + placeholders(postIds) + ") ORDER BY post_id,position ASC").bind(...postIds).all(),
+          env.DB.prepare("SELECT post_id,track_id,title,artist,art_url,stream_url,license,source,source_url FROM gomogie_post_music WHERE post_id IN (" + placeholders(postIds) + ")").bind(...postIds).all(),
+          pollIds.length
+            ? env.DB.prepare("SELECT o.poll_id,o.id,o.label,o.position,COUNT(v.user_id) AS votes,MAX(CASE WHEN v.user_id=? THEN v.option_id END) AS selected_option_id FROM gomogie_poll_options o LEFT JOIN gomogie_poll_votes v ON v.option_id=o.id AND v.poll_id=o.poll_id WHERE o.poll_id IN (" + placeholders(pollIds) + ") GROUP BY o.poll_id,o.id,o.label,o.position ORDER BY o.poll_id,o.position").bind(auth?.sub || "", ...pollIds).all()
+            : Promise.resolve({ results: [] })
+        ])
+      : [{ results: [] }, { results: [] }, { results: [] }];
+    const attachmentsByPost = new Map();
+    for (const item of attachmentRows.results || []) {
+      if (!attachmentsByPost.has(item.post_id)) attachmentsByPost.set(item.post_id, []);
+      attachmentsByPost.get(item.post_id).push(item);
+    }
+    const musicByPost = new Map((musicRows.results || []).map(item => [item.post_id, item]));
+    const pollOptionsById = new Map();
+    for (const item of pollOptionRows.results || []) {
+      if (!pollOptionsById.has(item.poll_id)) pollOptionsById.set(item.poll_id, []);
+      pollOptionsById.get(item.poll_id).push(item);
+    }
+    const items = feedRows.map(row => {
+      const pollOptions = pollOptionsById.get(row.poll_id) || [];
+      const totalVotes = pollOptions.reduce((sum, item) => sum + Number(item.votes || 0), 0);
+      const selectedOptionId = pollOptions.find(item => item.selected_option_id)?.selected_option_id || null;
+      const poll = row.poll_id ? {
+        id: row.poll_id,
+        closesAt: row.poll_closes_at,
+        closed: !!row.poll_closes_at && Date.parse(row.poll_closes_at) <= Date.now(),
+        totalVotes,
+        selectedOptionId,
+        options: pollOptions.map(item => ({
+          id: item.id,
+          label: item.label,
+          votes: Number(item.votes || 0),
+          percentage: totalVotes ? Math.round(Number(item.votes || 0) * 100 / totalVotes) : 0
+        }))
+      } : null;
+      const mediaItems = (attachmentsByPost.get(row.id) || []).map(item => ({
+        type: item.media_type,
+        id: item.media_type === "image" ? item.media_id : item.video_id,
+        url: item.media_type === "image" ? mediaUrl(item.media_id) : videoUrl(item.video_id),
+        position: item.position
+      }));
+      return {
+        id: row.id,
+        content: row.content,
+        visibility: row.visibility,
+        createdAt: row.created_at,
+        commentsEnabled: Boolean(row.comments_enabled),
+        author: { id: row.user_id, username: row.username, displayName: row.display_name, avatarUrl: row.avatar_url, coverUrl: row.cover_url },
+        mediaType: mediaItems[0]?.type || (poll ? "poll" : "text"),
+        mediaUrl: mediaItems[0]?.url || "",
+        mediaItems,
+        music: postMusicPayload(musicByPost.get(row.id) || null),
+        reactionCount: row.reaction_count,
+        commentCount: row.comment_count,
+        poll
+      };
+    });
     return json({ scope:followingFeedRequest?"following":"public",items });
   }
 

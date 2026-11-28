@@ -51,6 +51,21 @@ jobs:
           assert "gomogie_push_subscriptions" in "\n".join(p.read_text() for p in push_migrations)
           print("Validated Worker push sender, VAPID generator, D1 migration and deployment configuration.")
           PY
+      - name: Validate OAuth routes, identity schema and registration guard
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          worker = Path("workers/api/src/index.js").read_text()
+          migration = Path("workers/api/sql/0028_oauth_identity.sql").read_text()
+          frontend = Path("index.html").read_text()
+          for marker in ["verifyGoogleIdToken", "code_challenge_method", "oauth_state_invalid", "gomogie_oauth_identities", "/v1/auth/oauth/exchange", "env.ALLOW_REGISTRATION !== \"true\""]:
+              assert marker in worker, f"OAuth security or route marker missing: {marker}"
+          for table in ["gomogie_oauth_identities", "gomogie_oauth_states", "gomogie_oauth_handoffs"]:
+              assert f"CREATE TABLE IF NOT EXISTS {table}" in migration, f"OAuth migration missing {table}"
+          assert "id=\"googleSignIn\"" in frontend and "id=\"facebookSignIn\"" in frontend
+          assert "handleOAuthReturn().then(()=>loadGomoGieData())" in frontend
+          print("Validated Google/Facebook OAuth routes, state/PKCE, one-time handoff and frontend callback.")
+          PY
       - name: Validate friend and message request implementation
         run: |
           python - <<'PY'
@@ -208,6 +223,12 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: wrangler d1 execute gomogie-db --remote --file=sql/0027_post_music.sql
+      - name: Apply additive OAuth identity and handoff schema
+        working-directory: workers/api
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: wrangler d1 execute gomogie-db --remote --file=sql/0028_oauth_identity.sql
       - name: Deploy Worker before checking existing Push keys
         working-directory: workers/api
         env:

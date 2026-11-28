@@ -141,6 +141,11 @@ jobs:
           assert 'developerCapabilities.includes("logs")' in frontend, 'Frontend must respect audit-log role capability'
           assert 'developer-admin-form' in frontend and 'developer-admin-actions' in frontend, 'Responsive administrator management UI missing'
           assert 'developerAccessUserId!==currentUser.id' in frontend, 'Developer page must validate the active account identity'
+          assert 'developer-qa-panel' in frontend and 'Developer QA Preview' in frontend, 'Owner-only Developer QA Preview UI missing'
+          assert 'renderDeveloperQaPreview' in frontend and 'developerQaRole' in frontend, 'Developer role preview interaction missing'
+          assert 'Preview only: this does not switch your signed-in identity' in frontend, 'QA preview must clearly disclose that it does not impersonate or change permissions'
+          assert 'super_admin:["system","users","content","analytics","settings","admins","logs"]' in frontend, 'QA role preview Super Admin capability model missing'
+          assert 'moderator:["content"]' in frontend and 'support:["users"]' in frontend and 'analyst:["analytics","logs"]' in frontend, 'QA role preview role matrix incomplete'
           print('Verified Worker origin, social permissions, developer API authentication, role permissions and responsive administrator console.')
 
           PY

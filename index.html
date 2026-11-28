@@ -3607,6 +3607,7 @@ function ensureCurrentUserInAccounts(){
 function refreshPublicFeedInBackground(){
  if(liveFeedRefreshPromise)return liveFeedRefreshPromise;
  liveFeedRefreshPromise=(async()=>{
+  feedLoadState="loading";feedLoadError="";
   const liveItems=await fetchPublicApiFeed();
   const liveAccounts=[...new Map(liveItems.map(item=>item.author).filter(author=>author&&author.id).map(author=>[author.id,{
    id:author.id,handle:author.username,displayName:author.displayName||author.username,
@@ -3614,6 +3615,7 @@ function refreshPublicFeedInBackground(){
    joined:"GomoGie",followers:0,following:0,isSynthetic:false
   }])).values()];
   const livePosts=normalizeApiFeedItems(liveItems);
+  feedLoadState="loaded";feedLoadError="";
   const demoAccounts=accounts.filter(account=>account.isSynthetic);
   const demoPosts=posts.filter(post=>post.isSynthetic);
   accounts=[...liveAccounts,...demoAccounts];
@@ -3626,10 +3628,9 @@ function refreshPublicFeedInBackground(){
   if(!handleNotificationDeepLink())render();
   updateConnectionState();
  }).catch(error=>{
-   feedLoadState="error";feedLoadError=String(error?.message||"Network or server error");
-   console.error("Background live feed refresh failed:",error);
-   if(!handleNotificationDeepLink())render();
-   updateConnectionState();
+  feedLoadState="error";feedLoadError=String(error?.message||"Network or server error");
+  console.error("Background live feed refresh failed:",error);
+  if(!handleNotificationDeepLink())render();
   updateConnectionState();
  }).finally(()=>{liveFeedRefreshPromise=null});
  return liveFeedRefreshPromise;

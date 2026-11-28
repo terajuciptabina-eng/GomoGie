@@ -1535,6 +1535,7 @@ async function loadViralNews(){
    viralNewsGlobalItems=Array.isArray(cached.global)?cached.global:[];
    viralNewsArchiveItems=Array.isArray(cached.archive)?cached.archive:[];
    viralVideoItems=Array.isArray(cached.videos)?cached.videos:[];
+   if(active==="pulse")render();
   }
  }catch(error){console.warn("News cache read deferred:",error)}
  void refreshViralNewsInBackground();

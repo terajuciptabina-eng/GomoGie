@@ -1195,16 +1195,12 @@ async function route(request, env) {
     return json({mode,region,interests,refreshed,sourceStatus:{name:source?.name||"BERNAMA",lastCheckedAt:source?.last_checked_at||null,lastError:source?.last_error||null},sourceStatuses:sourceStatuses.results||[],items:(rows.results||[]).map(x=>({...x,title:decodeNewsXml(x.title).replace(/Â/g,""),summary:(x.content_type==="video"||x.content_type==="documentary")?"":decodeNewsXml(x.summary).replace(/Â/g,""),body_text:(x.content_type==="video"||x.content_type==="documentary")?"":decodeNewsXml(x.body_text).replace(/Â/g,""),trendScore:Number(x.trend_score||0)}))});
   }
   if (path === "/v1/feed" && method === "GET") {
-    await ensurePostMusicTable(env);
     const limit = Math.min(30, Math.max(1, Number(url.searchParams.get("limit") || 20)));
     const offset = Math.min(100000, Math.max(0, Number(url.searchParams.get("offset") || 0)));
     const select = "SELECT p.id,p.user_id,p.content,p.visibility,p.created_at,p.comments_enabled,u.username,pr.display_name,pr.avatar_url,pr.cover_url," +
       "(SELECT COUNT(*) FROM reactions r WHERE r.post_id=p.id) AS reaction_count," +
-      "(SELECT COUNT(*) FROM comments c WHERE c.post_id=p.id AND c.status='published') AS comment_count,ma.id AS media_id,va.id AS video_id " +
-      "FROM posts p JOIN users u ON u.id=p.user_id LEFT JOIN profiles pr ON pr.user_id=p.user_id " +
-      "LEFT JOIN gomogie_post_media pm ON pm.post_id=p.id LEFT JOIN gomogie_media_assets ma ON ma.id=pm.media_id AND ma.status='ready' " +
-      "LEFT JOIN gomogie_post_videos pv ON pv.post_id=p.id LEFT JOIN gomogie_video_assets va ON va.id=pv.video_id AND va.status='ready' " +
-      "";
+      "(SELECT COUNT(*) FROM comments c WHERE c.post_id=p.id AND c.status='published') AS comment_count " +
+      "FROM posts p JOIN users u ON u.id=p.user_id LEFT JOIN profiles pr ON pr.user_id=p.user_id ";
     const rows = followingFeedRequest
       ? await env.DB.prepare(select +
           "WHERE p.status='published' AND u.status='active' AND (" +
@@ -1298,7 +1294,6 @@ async function route(request, env) {
   }
 
   if (path === "/v1/posts" && method === "POST") {
-    await ensurePostMusicTable(env);
     const input = await readJson(request);
     const requestedMedia=Array.isArray(input?.mediaItems)?input.mediaItems:(input?.mediaId?[{type:"image",id:input.mediaId}]:input?.videoId?[{type:"video",id:input.videoId}]:[]);
     if (!input || typeof input.content !== "string" || input.content.length > 20000 ||
@@ -1860,9 +1855,6 @@ async function notifyPushDevices(env,userId,notification){
  for(const row of rows.results||[]){try{const result=await sendWebPush(row,{title:copy.title,body:copy.body,url:notification.url||notificationDeepLink(notification),tag:notification.id||"gomogie"},env);if(result==="expired")await env.DB.prepare("DELETE FROM gomogie_push_subscriptions WHERE id=?").bind(row.id).run()}catch(error){console.error("Push delivery failed",row.id,error)}}
 }
 
-async function ensurePostMusicTable(env){
- await env.DB.prepare("CREATE TABLE IF NOT EXISTS gomogie_post_music (post_id TEXT PRIMARY KEY,track_id TEXT NOT NULL,title TEXT NOT NULL,artist TEXT NOT NULL,art_url TEXT NOT NULL,stream_url TEXT NOT NULL,license TEXT NOT NULL,source TEXT NOT NULL,source_url TEXT NOT NULL,created_at TEXT NOT NULL,FOREIGN KEY(post_id) REFERENCES posts(id) ON DELETE CASCADE)").run();
-}
 function validPostMusic(input){
  if(!input||typeof input!=="object")return null;
  const stream=String(input.stream||"");

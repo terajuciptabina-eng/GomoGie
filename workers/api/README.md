@@ -179,7 +179,7 @@ npx wrangler secret put FACEBOOK_APP_SECRET
 
 Register these exact redirect URIs with the providers:
 - Google: `https://gomogie-api.terajuciptabina.workers.dev/v1/auth/oauth/google/callback`
-- Facebook: `https://gomogie-api.terajucipabina.workers.dev/v1/auth/oauth/facebook/callback`
+- Facebook: `https://gomogie-api.terajuciptabina.workers.dev/v1/auth/oauth/facebook/callback`
 
 The provider app must be configured for the appropriate web OAuth product and production/live mode before public use. Google requests only `openid email profile`; Facebook requests only `email,public_profile`. No Gmail, friend-list, photo or posting permissions are requested.
 

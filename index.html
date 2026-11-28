@@ -1247,11 +1247,15 @@ async function saveToken(token){
  if(!persisted){try{sessionStorage.setItem(TOKEN_KEY,token)}catch(error){console.error("All browser token storage methods failed:",error)}}else{try{sessionStorage.removeItem(TOKEN_KEY)}catch{}}
  return persisted;
 }
-async function clearToken(){
+async function clearAccessToken(){
  try{document.cookie=TOKEN_KEY+"=; Max-Age=0; Path=/; SameSite=Lax; Secure"}catch{}
- try{localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(USER_KEY)}catch{}
+ try{localStorage.removeItem(TOKEN_KEY)}catch{}
  try{await localSet(TOKEN_KEY,null)}catch{}
  try{sessionStorage.removeItem(TOKEN_KEY)}catch{}
+}
+async function clearToken(){
+ await clearAccessToken();
+ try{localStorage.removeItem(USER_KEY)}catch{}
 }
 function saveAuthDiagnostic(details){const record={at:new Date().toISOString(),origin:location.origin,path:location.pathname,...details};try{localStorage.setItem("gomogie-auth-diagnostic",JSON.stringify(record))}catch{}if(details.stage==="auth_me_rejected"||details.stage==="network_error"||details.stage==="auth_check_failed")console.warn("GomoGie session diagnostic:",record)}
 async function apiRequest(path,options={}){
@@ -1319,7 +1323,7 @@ function setAuthMode(mode){authMode=mode;const registering=mode==="register";doc
 function openAuth(mode="login"){const layer=document.getElementById("authLayer");if(layer){layer.hidden=false;setAuthMode(mode)}}
 let guestGateActive=false;function closeAuth(){if(guestGateActive&&!currentUser)return;const layer=document.getElementById("authLayer");if(layer)layer.hidden=true;guestGateActive=false;const closeButton=document.getElementById("closeAuth");if(closeButton)closeButton.hidden=false}function startGuestAccessTimer(){if(currentUser)return;setTimeout(()=>{if(currentUser||guestGateActive)return;guestGateActive=true;const closeButton=document.getElementById("closeAuth");if(closeButton)closeButton.hidden=true;openAuth("register");const heading=document.querySelector("#authLayer .auth-dialog h2");if(heading)heading.textContent="Join GomoGie to continue";const description=document.getElementById("authIntro");if(description)description.textContent="You have enjoyed one minute of guest browsing. Sign up or sign in to continue using GomoGie."},60000)}
 function syncAuthButton(){const button=document.getElementById("authButton");if(button)button.textContent=currentUser?"Log out":"Log in"}
-async function signOut(showMessage=true){await clearToken();currentUser=null;selectedProfileId=null;editingProfile=false;profileDraft={};followed.clear();followingFeedPosts=[];feedMode="for-you";active="home";profileTab="posts";notificationUnreadCount=0;closeAccountSettings();closeAuth();syncAuthButton();render();openAuth("login");if(showMessage)alert("You have been logged out. Please log in again to continue.")}
+async function signOut(showMessage=true){await clearAccessToken();currentUser=null;selectedProfileId=null;editingProfile=false;profileDraft={};followed.clear();followingFeedPosts=[];feedMode="for-you";active="home";profileTab="posts";notificationUnreadCount=0;closeAccountSettings();closeAuth();syncAuthButton();render();openAuth("login");if(showMessage)alert("You have been logged out. Please log in again to continue.")}
 async function restoreSession(){
  const token=await getToken(),remembered=readRememberedUser();
  if(!token){saveAuthDiagnostic({stage:"token_missing",cookiePresent:!!readTokenCookie(),localStoragePresent:(()=>{try{return !!localStorage.getItem(TOKEN_KEY)}catch{return false}})(),rememberedUserPresent:!!remembered});currentUser=null;syncAuthButton();return}

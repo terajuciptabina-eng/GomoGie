@@ -148,6 +148,8 @@ jobs:
           assert 'id="developerUsersList"' in frontend and 'id="developerReportsList"' in frontend, 'Developer user and moderation panels missing'
           assert 'id="developerAnalytics"' in frontend and 'id="developerSystemChecks"' in frontend, 'Developer analytics and system panels missing'
           assert 'if (!["super_admin","admin","analyst"].includes(admin.role))' in worker, 'Audit logs must enforce role permissions'
+          assert 'const q=(url.searchParams.get("q")||"").trim().slice(0,100)' in worker and 'const total=await env.DB.prepare("SELECT COUNT(*) AS total FROM developer_audit_logs "' in worker, 'Searchable paginated audit API missing'
+          assert 'id="developerAuditSearch"' in frontend and 'id="developerAuditMore"' in frontend and 'loadDeveloperAudit' in frontend, 'Developer audit search and pagination UI missing'
           assert 'const recentActivity=["super_admin","admin","analyst"].includes(admin.role)' in worker, 'Developer overview must not leak audit activity to restricted roles'
           assert 'currentUser&&developerAccess&&developerAccessUserId===currentUser.id' in frontend, 'Developer navigation must be hidden from non-developer accounts'
           assert 'developerCapabilities.includes("logs")' in frontend, 'Frontend must respect audit-log role capability'

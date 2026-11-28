@@ -22,9 +22,6 @@ This is a domain-level starting point, not a final database schema. Fields, inde
 - reposts: actor_id, post_id, quote_text, created_at
 - hashtags: normalized_tag
 - post_hashtags: post_id, hashtag_id
-- polls: post_id, closes_at
-- poll_options: poll_id, label, position
-- poll_votes: poll_id, option_id, user_id
 
 ## Media and video
 - media_assets: owner_id, storage_key, media_type, processing_status, dimensions, duration, created_at

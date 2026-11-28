@@ -1276,7 +1276,7 @@ async function route(request, env) {
     await ensurePostMusicTable(env);
     const input = await readJson(request);
     const requestedMedia=Array.isArray(input?.mediaItems)?input.mediaItems:(input?.mediaId?[{type:"image",id:input.mediaId}]:input?.videoId?[{type:"video",id:input.videoId}]:[]);
-    if (!input || typeof input.content !== "string" || input.content.length > 5000 ||
+    if (!input || typeof input.content !== "string" || input.content.length > 20000 ||
         (!input.content.trim() && !requestedMedia.length)) return json({error:"validation_error",message:"Tulis kandungan atau lampirkan media."},400);
     if(requestedMedia.length>10||requestedMedia.some(item=>!item||!["image","video"].includes(item.type)||!text(item.id,64))||new Set(requestedMedia.map(item=>item.id)).size!==requestedMedia.length)return json({error:"invalid_post_media",message:"Pilih maksimum 10 media yang sah dan elakkan fail berulang."},400);
     const postMusic=input.music?validPostMusic(input.music):null;
@@ -1344,7 +1344,7 @@ async function route(request, env) {
   const postEditMatch = path.match(/^\/v1\/posts\/([0-9a-f-]+)$/i);
   if (postEditMatch && method === "PATCH") {
     const input = await readJson(request);
-    if (!input || typeof input.content !== "string" || input.content.length > 5000) return json({ error: "validation_error", message: "Kandungan post tidak sah (maksimum 5,000 aksara)." }, 400);
+    if (!input || typeof input.content !== "string" || input.content.length > 20000) return json({ error: "validation_error", message: "Kandungan post tidak sah (maksimum 20,000 aksara)." }, 400);
     const owned = await env.DB.prepare("SELECT id FROM posts WHERE id=? AND user_id=? AND status='published'").bind(postEditMatch[1], auth.sub).first();
     if (!owned) return json({ error: "post_not_found", message: "Post tidak ditemui atau bukan milik akaun anda." }, 404);
     await env.DB.prepare("UPDATE posts SET content=?,updated_at=? WHERE id=? AND user_id=?").bind(input.content.trim(), new Date().toISOString(), postEditMatch[1], auth.sub).run();
@@ -1379,9 +1379,9 @@ async function route(request, env) {
     if (!post || post.status !== "published" || post.visibility !== "public") return json({ error: "post_not_found" }, 404);
     const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit") || 50)));
     const rows = await env.DB.prepare(
-      "SELECT c.id,c.post_id,c.user_id,c.parent_id,c.content,c.created_at,u.username,p.display_name,p.avatar_url FROM comments c JOIN users u ON u.id=c.user_id LEFT JOIN profiles p ON p.user_id=c.user_id WHERE c.post_id=? AND c.status='published' ORDER BY c.created_at ASC LIMIT ?"
+      "SELECT c.id,c.post_id,c.user_id,c.parent_id,CASE WHEN c.status='deleted' THEN '' ELSE c.content END AS content,c.status,c.created_at,u.username,p.display_name,p.avatar_url FROM comments c JOIN users u ON u.id=c.user_id LEFT JOIN profiles p ON p.user_id=c.user_id WHERE c.post_id=? AND c.status IN ('published','deleted') ORDER BY c.created_at ASC LIMIT ?"
     ).bind(commentMatch[1], limit).all();
-    return json({ items: (rows.results || []).map(row => ({ id: row.id, postId: row.post_id, userId: row.user_id, parentId: row.parent_id, content: row.content, createdAt: row.created_at, author: { username: row.username, displayName: row.display_name, avatarUrl: row.avatar_url } })) });
+    return json({ items: (rows.results || []).map(row => ({ id: row.id, postId: row.post_id, userId: row.user_id, parentId: row.parent_id, content: row.content, createdAt: row.created_at, deleted: row.status === "deleted", author: { username: row.username, displayName: row.display_name, avatarUrl: row.avatar_url } })) });
   }
   if (commentMatch && method === "POST") {
     const input = await readJson(request);
@@ -1426,6 +1426,27 @@ async function route(request, env) {
       await notifyPushDevices(env,recipient.id,{id:commentMatch[1],actorId:auth.sub,type:"mention",preview:input.content.trim().slice(0,120)});
     }
     return json({ comment: { id, postId: commentMatch[1], userId: auth.sub, parentId: parent?.id || null, content: input.content.trim(), createdAt: now } }, 201);
+  }
+
+  if (commentMatch && method === "PATCH") {
+    const input = await readJson(request);
+    if (!input || !text(input.content, 2000)) return json({ error: "validation_error", message: "Reply mesti mengandungi teks (maksimum 2,000 aksara)." }, 400);
+    const owned = await env.DB.prepare("SELECT id FROM comments WHERE id=? AND post_id=? AND user_id=? AND status='published'").bind(input.commentId || "", commentMatch[1], auth.sub).first();
+    const commentId = typeof input.commentId === "string" ? input.commentId : "";
+    if (!commentId) return json({ error: "validation_error", message: "Reply ID diperlukan." }, 400);
+    const comment = await env.DB.prepare("SELECT id FROM comments WHERE id=? AND post_id=? AND user_id=? AND status='published'").bind(commentId, commentMatch[1], auth.sub).first();
+    if (!comment) return json({ error: "comment_not_found", message: "Reply tidak ditemui atau bukan milik akaun anda." }, 404);
+    const content = input.content.trim(), now = new Date().toISOString();
+    await env.DB.prepare("UPDATE comments SET content=?,updated_at=? WHERE id=? AND post_id=? AND user_id=? AND status='published'").bind(content, now, commentId, commentMatch[1], auth.sub).run();
+    return json({ updated: true, comment: { id: commentId, postId: commentMatch[1], userId: auth.sub, content, updatedAt: now } });
+  }
+  if (commentMatch && method === "DELETE") {
+    const input = await readJson(request);
+    const commentId = typeof input?.commentId === "string" ? input.commentId : "";
+    if (!commentId) return json({ error: "validation_error", message: "Reply ID diperlukan." }, 400);
+    const result = await env.DB.prepare("UPDATE comments SET status='deleted',content='',updated_at=? WHERE id=? AND post_id=? AND user_id=? AND status='published'").bind(new Date().toISOString(), commentId, commentMatch[1], auth.sub).run();
+    if (!Number(result?.meta?.changes || 0)) return json({ error: "comment_not_found", message: "Reply tidak ditemui atau bukan milik akaun anda." }, 404);
+    return json({ deleted: true, commentId });
   }
 
   // Discover active members without exposing private account fields. Existing follows,

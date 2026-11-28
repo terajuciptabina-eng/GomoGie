@@ -3633,14 +3633,6 @@ function refreshPublicFeedInBackground(){
 }
 async function loadGomoGieData(){
  accounts=[];posts=[];localPendingPosts=[];
- let cachedFeed=null;
- try{cachedFeed=await localGet("last-live-feed")}catch(error){console.warn("Live feed cache read deferred:",error)}
- if(cachedFeed&&Array.isArray(cachedFeed.accounts)&&Array.isArray(cachedFeed.posts)){
-  accounts=cachedFeed.accounts.filter(account=>!account?.isSynthetic);
-  posts=cachedFeed.posts.filter(post=>!post?.isSynthetic);
-  extras();render();
-  if(accounts.length!==cachedFeed.accounts.length||posts.length!==cachedFeed.posts.length)void localSet("last-live-feed",{...cachedFeed,accounts,posts,savedAt:Date.now()}).catch(()=>{});
- }
  const sessionTask=restoreSession().catch(error=>console.warn("Session restore deferred:",error));
  ensureCurrentUserInAccounts();
  const sharedProfile=decodeURIComponent(location.hash.replace(/^#profile-/,"")).trim().toLowerCase();

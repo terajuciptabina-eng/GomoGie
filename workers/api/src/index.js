@@ -557,6 +557,23 @@ async function route(request, env) {
       ).bind(q,q,q,status,status).first();
       return json({items:(rows.results||[]).map(u=>({...u,is_developer:Boolean(u.is_developer),post_count:Number(u.post_count||0)})),total:Number(total?.total||0),limit,offset});
     }
+    const userStatusMatch=path.match(/^\\/v1\\/developer\\/users\\/([0-9a-f-]+)\\/status$/i);
+    if(userStatusMatch&&method==="PATCH"){
+      if(!["super_admin","admin"].includes(admin.role))return json({error:"insufficient_permissions"},403);
+      let targetId;try{targetId=decodeURIComponent(userStatusMatch[1])}catch{return json({error:"validation_error"},400)}
+      if(targetId===auth.sub)return json({error:"self_status_change_blocked",message:"Anda tidak boleh mengubah status akaun sendiri melalui Developer Console."},409);
+      const input=await readJson(request,4096),status=input?.status;
+      if(!["active","deactivated"].includes(status))return json({error:"validation_error",message:"Status akaun hanya boleh Active atau Deactivated."},400);
+      const target=await env.DB.prepare("SELECT u.id,u.status,da.role developer_role FROM users u LEFT JOIN developer_admins da ON da.user_id=u.id WHERE u.id=?").bind(targetId).first();
+      if(!target)return json({error:"user_not_found"},404);
+      if(target.status==="pending_deletion")return json({error:"deletion_in_progress",message:"Akaun dalam tempoh pemadaman 30 hari tidak boleh diubah melalui tindakan ini."},409);
+      if(target.developer_role&&admin.role!=="super_admin")return json({error:"owner_required",message:"Hanya Owner boleh mengubah status akaun Developer."},403);
+      const now=new Date().toISOString();
+      const result=await env.DB.prepare("UPDATE users SET status=?,session_version=session_version+1,updated_at=? WHERE id=? AND status IN ('active','deactivated')").bind(status,now,targetId).run();
+      if(!Number(result?.meta?.changes||0))return json({error:"status_update_not_applied"},409);
+      await env.DB.prepare("INSERT INTO developer_audit_logs(id,actor_user_id,action,target_type,target_id,details_json,created_at) VALUES(?,?,?,?,?,?,?)").bind(crypto.randomUUID(),auth.sub,"developer.user.status_changed","account",targetId,JSON.stringify({from:target.status,to:status}),now).run();
+      return json({ok:true,userId:targetId,status});
+    }
     if (path === "/v1/developer/reports" && method === "GET") {
       if (!["super_admin","admin","moderator"].includes(admin.role)) return json({error:"insufficient_permissions"},403);
       const status=(url.searchParams.get("status")||"open").trim();

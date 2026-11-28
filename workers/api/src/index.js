@@ -1207,12 +1207,12 @@ async function route(request, env) {
       "";
     const rows = followingFeedRequest
       ? await env.DB.prepare(select +
-          "WHERE p.status='published' AND (p.user_id=? OR EXISTS (" +
+          "WHERE p.status='published' AND u.status='active' AND (p.user_id=? OR EXISTS (" +
           "SELECT 1 FROM follows f WHERE f.follower_id=? AND f.following_id=p.user_id AND f.status='accepted' " +
           "AND p.visibility IN ('public','followers'))) ORDER BY p.created_at DESC LIMIT ?"
         ).bind(auth.sub, auth.sub, limit).all()
       : await env.DB.prepare(select +
-          "WHERE p.status='published' AND p.visibility='public' ORDER BY p.created_at DESC LIMIT ?"
+          "WHERE p.status='published' AND p.visibility='public' AND u.status='active' ORDER BY p.created_at DESC LIMIT ?"
         ).bind(limit).all();
     const feedRows = rows.results || [];
     const postIds = feedRows.map(row => row.id);
@@ -1263,7 +1263,7 @@ async function route(request, env) {
       "FROM gomogie_saved_posts sp JOIN posts p ON p.id=sp.post_id JOIN users u ON u.id=p.user_id LEFT JOIN profiles pr ON pr.user_id=p.user_id "+
       "LEFT JOIN gomogie_post_media pm ON pm.post_id=p.id LEFT JOIN gomogie_media_assets ma ON ma.id=pm.media_id AND ma.status='ready' "+
       "LEFT JOIN gomogie_post_videos pv ON pv.post_id=p.id LEFT JOIN gomogie_video_assets va ON va.id=pv.video_id AND va.status='ready' "+
-      "WHERE sp.user_id=? AND p.status='published' ORDER BY sp.saved_at DESC LIMIT 200"
+      "WHERE sp.user_id=? AND p.status='published' AND u.status='active' ORDER BY sp.saved_at DESC LIMIT 200"
     ).bind(auth.sub).all();
     const items=await Promise.all((rows.results||[]).map(async row=>{
       const attachments=await env.DB.prepare("SELECT media_type,media_id,video_id,position FROM gomogie_post_attachments WHERE post_id=? ORDER BY position ASC").bind(row.id).all();
@@ -1876,8 +1876,7 @@ export default {
     }
     try {
       const requestUrl = new URL(request.url);
-      const isPublicFeed = request.method === "GET" && requestUrl.pathname === "/v1/feed" &&
-        requestUrl.searchParams.get("scope") !== "following" && !request.headers.get("Authorization");
+      const isPublicFeed = false; // Always read feed from D1 so account status changes take effect immediately.
       const isPublicNews = request.method === "GET" && requestUrl.pathname === "/v1/news" &&
         requestUrl.searchParams.get("mode") !== "videos" && !request.headers.get("Authorization");
       const cacheable = isPublicFeed || isPublicNews;

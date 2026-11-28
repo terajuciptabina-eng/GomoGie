@@ -55,7 +55,7 @@ async function signToken(user, env, lifetimeSeconds = 2592000) {
   const now = Math.floor(Date.now() / 1000);
   const subject = typeof user?.id === "string" ? user.id : user?.sub;
   if (typeof subject !== "string" || !subject) throw new Error("JWT subject is required");
-  const payload = b64url(encoder.encode(JSON.stringify({ sub: subject, username: user.username || "", ver: Number(user.session_version || 0), iat: now, exp: now + lifetimeSeconds })));
+  const payload = b64url(encoder.encode(JSON.stringify({ sub: subject, username: user.username || "", ver: Number(user.session_version ?? user.ver ?? 0), iat: now, exp: now + lifetimeSeconds })));
   const input = header + "." + payload;
   const key = await crypto.subtle.importKey("raw", encoder.encode(env.JWT_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(input));

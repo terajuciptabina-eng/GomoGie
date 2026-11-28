@@ -130,6 +130,7 @@ jobs:
           assert 'if (!admin) return json({ error:"developer_access_required" },403)' in worker, 'Developer API must deny authenticated non-admin accounts'
           assert 'if (admin.role !== "super_admin") return json({error:"insufficient_permissions"},403)' in worker, 'Administrator management must be Owner-only'
           assert 'if (!["super_admin","admin","analyst"].includes(admin.role))' in worker, 'Audit logs must enforce role permissions'
+          assert 'const recentActivity=["super_admin","admin","analyst"].includes(admin.role)' in worker, 'Developer overview must not leak audit activity to restricted roles'
           assert 'currentUser&&developerAccess&&developerAccessUserId===currentUser.id' in frontend, 'Developer navigation must be hidden from non-developer accounts'
           assert 'developerCapabilities.includes("logs")' in frontend, 'Frontend must respect audit-log role capability'
           assert 'developer-admin-form' in frontend and 'developer-admin-actions' in frontend, 'Responsive administrator management UI missing'
